@@ -36,6 +36,8 @@ def getargs():
         help="Maximum number of countries per pattern")
     paa("--stripdashcols",action="store_true",
         help="Strip dash columns")
+    paa("--output","-o",
+        help="Write ouptut to fasta file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -130,13 +132,9 @@ def main(args):
             s.seq = "".join(slist)
 
     counts = Counter([s.seq for s in seqlist[1:]])
-
     commonseqs = sorted(counts, key=counts.get, reverse=True)
 
-    if args.N:
-        commonseqs = commonseqs[:args.N]
-
-    for seq in commonseqs:
+    for seq in commonseqs[:args.N]:
         mutlist=[]
         for n,(refchar,mutchar) in enumerate(zip(firstseq,seq)):
             if refchar != mutchar:
@@ -149,6 +147,19 @@ def main(args):
         topcountries = sorted(countries,key=countries.get,reverse=True)
         for t in topcountries[:3]:
             print(f"       {countries[t]:6d} {t}")
+
+    if args.output:
+        seqs = []
+        seqs.append(seqlist[0])
+        for s in seqlist:
+            if args.N>0 and s.seq not in commonseqs:
+                continue
+            if args.sites:
+                s.seq = s.fullseq
+            seqs.append(s)
+        vprint(len(seqs),"sequences written to output file:",args.output)
+        readseq.write_seqfile(args.output,seqs)
+        
         
 
 
