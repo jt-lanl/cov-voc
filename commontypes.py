@@ -34,6 +34,8 @@ def getargs():
         help="Maximum number of sequence patterns")
     paa("-C",type=int,default=3,
         help="Maximum number of countries per pattern")
+    paa("--level","-l",type=int,default=2,
+        help="Region Level: 1=Continent, 2=Country, 3=State, 4=City")
     paa("--stripdashcols",action="store_true",
         help="Strip dash columns")
     paa("--output","-o",
@@ -49,6 +51,14 @@ def get_country(fullname):
         return m[2]
     else:
         return None
+
+def get_region(level,fullname):
+    m = fullname.split(".")
+    if m:
+        return m[level]
+    else:
+        return None
+    
 
 
 def filterseqs(args,seqlist):
@@ -142,11 +152,11 @@ def main(args):
         mutstr = "[" + ",".join(mutlist) + "]"
         print(f"{counts[seq]:6d} {mutstr}")
 
-        countries = Counter(get_country(s.name) for s in seqlist[1:]
-                            if s.seq == seq)
-        topcountries = sorted(countries,key=countries.get,reverse=True)
-        for t in topcountries[:3]:
-            print(f"       {countries[t]:6d} {t}")
+        regions = Counter(get_region(args.level,s.name)
+                            for s in seqlist[1:] if s.seq == seq)
+        topregions = sorted(regions,key=regions.get,reverse=True)
+        for t in topregions[:3]:
+            print(f"       {regions[t]:6d} {t}")
 
     if args.output:
         seqs = []
