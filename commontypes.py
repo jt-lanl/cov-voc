@@ -155,7 +155,7 @@ def main(args):
         regions = Counter(get_region(args.level,s.name)
                             for s in seqlist[1:] if s.seq == seq)
         topregions = sorted(regions,key=regions.get,reverse=True)
-        for t in topregions[:3]:
+        for t in topregions[:args.C]:
             print(f"       {regions[t]:6d} {t}")
 
     if args.output:
