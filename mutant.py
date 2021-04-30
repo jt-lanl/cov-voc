@@ -37,3 +37,11 @@ def rd_mutfile(filename):
 def name_from_ssms(ssms):
     return "[" + ",".join(str(ssm) for ssm in ssms) + "]"
 
+def mkmutname(refseq,seq):
+    ssmlist = []
+    for n,(r,c) in enumerate(zip(refseq,seq)):
+        if c != r:
+            ssmlist.append( f"{r}{n+1}{c}" )
+    return "[" + ",".join(ssmlist) + "]"
+        
+
