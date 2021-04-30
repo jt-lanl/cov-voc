@@ -34,12 +34,25 @@ def getargs():
         help="Do not strip final stop codon from end of sequences")
     paa("--fixsiteseventy",action="store_true",
         help="Replace --I and -I- with I-- at sites 68,69,70")
+    paa("--badisls",
+        help="File with list of EPI_ISL numbers to exclude")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     return args
+
+
+def getisls(file):
+    '''read list of ISL numbers from text file'''
+    isls=[]
+    with open(file,"r") as f:
+        for line in f:
+            m = re.match(r".*(EPI_ISL_\d+).*",line.strip())
+            if m:
+                isls.append(m[1])
+    return isls
 
 def fixsiteseventy(seqs):
     count=0
@@ -61,6 +74,12 @@ def filterseqs(args,seqlist):
                                          args.dates[0],args.dates[1],
                                          keepfirst=True)
         vprint(len(seqlist),"sequences in date range:",args.dates)
+
+    if args.badisls:
+        bads = getisls(args.badisls)
+        seqlist = [s for s in seqlist
+                   if not any( b in s.name for b in bads )]
+        vprint(len(seqlist),"sequences after removing bad ISLs")
 
     if "-" in firstseq and not args.keepdashcols:
         vprint("Stripping sites with dashes in first sequence...",end="")
