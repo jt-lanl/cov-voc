@@ -10,15 +10,11 @@ import argparse
 import readseq
 import sequtil
 import intlist
-#from spikevariantsxtra import get_sites,get_master,get_mutants,get_colors
 import spikevariants
-import rd_colormut
 import covid
 
 DESCRIPTION='''
-Blue-wave plots for 'embers' mutations
-
-Note: site numbers, patterns, colors all hardcoded
+Stacked barplots of variant counts over time
 '''
 
 def getargs():
@@ -26,8 +22,6 @@ def getargs():
                                  conflict_handler='resolve')
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--keepminks",action="store_true",
-        help="Keep the mink sequences")
     paa("--keepx",action="store_true",
         help="Keep sequences with X in the pattern")
     paa("--fraction",action="store_true",
@@ -39,8 +33,6 @@ def getargs():
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
     paa("--nolegend",action="store_true",help="avoid putting legend on plot")
-    paa("--spikevariants","--sv",
-        help="read SpikeVariants structure from pkl file")
     paa("--colormut",
         help="read SpikeVariants structure from color-mut file")
     paa("--output","-o",help="write plot to file")
@@ -60,13 +52,6 @@ def half_labels(labels,n=2):
         hlabels.append( label if i%n==0 else "" )
     return hlabels
 
-def getminks(file="Data/mink-sequences.txt"):
-    minks=[]
-    with open(file,"r") as f:
-        for line in f:
-            tokens = line.strip().split()
-            minks.append(tokens[2])
-    return minks
 
 def date_fromiso(s):
     if isinstance(s,datetime.date):
@@ -99,32 +84,21 @@ def reltoabsname(master,mutant,dittochar='_'):
 
 def main(args):
 
-    
-    if args.spikevariants:
-        with open(args.spikevariants,"rb") as pkl:
-            svar = pickle.load(pkl)
-        mutants = svar.mutants
-        master = svar.master
-        colors = svar.colors
-        sitelist = svar.sites
-        namelist = svar.names
-        colors[0]  = '#eeeeee' ## very-light gray
-        #colors[-1] = '#dddddd' ## light gray
-    elif args.colormut:
-        svar = rd_colormut.sv_fromfile(args.colormut,args.input)
-        mutants = svar.mutants
-        master = svar.master
-        colors = svar.colors
-        sitelist = svar.sites
-        namelist = svar.names
-        colors[0]  = '#eeeeee' ## very-light gray
-        colors[-1] = '#dddddd' ## light gray
+    seqlist = covid.read_seqfile(args)
+    seqlist = covid.filter_seqs(seqlist,args)
+
+    if args.colormut:
+        svar = spikevariants.sv_fromfile(args.colormut,seqlist[0].seq)
     else:
-        raise RuntimeError("Deprecated")
-        mutants = get_mutants()
-        master = get_master()
-        colors = get_colors()
-        sitelist = get_sites()
+        warnings.warn("Default color-mutation list is probably out of date")
+        svar = spikevariants.SpikeVariants().init_from_defaults()
+    mutants = svar.mutants
+    master = svar.master
+    colors = svar.colors
+    sitelist = svar.sites
+    namelist = svar.names
+    colors[0]  = '#eeeeee' ## very-light gray
+    colors[-1] = '#dddddd' ## light gray
 
     if len(mutants) != len(colors):
         print(len(mutants),"mutants")
@@ -145,15 +119,6 @@ def main(args):
     if args.verbose:
         for m in rmutants:
             vprint(m,rmutants[m])
-
-    seqlist = covid.read_seqfile(args)
-    seqlist = covid.filter_seqs(seqlist,args)
-
-    if not args.keepminks:
-        minks = getminks()
-        seqlist = [s for s in seqlist
-                   if not any( m in s.name for m in minks ) ]
-        vprint(" demink sequences:",len(seqlist))
 
     for s in seqlist:
         s.seq = "".join(s.seq[n-1] for n in sitelist)

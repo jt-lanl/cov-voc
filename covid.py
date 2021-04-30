@@ -17,7 +17,7 @@ from hamming import hamming
 #DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20201201-20210302.fasta.gz"
 #DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.20201001.20210309.Human.fasta"
 #DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210403.fasta.gz"
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210101-20210417.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210101-20210426.fasta.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -29,6 +29,7 @@ def corona_args(ap):
         help="If specified requires sequence name to match pattern")
     paa("--xp",
         help="If specified, excludes sequence if name matches this pattern")
+
     #paa("--xvariant",
     #    help="Remove sequences that exhibit specified variant")
     #paa("--variant",
@@ -180,8 +181,6 @@ def parse_continents(withglobal=False):
         ConExclude.append((cx,c,x))
     return ConExclude
 
-
-
 def get_title(args):
     ## Get title for plots and tables
     title = args.pattern or "Global"
@@ -205,6 +204,8 @@ def read_seqfile(args,**kwargs):
     clen = Counter([len(s.seq) for s in seqs])
     for l in clen:
         vprint(clen[l],"sequences of length",l)
+    if len(clen)>1:
+        warnings.warn("Not all sequences are the same length")
 
     return seqs
 
