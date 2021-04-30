@@ -1,0 +1,107 @@
+DESCRIPTION='''
+"fix" input fasta (or tbl) sequence file by 
+1/ removing columns with dashes in reference sequence,
+2/ stripping final stop codons from each sequence,
+3/ applying a date filter
+'''
+import sys
+import re
+from pathlib import Path
+import random
+import argparse
+
+import warnings
+
+import readseq
+import sequtil
+import intlist
+import mutant
+
+def getargs():
+    ap = argparse.ArgumentParser(description=DESCRIPTION)
+    paa = ap.add_argument
+    paa("--input","-i",type=Path,
+        help="input fasta file with all spike sequences")
+    paa("--random",action="store_true",
+        help="randomize input data order")
+    paa("-N",type=int,default=0,
+        help="keep at most this many sequences")
+    paa("--dates",nargs=2,
+        help="range of dates (two dates, yyyy-mm-dd format)")
+    paa("--keepdashcols",action="store_true",
+        help="Do not strip columns with dash in reference sequence")
+    paa("--keeplastchar",action="store_true",
+        help="Do not strip final stop codon from end of sequences")
+    paa("--output","-o",type=Path,
+        help="output fasta file")
+    paa("--verbose","-v",action="count",default=0,
+        help="verbose")
+    args = ap.parse_args()
+    return args
+
+
+def filterseqs(args,seqlist):
+    ''' pull out a sublist of the sequence list, based on 
+    various options in the args structure '''
+
+    firstseq = seqlist[0].seq
+
+    if args.dates:
+        seqlist = sequtil.filter_by_date(seqlist,
+                                         args.dates[0],args.dates[1],
+                                         keepfirst=True)
+        vprint(len(seqlist),"sequences in date range:",args.dates)
+
+    if "-" in firstseq and not args.keepdashcols:
+        vprint("Stripping sites with dashes in first sequence...",end="")
+        sequtil.stripdashcols(firstseq,seqlist)
+        vprint("ok")
+        if "-" in seqlist[0].seq:
+            raise RuntimeError("strip dash failed!")
+
+    firstseq = seqlist[0].seq
+    
+    if "-" in firstseq:
+        warnings.warn("dashes in reference sequence")
+
+    return seqlist
+
+def main(args):
+
+    seqlist = readseq.read_seqfile(args.input)
+    vprint(len(seqlist),"sequences read")
+
+    seqlist = filterseqs(args,seqlist)
+    vprint(len(seqlist),"sequences after filtering")
+
+    if args.random:
+        seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
+
+    firstseq = seqlist[0].seq
+    
+    if args.N:
+        seqlist = seqlist[:args.N]
+        vprint(len(seqlist),"sequences after truncation")
+
+    if not args.keeplastchar and firstseq[-1]=="$":
+        for s in seqlist:
+            s.seq = s.seq[:-1]
+
+    if args.output:
+        readseq.write_seqfile(args.output,seqlist)
+    
+
+
+if __name__ == "__main__":
+
+    args = getargs()
+    def vprint(*p,**kw):
+        if args.verbose:
+            print(*p,file=sys.stderr,flush=True,**kw)
+    def vvprint(*p,**kw):
+        if args.verbose>1:
+            print(*p,file=sys.stderr,flush=True,**kw)
+
+    main(args)
+    
+
