@@ -32,6 +32,8 @@ def getargs():
         help="Do not strip columns with dash in reference sequence")
     paa("--keeplastchar",action="store_true",
         help="Do not strip final stop codon from end of sequences")
+    paa("--fixsiteseventy",action="store_true",
+        help="Replace --I and -I- with I-- at sites 68,69,70")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -39,6 +41,14 @@ def getargs():
     args = ap.parse_args()
     return args
 
+def fixsiteseventy(seqs):
+    count=0
+    for s in seqs:
+        if s.seq[67:70] == "--I" or s.seq[67:70] == "-I-":
+            count += 1
+            s.seq = s.seq[:67] + "I--" + s.seq[70:]
+            #print("fix70: ",s.name,file=sys.stderr)
+    return count
 
 def filterseqs(args,seqlist):
     ''' pull out a sublist of the sequence list, based on 
@@ -82,6 +92,11 @@ def main(args):
     if args.N:
         seqlist = seqlist[:args.N]
         vprint(len(seqlist),"sequences after truncation")
+
+    if args.fixsiteseventy:
+        count = fixsiteseventy(seqlist)
+        if count:
+            vprint(count,"sequences fixed at site 70")
 
     if not args.keeplastchar and firstseq[-1]=="$":
         for s in seqlist:
