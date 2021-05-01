@@ -7,82 +7,80 @@ import colornames
 ## Defaults:
 
 def get_sites():
-    return [13,20,26,52,67,69,70,80,95,138,144,152,153,157,215,222,242,
-            243,244,253,367,417,439,452,453,477,478,484,501,570,613,614,
-            655,675,677,681,701,716,732,888,982,1118,1176]
+    sites = [
+           5,   13,   18,   20,   26,   52,   67,   69,   70,   75,   76,   80,   95,
+          98,  138,  141,  142,  143,  144,  152,  153,  154,  157,  180,  184,  189,
+         190,  215,  222,  242,  243,  244,  246,  247,  248,  249,  250,  251,  252,
+         253,  262,  272,  367,  417,  439,  452,  477,  478,  484,  490,  494,  501,
+         570,  613,  614,  653,  655,  675,  677,  681,  701,  716,  732,  769,  772,
+         796,  859,  888,  950,  982, 1027, 1071, 1118, 1176, 1219,
+    ]
+    return sites
 
 def get_master():
     master = \
-        'STPQAHVDTDYWMFDALALDVKNLYSTENAQDHQQPATTFSDV'
+        'LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQDAHQQPATTGVDTFDSTQDVG'
     return master
 
+def get_mutants_colors_names():
+    mcnlist = [
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQDAHQQPATTGVDTFDSTQDVG', '#eeeeee', 'Ancestral'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#DCDCDC', 'G=D614G'),
+        ('FSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#DCDCDC', 'L5F_G'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#D3D3D3', 'GV=A222V'),
+        ('LSFTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#D3D3D3', 'L18F_GV'),
+        ('FSFTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#D3D3D3', 'L5F_GV'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLNTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#B0C4DE', 'S477N'),
+        ('LSLTPQAHVGTDTFDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#E6E6FA', 'S98F'),
+        ('LSLTPQAHVGTDTSDLGVYWTEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#E0FFFF', 'M153T'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFPNAQGAHQQPATTGVDTFDSTQDVG', '#CD5C5C', 'S494P'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTKFSNAQGAHQQPATTGVDTFDSTQDVG', '#FF7F50', 'E484K'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNRSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#F08080', 'L452R'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQHATTGVDTFDSTQDVG', '#FF00FF', 'P681H'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQHPATTGVDTFDSTQDVG', '#FF00FF', 'Q677H'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHHQPATTGVDTFDSTQDVG', '#FF00FF', 'Q675H'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQRATTGVDTFDSTQDVG', '#FF00FF', 'P681R'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQRPATTGVDTFDSTQDVG', '#FF00FF', 'Q677R'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHRQPATTGVDTFDSTQDVG', '#FF00FF', 'Q675R'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHHQPATTGVDTFDSTQDVG', '#FF00FF', 'Q675H_GV'),
+        ('FSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQHPATTGVDTFDSTQDVG', '#FF00FF', 'Q677H'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQPPATTGVDTFDSTQDVG', '#9400D3', 'Q677P'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSTAQGAHQQPATTGVDTFDSTQDVG', '#228B22', 'N501T'),
+        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSYAQGAHQQPATTGVDTFDSTQDVG', '#006400', 'N501Y'),
+        ('.......--.........-................................YD.G....H.I.......A..H..', '#FFA500', 'B.1.1.7'),
+        ('.I.................C.........................R........G....................', '#00008B', 'B.1.429/7'),
+        ('...........A...............G.---...........N....K..Y..G.....V..............', '#DDA0DD', 'B.1.351'),
+        ('..FNS.........Y...........S................T....K..Y..G.Y.............I..F.', '#B22222', 'P.1'),
+        ('...........................................K....K..N..G..................F.', '#FF0000', 'P.2'),
+        ('F...........I..........................G........K.....G.....V..............', '#800080', 'B.1.526'),
+        ('......................L...................F..........HD....R...............', '#D2691E', 'A23.1'),
+        ('.....RV--.........-.............................K.....G...H........L.......', '#8FBC8F', 'B.1.525'),
+        ('...............................................K......G....H..A............', '#4169E1', 'B.1.1.519'),
+        ('................S......V..............................G...H................', '#5F9EA0', 'B.1.234'),
+        ('...........G......-...S......................R........G...........N.H......', '#7CFC00', 'B.1.526.1'),
+        ('..F..........................................R.....Y..DVY........Y........V', '#7FFFD4', 'A.27'),
+        ('....................T...S.............................G...H................', '#00FFFF', 'B.1.1.284'),
+        ('...................L............................K.....G........V...........', '#8A2BE2', 'R.1'),
+        ('.........VI.....................-------N.....Q...S....G...........N........', '#008000', 'B.1.1.1'),
+        ('............I...D....K.......................R..Q.....G....R...........H...', '#8B008B', 'B.1.617.1'),
+        ('..................................................PY..G....H.I.......S..D..', '#556B2F', 'B.1.575'),
+        ('.......--................F..................K.........G.........I..........', '#FFD700', 'B.1.258.17'),
+        ('............................V...........SL............G....................', '#4B0082', 'B.1.177'),
+        ('...................R........................K.........G....R...............', '#FF69B4', 'B.1.466.2'),
+        ('.S.............---...........................R........G...........N.D......', '#FFC0CB', 'A.2.5.2'),
+        ('other', '#000000', 'other'),
+    ]
+    return mcnlist
+
 def get_mutants():
-    mutants = [
-        'S.PQA.....YWMF.ALALDVKNLYSTENAQGH.QPAT.FSD.', ##  G clade, 
-        'STPQA...TDYWMF.VLALDVKNLYSTENAQGH...ATTFSDV', ##  GV clade, 
-        'STPQAHVDTDYWMFDALALDVKNLYNTENAQGHQQPATTFSDV', ##  S477N, 
-        'STPQA..DTDYWMFDALALDVKNLFSTENAQGHQQPATTFSDV', ##  Y453F , Denmark
-        'STPQA..DTDYWMFDALALDVKKLYSTENAQGHQQPATTFSDV', ##  N439K, 
-        'STPQAHVDTDYWTFDALALDVKNLYSTENAQGH...ATTFSD.', ##  M153T, Japan
-        'STPQAHVDTDYWMFDALALDVKNLY.TENAQGHQHPATTFSDV', ##  Q677H, 
-        'STPQAHVDTDYWMFDALALDVKNLYSTENAQGHQQHA.TFSDV', ##  P681HR+716-any(I), 
-        'STPQAHVDTDYWMFDALALDVKNLYSTENAQGHQQRA.TFSDV', ##  P681HR, 
-        'STPQAHVDTDYWMFDALALDVKNLYSTENAQGHQPPATTFSDV', ##  Q677P, 
-        'STPQA..DTDY.MFDALALDVKNLYSTKNAQGH...ATTFSD.', ##  E484K, 
-        'STPQA..DTDYWMFDALALDVKNLYSTETAQGH...ATTFSDV', ##  N501T, 
-        'STPQA..DTDYWMFDALALDVKNLYSTEYAQGH...ATTFSDV', ##  N501Y, 
-        'STPQA..DTD.WMFDALALDVKNRYSTENAQGH...ATTFSDV', ##  L452R, 
-        'STPQA--.T.-WMFDALALDVKNLYSTEYDQGHQ.HAITFAHV', ##  B.1.1.7 UK, England
-        'STPQAHVATDYWMFGA---DVNNLYSTKYAQGHQQPVTTFSDV', ##  B.1.352 ZA, South Africa
-        'IT.QAHVDTDYCMFDALALDVKNRYSTENAQGHQQPATTFSDV', ##  B.1.429 US CA, California
-        'SNSQAHVDTYYWMFDALALDVTNLYSTKYAQGYQQPATTFSDF', ##  B.1.1.248 BR, Brazil
-        'ST.QAHVDTDYWMLDALALDFKNLYSTENAHDHQQRATTFSDV', ##  A.23.1 UG, Uganda
-        'STPQAHVDIDYWMFDALALGVKNLY.T.NAQGHQQP.TTFSDV', ##  B.1.526 US NY, New York
-        #   * was R below where that asterisk is
-        'STP.V--DTD-WMFDALALDVKNLYSTKNAQGHQHPATTLSDV', ##  A67V, Nigeria
-        'STPQAHVDTDYWMFDALALDVKNLYSKENAQGHQQHATAFSDV', ##  T478K, Mexico
-        'STPQAHVGTD-WMSDALALDVKNRYSTENAQGHQQPATTFSDV', ##  Alt-NY, Alt-L452R
-        'other',
-        ]
-    return mutants
+    return [mcn[0] for mcn in get_mutants_colors_names()]
 
 def get_colors():
-    colors = [
-        '#e2e2e2', #lighter gray
-        '#cccccc', #light gray
-        '#07a0b0', ## darker cyan?
-        '#ffcc00', #'gold',
-        '#f3e600', #lightercream',
-        '#70ff30', #lightgreen',
-        '#9900ff', #purple',
-        '#ff33ff', #magenta
-        '#ff33ff', #magenta
-        '#1f77b4', #blue 
-        '#ee0000', #red0
-        '#00b300', #darkgreen
-        '#009000', #darkergreen
-        '#5f57b4', #blue 
-        #'#b38600', #darkercream',
-        '#ff7f0e', #orange
-        '#e5ccff', #light-violet 'lavender',
-        '#0000b4', #darker blue 
-        '#aa0000', #darkred
-        '#ffbf00', #lightbrown',
-        '#aa00ff', #purple',  ## again!
-        '#70db70', #lightgreen',
-        '#5f5fff', #babyblue
-        '#60ef20', #lightgreen',
-        #'#27cedf', #light-cyan ...        'teal',
-        #'#e5ccff', #light-violet 'lavender',
-        #'#cc9900', #medbrown',
-        #'#00b300', #darkgreen
-        #'#e6e600', #yellow',
-        '#000000', #black
-        ]
-    return colors
+    return [mcn[1] for mcn in get_mutants_colors_names()]
 
 def get_names():
-    return [m for m in get_mutants()]
+    return [mcn[2] for mcn in get_mutants_colors_names()]
+
 
 class SpikeVariants():
     def __init__(self, sites=None, master=None, mutants=None, colors=None, names=None):
@@ -133,7 +131,7 @@ class SpikeVariants():
         def fprint(*p,**kw):
             print(*p,file=fileptr,**kw)
 
-        def fprint_item(name,array,quoted=False):
+        def fprint_item(name,array,quoted=True):
             fprint(f"def get_{name}():")
             fprint(f"    {name} = [")
             for item in array:
@@ -145,14 +143,33 @@ class SpikeVariants():
             fprint(f"    return {name}")
             fprint()
 
-        fprint_item("sites",intlist.format_intlist(self.sites)) #,intro="sites = [")self.sites)
-        fprint_item("mutants",self.mutants,quoted=True)
-        fprint_item("colors",self.colors)
-        fprint_item("names",self.names,quoted=True)
+        fprint_item("sites",intlist.format_intlist(self.sites),quoted=False)
+        #fprint_item("mutants",self.mutants,quoted=True)
+        #fprint_item("colors",self.colors,quoted=True)
+        #fprint_item("names",self.names,quoted=True)
         fprint("def get_master():")
         fprint("    master = \\")
         fprint(f"        '{self.master}'")
         fprint("    return master")
+        fprint()           
+
+        fprint("def get_mutants_colors_names():")
+        fprint("    mcnlist = [")
+        for m,c,n in zip(self.mutants,self.colors,self.names):
+            fprint(f"        ('{m}', '{c}', '{n}'),")
+        fprint("    ]")
+        fprint("    return mcnlist")
+        fprint()
+        fprint("def get_mutants():")
+        fprint("    return [mcn[0] for mcn in get_mutants_colors_names()]")
+        fprint()
+        fprint("def get_colors():")
+        fprint("    return [mcn[1] for mcn in get_mutants_colors_names()]")
+        fprint()
+        fprint("def get_names():")
+        fprint("    return [mcn[2] for mcn in get_mutants_colors_names()]")
+
+        
 
 
 
@@ -226,11 +243,17 @@ def sv_fromfile(colormutfile,refseq,includeother=True):
 if __name__ == "__main__":
 
     import sys
+    import readseq
 
     sv = SpikeVariants().init_from_defaults()
     sv.check()
     sv.pprint(file=sys.stderr)
 
+    #seqs = readseq.read_seqfile("Data/wuhan.fasta")
+    #sv = sv_fromfile("color-mut-Apr18.txt",seqs[0].seq)
+    sv.check()
+    sv.pprint(file=sys.stderr)
+    
     sv.pyprint(sys.stdout)
 
         
