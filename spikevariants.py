@@ -98,14 +98,71 @@ class SpikeVariants():
         self.names = get_names()
         return self
 
-    def set_sites(self,sites):
+        
+    def init_from_colormut(self,colormutfile,refseq,includeother=True):
+
+        mutants=[]
+        colors=[]
+        exact=[]
+        names=[]
+
+        with open(colormutfile) as f:
+            for line in f:
+                line = re.sub("#.*","",line).strip()
+                if not line:
+                    #ignore empty and commented-out lines
+                    continue
+
+                ## Match: Color [Mutation]! Name, with "!" optional and Name optional
+                m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
+                if not m:
+                    warnings.warn(f"No match: {line}")
+                color = m[1].strip()
+                try:
+                    color = colornames.tohex(color)
+                except KeyError:
+                    raise RuntimeError(f"Invalid color: {color}")
+                    color = colornames.random_hex()
+
+                mutants.append( mutant.Mutation(m[2]) )
+                colors.append(color)
+                exact.append(bool(m[3]))
+                names.append(m[4])
+
+        ## Get list of all sites
+        ## union of sites that appear in all the different mutants
+        sites=set()
+        for mut in mutants:
+            sites.update(m.site for m in mut)
+        sites = list(sorted(sites))
+
+        mutant_patterns = []
+        for mut,xact in zip(mutants,exact):
+            full_pattern = mut.pattern(refseq,exact=xact)
+            pattern = ''.join(full_pattern[n-1] for n in sites)
+            mutant_patterns.append( pattern )
+
+        master = "".join(refseq[n-1] for n in sites)
+        mutant_patterns = [master] + mutant_patterns
+        colors = ["#eeeeee"] + colors
+        names = ["Ancestral"] + names
+
         self.sites = sites
-    def set_master(self,master):
         self.master = master
-    def set_mutants(self,mutants):
-        self.mutants = mutants
-    def set_colors(self,colors):
+        self.mutants = mutant_patterns
         self.colors = colors
+        self.names = names
+        
+        if includeother:
+            self.append_other()
+            
+        return self
+
+    def append_other(self):
+        self.mutants.append("other")
+        self.colors.append("#000000")
+        self.names.append("other")
+        return self
 
     def check(self):
         L = len(self.sites)
@@ -169,77 +226,6 @@ class SpikeVariants():
         fprint("def get_names():")
         fprint("    return [mcn[2] for mcn in get_mutants_colors_names()]")
 
-        
-
-
-
-
-## sv_fromfile takes a filename and reference sequence, and returns
-## sitelist array, master string, mutants array of strings, and colors array of hex strings
-## which are stored in a SpikeVariants class structure
-
-def sv_fromfile(colormutfile,refseq,includeother=True):
-
-    mutants=[]
-    colors=[]
-    exact=[]
-    names=[]
-
-    with open(colormutfile) as f:
-        for line in f:
-            line = re.sub("#.*","",line).strip()
-            if not line:
-                #ignore empty and commented-out lines
-                continue
-
-            ## Match: Color [Mutation]! Name, with "!" optional and Name optional
-            m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
-            if not m:
-                warnings.warn(f"No match: {line}")
-            color = m[1].strip()
-            try:
-                color = colornames.tohex(color)
-            except KeyError:
-                raise RuntimeError(f"Invalid color: {color}")
-                color = colornames.random_hex()
-
-            mutants.append( mutant.Mutation(m[2]) )
-            colors.append(color)
-            exact.append(bool(m[3]))
-            names.append(m[4])
-
-    ## Get list of all sites
-    ## union of sites that appear in all the different mutants
-    sites=set()
-    for mut in mutants:
-        sites.update(m.site for m in mut)
-    sites = list(sorted(sites))
-    print("sites =",sites)
-
-    master = "".join(refseq[n-1] for n in sites)
-    mutant_patterns = [master]
-    for mut,xact in zip(mutants,exact):
-        full_pattern = mut.pattern(refseq,exact=xact)
-        pattern = ''.join(full_pattern[n-1] for n in sites)
-        mutant_patterns.append( pattern )
-        
-    colors = ["#eeeeee"] + colors
-    names = ["Ancestral"] + names
-
-    spv = SpikeVariants(sites = sites,
-                        master = master,
-                        mutants = mutant_patterns,
-                        colors = colors,
-                        names = names)
-
-    if includeother:
-        spv.mutants.append("other")
-        spv.colors.append("#000000")
-        spv.names.append("other")
-        
-    return spv
-
-
 if __name__ == "__main__":
 
     import sys
@@ -249,8 +235,8 @@ if __name__ == "__main__":
     sv.check()
     sv.pprint(file=sys.stderr)
 
-    #seqs = readseq.read_seqfile("Data/wuhan.fasta")
-    #sv = sv_fromfile("color-mut-Apr18.txt",seqs[0].seq)
+    seqs = readseq.read_seqfile("Data/wuhan.fasta")
+    sv = SpikeVariants().init_from_colormut("color-mut-Apr18.txt",seqs[0].seq,includeother=False).append_other()
     sv.check()
     sv.pprint(file=sys.stderr)
     

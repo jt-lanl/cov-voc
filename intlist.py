@@ -58,8 +58,8 @@ def format_intlist(nlist,width=79,intro=""):
     '''write out a list of integers neatly over several lines,
     separated by commas, and lined up nicely in columns. eg:
     nlist = range(25), width=50, intro="Sites:" produces
-    Sites:  0,  1,  2,  3,  4,  5,  6,  7,  8,  9
-           10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+    Sites:  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+           10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
            20, 21, 22, 23, 24
     '''
     maxwid = max(len(str(n)) for n in nlist)

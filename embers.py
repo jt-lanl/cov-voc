@@ -87,11 +87,13 @@ def main(args):
     seqlist = covid.read_seqfile(args)
     seqlist = covid.filter_seqs(seqlist,args)
 
+    svar = spikevariants.SpikeVariants()
     if args.colormut:
-        svar = spikevariants.sv_fromfile(args.colormut,seqlist[0].seq)
+        svar.init_from_colormut(args.colormut,seqlist[0].seq)
     else:
-        warnings.warn("Default color-mutation list is probably out of date")
-        svar = spikevariants.SpikeVariants().init_from_defaults()
+        warnings.warn("Default color-mutation list may be out of date")
+        svar.init_from_defaults()
+        
     mutants = svar.mutants
     master = svar.master
     colors = svar.colors
