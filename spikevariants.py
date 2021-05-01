@@ -126,9 +126,33 @@ class SpikeVariants():
             name = n if n else ""
             print(fmt % m,c,name,**kwxtra)        
 
-    ## To do: def pyprint(self) that writes python code that defines functions
-    ## get_sites(), get_master(), get_mutants(), get_colors()
-    ## based on the current stuctures in SpikeVariants
+    def pyprint(self,fileptr):
+        ''' writes python code to define functions:
+            get_sites() get_mutants(), get_colors(), get_names(), get_master()
+        based on the current stuctures in SpikeVariants'''
+        def fprint(*p,**kw):
+            print(*p,file=fileptr,**kw)
+
+        def fprint_item(name,array):
+            fprint(f"def get_{name}():")
+            fprint(f"    {name} = [")
+            for item in array:
+                fprint(f"        {item},")
+            fprint(f"    ]")
+            fprint(f"    return {name}")
+            fprint()
+
+        fprint_item("sites",intlist.format_intlist(self.sites)) #,intro="sites = [")self.sites)
+        fprint_item("mutants",self.mutants)
+        fprint_item("colors",self.colors)
+        fprint_item("names",self.names)
+        fprint("def get_master():")
+        fprint("    master = \\")
+        fprint(f"        '{self.master}'")
+        fprint("    return master")
+
+
+
 
 ## sv_fromfile takes a filename and reference sequence, and returns
 ## sitelist array, master string, mutants array of strings, and colors array of hex strings
@@ -204,5 +228,6 @@ if __name__ == "__main__":
     sv.check()
     sv.pprint(file=sys.stderr)
 
+    sv.pyprint(sys.stdout)
 
         
