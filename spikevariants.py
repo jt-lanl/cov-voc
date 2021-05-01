@@ -133,19 +133,22 @@ class SpikeVariants():
         def fprint(*p,**kw):
             print(*p,file=fileptr,**kw)
 
-        def fprint_item(name,array):
+        def fprint_item(name,array,quoted=False):
             fprint(f"def get_{name}():")
             fprint(f"    {name} = [")
             for item in array:
-                fprint(f"        {item},")
+                if quoted:
+                    fprint(f"        '{item}',")
+                else:
+                    fprint(f"        {item},")
             fprint(f"    ]")
             fprint(f"    return {name}")
             fprint()
 
         fprint_item("sites",intlist.format_intlist(self.sites)) #,intro="sites = [")self.sites)
-        fprint_item("mutants",self.mutants)
+        fprint_item("mutants",self.mutants,quoted=True)
         fprint_item("colors",self.colors)
-        fprint_item("names",self.names)
+        fprint_item("names",self.names,quoted=True)
         fprint("def get_master():")
         fprint("    master = \\")
         fprint(f"        '{self.master}'")
