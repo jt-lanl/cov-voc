@@ -19,15 +19,12 @@ import covid
 
 def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
-#                                 conflict_handler='resolve')
     paa = ap.add_argument
     covid.corona_args(ap)
     paa("--sites",type=int,default=30,
         help="Number of highest-entropy sites to use")
     paa("--keepx",action="store_true",
         help="Keep sequences that have X's in them")
-    paa("--stripdashcols",
-        help="Strip dashes from master, and align rest, saving to specified file")
     paa("--restrictsites",
         help="Consider only these sites (RBD, NTD, NTD+RBD, or comma-separated list)")
     paa("--verbose","-v",action="count",default=0,
@@ -54,13 +51,7 @@ def stripxs(alist,blist,badchar='X'):
 def main(args):
 
     allseqs = covid.read_seqfile(args)
-    allseqs = covid.filter_seqs_by_date(allseqs,args)
-
-    firstseq = allseqs[0].seq
-    if "-" in firstseq:
-        vprint("Stripping sites with dashes in first sequence...",end="")
-        sequtil.stripdashcols(firstseq,allseqs)
-        vprint("ok")
+    allseqs = covid.filter_seqs(allseqs,args)
 
     firstseq = allseqs[0].seq
 

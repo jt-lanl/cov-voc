@@ -186,7 +186,7 @@ def main(args):
     nmutt = len([s for s in seqlist if s.mutt and s.date])
     vprint("   mutt sequences:",nmutt)
     if nmutt==0:
-        raise RuntimeError("No sequences for pattern: " + args.pattern)
+        raise RuntimeError("No sequences for pattern: " + args.filterbyname)
 
     DG_datelist={m: [] for m in mutants}
     for s in seqlist:
