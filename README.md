@@ -59,32 +59,37 @@ in each sequence corresponds to site number `n`.
 
 # SOME USEFUL LIBRARIES
 
-* readseq/sequtil: for reading fasta sequence files (also tbl, and several other formats, are supported;
+### readseq/sequtil 
+
+for reading fasta sequence files 
+
+* also tbl, and several other formats, are supported;
 the routine `readseq.read_seqfile(...)` will determine the format of the file based on the file extension.
 
-    * Note that gzip'd files also work so `-i sequencefile.fasta.gz` on the command line will also be automatically understood as a compressed fasta-formatted file, and it will be read without explicitly decompressing the file.  
+* Note that gzip'd files also work so `-i sequencefile.fasta.gz` on the command line will also be automatically understood as a compressed fasta-formatted file, and it will be read without explicitly decompressing the file.  
 
-* mutants/spikevariants: manipulates single-site and multiple-site mutations and parses mutation strings of the form
+### mutants/spikevariants 
+
+manipulates single-site and multiple-site mutations and parses mutation strings of the form
 `[S13I,W152C,L452R,D614G]`
 
-* colornames: simple module for translating common color names into hash-character names
+### colornames
+simple module for translating common color names into hash-character names
 
-* intlist: generic utilities for dealing with lists of integers; for instance, can create headers such as the following,
-which indicate that the sites being displayed are 19, 20, 142, ..., 501.  If it's not obvious you read *down* each
+### intlist
+generic utilities for dealing with lists of integers; for instance, can create headers such as the following,
+which indicate that the sites being displayed are 19, 20, 142, ..., 501.  If it's not obvious, you read *down* each
 column to get the number of the site.
-
-
-    TTGYWMEFRLALDSAVKNLSTESN
+    
       1111111222222344444445
     124455555444556613577890
     902423678234362779278441
-
-
+    TTGYWMEFRLALDSAVKNLSTESN
 ___
 
 ### The 'help' command-line option
 
-Mmost of the main python scripts take command line arguments, and
+Most of the main python scripts take command line arguments, and
 those that do take '-h' to provide a usage message; if nothing else,
 it will at least list the names of the various options.  For example,
 if you type
