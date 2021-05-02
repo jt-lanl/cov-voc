@@ -74,13 +74,11 @@ which indicate that the sites being displayed are 19, 20, 142, ..., 501.  If it'
 column to get the number of the site.
 
 
+    TTGYWMEFRLALDSAVKNLSTESN
       1111111222222344444445
-
     124455555444556613577890
-
     902423678234362779278441
 
-    TTGYWMEFRLALDSAVKNLSTESN
 
 ___
 
