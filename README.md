@@ -73,6 +73,10 @@ the routine `readseq.read_seqfile(...)` will determine the format of the file ba
 manipulates single-site and multiple-site mutations and parses mutation strings of the form
 `[S13I,W152C,L452R,D614G]`
 
+### covid
+
+contains a lot of hard-coded covid-specific routines and constants (eg, definition of where RBD and NTD regions are)
+
 ### colornames
 simple module for translating common color names into hash-character names
 
