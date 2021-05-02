@@ -1,0 +1,75 @@
+#Origin or Commonly sampled
+#Colors from: https://en.wikipedia.org/wiki/X11_color_names
+ 
+#Exact matches
+
+#FloralWhite	[D614D]! ## this is already included!!
+Gainsboro	[D614G]! G=D614G
+Gainsboro	[L5F,D614G]! L5F_G
+
+
+LightGrey	[D614G,A222V]! GV=A222V
+LightGrey	[L18F,A222V,D614G]! L18F_GV
+LightGrey	[L5F,L18F,A222V,D614G]! L5F_GV 
+
+LightSteelBlue  [S477N,D614G]! S477N
+
+Lavender	[S98F,D614G]! S98F
+LightCyan	[M153T,D614G]! M153T
+Indianred	[S494P,D614G]! S494P
+Coral		[E484K,D614G]! E484K
+LightCoral	[L452R,D614G]! L452R
+
+Fuchsia [D614G,P681H]! P681H
+Fuchsia [D614G,Q677H]! Q677H
+Fuchsia [D614G,Q675H]! Q675H
+Fuchsia [D614G,P681R]! P681R
+Fuchsia [D614G,Q677R]! Q677R
+Fuchsia [D614G,Q675R]! Q675R
+Fuchsia [A222V,D614G,Q675H]! Q675H_GV
+Fuchsia [L5F,D614G,Q677H]! Q677H
+
+DarkViolet [D614G,Q677P]! Q677P
+
+ForestGreen	[N501T,D614G]! N501T
+DarkGreen	[N501Y,D614G]! N501Y
+
+Orange [H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H] 			B.1.1.7 UK VOC
+DarkBlue [S13I,W152C,L452R,D614G] 							B.1.429/7 US,CA VOC
+Plum [D80A,D215G,L242-,A243-,L244-,K417N,E484K,N501Y,D614G,A701V] 			B.1.351 ZA VOC
+FireBrick [L18F,T20N,P26S,D138Y,R190S,K417T,E484K,N501Y,D614G,H655Y,T1027I,V1176F] 	P.1 BR VOC
+Red [K417K,E484K,N501N,D614G,V1176F] 							P.2 BR ## subset of P.1
+Purple [L5F,T95I,D253G,E484K,D614G,A701V] 						B.1.526 US,NY
+Chocolate [F157L,V367F,Q613H,D614D,P681R] 						A23.1 UG
+DarkSeaGreen [Q52R,A67V,H69-,V70-,Y144-,E484K,D614G,Q677H,F888L] 			B.1.525 NG
+
+#Other recurring variants
+
+RoyalBlue [T478K,D614G,P681H,T732A] 							B.1.1.519 MX
+CadetBlue [G142S,E180V,D614G,Q677H] 							B.1.234 US,MI
+LawnGreen  [D80G,Y144-,F157S,L452R,D614G,T859N,D950H] 					B.1.526.1 US,NY
+Aquamarine [L18F,L452R,N501Y,D614D,A653V,H655Y,D796Y,G1219V] 				A.27 FR NG
+Aqua	   [M153T,G184S,D614G,Q677H] 							B.1.1.284 JP.1
+BlueViolet [W152L,E484K,D614G,G769V] 							R.1 JP.2
+Green      [G75V,T76I,R246-,S247-,Y248-,L249-,T250-,P251-,G252-,D253N,L452Q,F490S,D614G,T859N] 			B.1.1.1 CH (Chile)
+DarkMagenta [T95I, G142D, E154K,L452R, E484Q,D614G,P681R,Q1071H] 			B.1.617.1 IN
+
+#New 
+
+DarkOliveGreen [S494P,Y501Y,D614G,P681H,T716I,S982S,D1118D] 				B.1.575 AW (Aruba) + US. ## subset of B.1.1.7+S494P
+Gold [H69-,V70-,L189F,N439K,D614G,V772I] 						B.1.258.17 SI (Slovenia)
+Indigo [A222V,A262S,P272L,D614G] 							B.1.177 SE, IT (Sweden, Italy)
+
+#Rare complex forms
+ 
+HotPink [W152R,N439K,D614G,P681R] 							B.1.466.2 AU (Australia)
+
+Pink	  [S13S,L141-,G142-,V143-,L452R,D614G,N859N,D950D]				A.2.5.2 Costa Rica
+
+
+
+
+
+
+
+
