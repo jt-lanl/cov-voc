@@ -1,5 +1,6 @@
-#Origin or Commonly sampled
-#Colors from: https://en.wikipedia.org/wiki/X11_color_names
+# Origin or Commonly sampled
+# Colors from: https://en.wikipedia.org/wiki/X11_color_names
+# Last update for key and Pango nomenclature 5/2/2022
  
 #Exact matches
 
@@ -45,18 +46,18 @@ DarkSeaGreen [Q52R,A67V,H69-,V70-,Y144-,E484K,D614G,Q677H,F888L] 			B.1.525 NG
 
 #Other recurring variants
 
-RoyalBlue [T478K,D614G,P681H,T732A] 							B.1.1.519 MX
+RoyalBlue [T478K,D614G,P681H,T732A] 							B.1.1.519 (formerly B.1.1.222) MX
 CadetBlue [G142S,E180V,D614G,Q677H] 							B.1.234 US,MI
-LawnGreen  [D80G,Y144-,F157S,L452R,D614G,T859N,D950H] 					B.1.526.1 US,NY
+LawnGreen  [D80G,Y144-,F157S,L452R,D614G,T859N,D950H] 					B.1.526.1 (formerly B.1) US,NY
 Aquamarine [L18F,L452R,N501Y,D614D,A653V,H655Y,D796Y,G1219V] 				A.27 FR NG
 Aqua	   [M153T,G184S,D614G,Q677H] 							B.1.1.284 JP.1
 BlueViolet [W152L,E484K,D614G,G769V] 							R.1 JP.2
-Green      [G75V,T76I,R246-,S247-,Y248-,L249-,T250-,P251-,G252-,D253N,L452Q,F490S,D614G,T859N] 			B.1.1.1 CH (Chile)
+Green      [G75V,T76I,R246-,S247-,Y248-,L249-,T250-,P251-,G252-,D253N,L452Q,F490S,D614G,T859N] 			C.37 (formerly B.1.1.1) CH (Chile)
 DarkMagenta [T95I, G142D, E154K,L452R, E484Q,D614G,P681R,Q1071H] 			B.1.617.1 IN
 
 #New 
 
-DarkOliveGreen [S494P,Y501Y,D614G,P681H,T716I,S982S,D1118D] 				B.1.575 AW (Aruba) + US. ## subset of B.1.1.7+S494P
+DarkOliveGreen [S494P,N501N,D614G,P681H,T716I,S982S,D1118D] 				B.1.575 AW (Aruba) + US. ## subset of B.1.1.7+S494P
 Gold [H69-,V70-,L189F,N439K,D614G,V772I] 						B.1.258.17 SI (Slovenia)
 Indigo [A222V,A262S,P272L,D614G] 							B.1.177 SE, IT (Sweden, Italy)
 
@@ -64,7 +65,7 @@ Indigo [A222V,A262S,P272L,D614G] 							B.1.177 SE, IT (Sweden, Italy)
  
 HotPink [W152R,N439K,D614G,P681R] 							B.1.466.2 AU (Australia)
 
-Pink	  [S13S,L141-,G142-,V143-,L452R,D614G,N859N,D950D]				A.2.5.2 Costa Rica
+Pink	  [S13S,L141-,G142-,V143-,L452R,D614G,T859T,D950D]				A.2.5.2 Costa Rica
 
 
 

@@ -60,7 +60,7 @@ class Mutation(list):
         for ssm in self:
             if ssm.ref != refseq[ssm.site-1]:
                 if verbose:
-                    print(f"Mismatch for {ssm}: {sem.ref} != {refseq[ssm.site-1]}",
+                    print(f"Mismatch for {ssm}: {ssm.ref} != {refseq[ssm.site-1]}",
                           file=sys.stderr,flush=True)
                 check=False
         return check
