@@ -47,15 +47,25 @@ The variants used in `embers` are defined in a "color mutation" file, two typica
 Each line contains a `ColorName`, a `[MutationString]`, possibly a `!` symbol, and then a `VariantName`.
 In the second line above, the "UK VOC" is ignored.
 
+# SECONDARY PROGRAMS
 
 ## FIXFASTA
 
-Although `fixfasta` is not really a **main** routine, it's a useful as a preprocessor.  It takes a fasta
-file (doesn't have to be fasta, can be tbl or fasta.gz or several other formats) and applies various filters to
-clean up the file.  An important one is to identify all the columns for which the reference sequence exhibits a
-dash (`-`) and to strip these columns from all the sequences.  The reason for this is so that the `n`'th character
-in each sequence corresponds to site number `n`.
+`fixfasta` is a preprocessor routine that takes a fasta file (doesn't
+have to be fasta, can be tbl or fasta.gz or several other formats) and
+applies various filters to clean up the file.  An important one is to
+identify all the columns for which the reference sequence exhibits a
+dash (`-`) and to strip these columns from all the sequences.  The
+reason for this is so that the `n`'th character in each sequence
+corresponds to site number `n`.
 
+## MUT2FASTA
+
+`mut2fasta` takes one or more mutant strings (either from a file or from the
+command line), each of which looks something like "`[A222V,A262S,S494P,D614G]`",
+and produces a fasta file, each sequence of which corresponds to a mutant
+specified by the string, relative to the reference sequence, which is the
+first sequence in the specified reference fasta file.
 
 # SOME USEFUL LIBRARIES
 
