@@ -35,6 +35,8 @@ def getargs():
     paa("--nolegend",action="store_true",help="avoid putting legend on plot")
     paa("--colormut",
         help="read SpikeVariants structure from color-mut file")
+    paa("--ctable",
+        help="write a count table to this file")
     paa("--output","-o",help="write plot to file")
     paa("--verbose","-v",action="count",
         help="verbosity")
@@ -140,8 +142,20 @@ def main(args):
                     vprint(seq,patt,relname(patt),c[seq])
                     cpatt[patt] += c[seq]
                     #break
-        for patt in cpatt:
+
+        ## make table to appearances
+        for line in intlist.write_numbers_vertically(sitelist):
+            vprint(line,line)
+        for patt in mutants:
             vprint(patt,relname(patt),cpatt[patt])
+        if args.ctable:
+            with open(args.ctable,"w") as fout:
+                for line in intlist.write_numbers_vertically(sitelist):
+                    print(line,line,file=fout)
+                for patt in mutants:
+                    if patt == "other":
+                        continue
+                    print(patt,relname(patt),cpatt[patt],file=fout)
 
     ## Add s.date and s.mutt attributes to each sequence
     x_count=0
