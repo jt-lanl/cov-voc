@@ -129,33 +129,32 @@ def main(args):
         
     Nsequences = len(seqlist)-1  ## -1 not to count the reference sequence
         
-    if 1:
-        ## How many of each sequence
-        c = Counter(s.seq for s in seqlist)
-        #print(c)
+    ## How many of each sequence
+    c = Counter(s.seq for s in seqlist)
+    #print(c)
 
-        ## How many of each mutant
-        cpatt = Counter()
-        for seq in c:
-            for patt in mutants:
-                if re.search(patt,seq):
-                    vprint(seq,patt,relname(patt),c[seq])
-                    cpatt[patt] += c[seq]
-                    #break
-
-        ## make table to appearances
-        for line in intlist.write_numbers_vertically(sitelist):
-            vprint(line,line)
+    ## How many of each mutant
+    cpatt = Counter()
+    for seq in c:
         for patt in mutants:
-            vprint(patt,relname(patt),cpatt[patt])
-        if args.ctable:
-            with open(args.ctable,"w") as fout:
-                for line in intlist.write_numbers_vertically(sitelist):
-                    print(line,line,file=fout)
-                for patt in mutants:
-                    if patt == "other":
-                        continue
-                    print(patt,relname(patt),cpatt[patt],file=fout)
+            if re.search(patt,seq):
+                vprint(seq,patt,relname(patt),c[seq])
+                cpatt[patt] += c[seq]
+                #break
+
+    ## make table to appearances
+    for line in intlist.write_numbers_vertically(sitelist):
+        vprint(line,line)
+    for patt in mutants:
+        vprint(patt,relname(patt),cpatt[patt])
+    if args.ctable:
+        with open(args.ctable,"w") as fout:
+            for line in intlist.write_numbers_vertically(sitelist):
+                print(line,line,file=fout)
+            for patt in mutants:
+                if patt == "other":
+                    continue
+                print(patt,relname(patt),cpatt[patt],file=fout)
 
     ## Add s.date and s.mutt attributes to each sequence
     x_count=0
