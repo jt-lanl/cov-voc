@@ -1,8 +1,23 @@
-# Origin or Commonly sampled
 # Colors from: https://en.wikipedia.org/wiki/X11_color_names
 # Last update for key and Pango nomenclature 5/2/2022
+
+# Format for this file:
+#   Comments begin with '#' and are ignored
+#   Each line has: <color> <mutation> <name> <etc>
+#   <color> is common color name, with no spaces (eg, DarkGreen not Dark Green), limited to X11_color_names
+#   <mutation> is of form [<ssm>,<ssm>,...<ssm>], possibly followed by an '!'
+#       <ssm> is a single site mutation of form <rchar><site><mchar>, where
+#             <rchar> = character in reference sequence
+#             <site> = integer site number
+#             <mchar> = character in mutated sequence
+#       '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
+#           mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
+#           site is among the union of all the sites in all the mutation strings
+#   <name> is the name associated with the mutation (eg, Pango lineage)
+#   <etc>  is any further text; it is treated as a comment and is ignored
+#           
  
-#Exact matches
+# Exact matches
 
 #FloralWhite	[D614D]! ## this is already included!!
 Gainsboro	[D614G]! G=D614G
@@ -35,37 +50,44 @@ DarkViolet [D614G,Q677P]! Q677P
 ForestGreen	[N501T,D614G]! N501T
 DarkGreen	[N501Y,D614G]! N501Y
 
+# Origin or Commonly sampled
+
 Orange [H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H] 			B.1.1.7 UK VOC
 DarkBlue [S13I,W152C,L452R,D614G] 							B.1.429/7 US,CA VOC
-Plum [D80A,D215G,L242-,A243-,L244-,K417N,E484K,N501Y,D614G,A701V] 			B.1.351 ZA VOC
-FireBrick [L18F,T20N,P26S,D138Y,R190S,K417T,E484K,N501Y,D614G,H655Y,T1027I,V1176F] 	P.1 BR VOC
+Plum [L18.,D80A,D215G,L242-,A243-,L244-,K417N,E484K,N501Y,D614G,A701V] 			B.1.351 ZA VOC
+FireBrick [L18.,T20N,P26S,D138Y,R190S,K417.,E484K,N501Y,D614G,H655Y,T1027I,V1176F] 	P.1 BR VOC
 Red [K417K,E484K,N501N,D614G,V1176F] 							P.2 BR ## subset of P.1
-Purple [L5F,T95I,D253G,E484K,D614G,A701V] 						B.1.526 US,NY
-Chocolate [F157L,V367F,Q613H,D614D,P681R] 						A23.1 UG
+Purple [L5.,T95I,D253G,E484K,D614G,A701V] 						B.1.526 US,NY
 DarkSeaGreen [Q52R,A67V,H69-,V70-,Y144-,E484K,D614G,Q677H,F888L] 			B.1.525 NG
 
-#Other recurring variants
+# Other recurring variants
 
+Chocolate [F157L,V367F,Q613H,D614D,P681R] 						A23.1 UG
 RoyalBlue [T478K,D614G,P681H,T732A] 							B.1.1.519 (formerly B.1.1.222) MX
 CadetBlue [G142S,E180V,D614G,Q677H] 							B.1.234 US,MI
 LawnGreen  [D80G,Y144-,F157S,L452R,D614G,T859N,D950H] 					B.1.526.1 (formerly B.1) US,NY
-Aquamarine [L18F,L452R,N501Y,D614D,A653V,H655Y,D796Y,G1219V] 				A.27 FR NG
+Aquamarine [L18.,L452R,N501Y,D614D,A653V,H655Y,D796Y,G1219V] 				A.27 FR NG
 Aqua	   [M153T,G184S,D614G,Q677H] 							B.1.1.284 JP.1
 BlueViolet [W152L,E484K,D614G,G769V] 							R.1 JP.2
 Green      [G75V,T76I,R246-,S247-,Y248-,L249-,T250-,P251-,G252-,D253N,L452Q,F490S,D614G,T859N] 			C.37 (formerly B.1.1.1) CH (Chile)
-DarkMagenta [T95I, G142D, E154K,L452R, E484Q,D614G,P681R,Q1071H] 			B.1.617.1 IN
+DarkMagenta [T95., G142D, E154K,L452R, E484Q,D614G,P681R,Q1071H] 			B.1.617.1 IN
+BlueViolet [T19R,G142.,E156-,F157-,R158G,L452R,T478K,D614G,P681R,D950N] 		B.1.617.2 IN
+Indigo [A222V,A262S,P272L,D614G] 							B.1.177 SE, IT (Sweden, Italy)
+LimeGreen [L5.,T95I,D253G,S477N,D614G,Q957R]						B.1.526.2 US,NY
 
-#New 
+
+# New 
 
 DarkOliveGreen [S494P,N501N,D614G,P681H,T716I,S982S,D1118D] 				B.1.575 AW (Aruba) + US. ## subset of B.1.1.7+S494P
 Gold [H69-,V70-,L189F,N439K,D614G,V772I] 						B.1.258.17 SI (Slovenia)
-Indigo [A222V,A262S,P272L,D614G] 							B.1.177 SE, IT (Sweden, Italy)
+Pink	  [S13S,L141-,G142-,V143-,A222A,L452R,D614G,T859T,D950D]			A.2.5.2 Costa Rica
 
-#Rare complex forms
+
+# Rare complex forms
  
 HotPink [W152R,N439K,D614G,P681R] 							B.1.466.2 AU (Australia)
+LightPink [L141-,G142-,V143-,A243-,L244-,Y265C,E484K,N501Y,D614G,P681H,E1092K,H1101Y,V1176F] P.3 TH,JP
 
-Pink	  [S13S,L141-,G142-,V143-,L452R,D614G,T859T,D950D]				A.2.5.2 Costa Rica
 
 
 
