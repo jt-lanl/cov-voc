@@ -10,14 +10,8 @@ import warnings
 import readseq
 import sequtil
 import intlist
-from hamming import hamming
 
-#DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210225.fasta"
-#DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20201201.20210227.fasta.gz"
-#DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20201201-20210302.fasta.gz"
-#DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.20201001.20210309.Human.fasta"
-#DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210403.fasta.gz"
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210101-20210426.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210101-20210504.fasta.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -31,21 +25,6 @@ def corona_args(ap):
         help="Do not use sequences whose name matches this pattern")
     paa("--keepdashcols",action="store_true",
         help="Do not strip columns with dash in ref sequence")
-    #paa("--pattern","-p",
-    #    help="If specified requires sequence name to match pattern")
-    #paa("--xp",
-    #    help="If specified, excludes sequence if name matches this pattern")
-
-    #paa("--xvariant",
-    #    help="Remove sequences that exhibit specified variant")
-    #paa("--variant",
-    #    help="Keep only sequences that exhibit specified variant")
-    #paa("--noukvariant",action="store_true",
-    #    help="Remove sequences that exhibit UK variant")
-    #paa("--ukvariant",action="store_true",
-    #    help="Keep only sequences that exhibit UK variant")
-    #paa("--fixsiteseventy",action="store_true",
-    #    help="Replace '--I' with 'I--' at sites 68-70")
     paa("--dates","-d",nargs=2,
         help="range of dates (two dates, yyyy-mm-dd format)")
     paa("--daysago",type=int,default=0,

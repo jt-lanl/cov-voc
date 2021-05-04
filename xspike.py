@@ -201,13 +201,6 @@ def main(args):
     allseqs = covid.filter_seqs_by_date(allseqs,args)
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
 
-    if args.stripdashcols and "-" in seqs[0].seq:
-        vprint("Stripping sites with dashes in first sequence...",end="")
-        sequtil.stripdashcols(seqs[0].seq,seqs)
-        vprint("ok")
-        if "-" in seqs[0].seq:
-            raise RuntimeError("strip dash failed!")
-
     firstseq = seqs[0].seq
     seqs = seqs[1:]
     
