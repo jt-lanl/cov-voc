@@ -29,7 +29,7 @@ def getargs():
         help="write fasta file with patterns involving /all/ sites")
     paa("--addsites",
         help="prepend this (comma-separated) list of sites to those being observed")
-    paa("--sites",type=int,default=30,
+    paa("--sites",type=int,default=50,
         help="Number of highest-entropy sites to use")
     paa("--keepx",action="store_true",
         help="Keep sequences that have X's in them")
