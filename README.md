@@ -67,6 +67,11 @@ and produces a fasta file, each sequence of which corresponds to a mutant
 specified by the string, relative to the reference sequence, which is the
 first sequence in the specified reference fasta file.
 
+## COMMONTYPES
+
+given an input fasta file, the first of which is a reference sequence,
+find the most common sequences, and express them in terms of mutation strings
+
 # SOME USEFUL LIBRARIES
 
 ### readseq/sequtil 
