@@ -172,9 +172,7 @@ def get_title(args):
     if title==".":
         title = "Global"
     if args.xfilterbyname:
-        title = title + " w/o " + args.xp
-    if 0: #args.noukvariant:
-        title = title + " w/o UK-variant"
+        title = title + " w/o " + args.xfilterbyname
     return title
 
 def read_seqfile(args,**kwargs):
