@@ -200,6 +200,11 @@ def filter_seqs(seqs,args):
     if "-" in firstseq and not args.keepdashcols:
         warnings.warn("Stripping sites with dashes in first sequence")
         sequtil.stripdashcols(firstseq,seqs)
+
+    if 0: #args.fixsiteseventy:
+        fixes = fixsiteseventy(seqs)
+        print("Fixed sites 68-70 for",fixes,"sequences")
+
     return seqs
 
 def filter_seqs_by_date(seqs,args):
@@ -239,18 +244,6 @@ def filter_seqs_by_pattern(seqs,args):
     if args.xfilterbyname:
         seqs = sequtil.filter_by_pattern_exclude(seqs,args.xfilterbyname,keepfirst=True)
         vprint(len(seqs),"sequences after removing x-pattern:",args.xfilterbyname)
-
-    ## if there are any dashes in first sequence, then strip those
-    ## columns from all the sequences
-    if "-" in seqs[0].seq:
-        warnings.warn("Sites with dashes in first sequence")
-
-    if 0: #args.fixsiteseventy:
-        fixes = fixsiteseventy(seqs)
-        print("Fixed sites 68-70 for",fixes,"sequences")
-        if fixes>0:
-            readseq.write_fasta("RX.fasta",seqs)                                
-            return
 
     return seqs
     
