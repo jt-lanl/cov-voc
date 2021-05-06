@@ -22,11 +22,27 @@ class SingleSiteMutation():
         self.site = int(m[2])
         self.mut = m[3]
 
+    def __eq__(self,other):
+        return self.ref == other.ref and self.site == other.site and self.mut == other.mut
+
+    def __hash__(self):
+        ''' enables the making of sets of SSM's '''
+        return hash(tuple((self.ref,self.site,self.mut)))
+        
     def __str__(self):
         return self.mstring
 
 class Mutation(list):
     ''' Mutation is a list of SingleSiteMutations '''
+
+    @classmethod
+    def merge(cls,*muts):
+        '''merge two or more mutations into a single mutation'''
+        mergedmut = set()
+        for mut in muts:
+            mergedmut.update(mut)
+        mergedmut = cls(list(mergedmut))
+        return mergedmut.sort()
 
     def __init__(self,ssms=None):
         if isinstance(ssms,list):
@@ -54,6 +70,29 @@ class Mutation(list):
                 self.append(SingleSiteMutation(f"{r}{n+1}{c}"))
         return self
 
+    def sort(self):
+        '''return a sorted copy off self'''
+        return type(self)(sorted(self,key=lambda m: m.site))
+
+    def inconsistent(self):
+        ''' return an inconsistent pair of ssm's if there is one '''
+        ## inconsistent if site is the same but mutation is different
+        ## [T95I] and [G142D] are consistent because sites are different
+        ## [T95I] and [T95T] are inconsistent, but
+        ## [T95I] and [T95.] are unequal but consistent
+        for ssma in self:
+            for ssmb in self:
+                if ssma.site != ssmb.site:
+                    continue
+                if ssma.mut == "." or ssmb.mut == ".":
+                    continue
+                if ssma.mut != ssmb.mut:
+                    return((str(ssma),str(ssmb)))
+        return None
+
+    def check(self):
+        return False if self.inconsistent() else True
+    
     def checkref(self,refseq,verbose=False):
         ''' return True if ssm.ref = refseq at all mutation sites '''
         check=True
@@ -64,7 +103,7 @@ class Mutation(list):
                           file=sys.stderr,flush=True)
                 check=False
         return check
-        
+
     def pattern(self,refseq,exact=False):
         '''return pattern that can be used as regex to search for mutation'''
         ## exact: needs to match refseq at all sites not in mutation
@@ -83,3 +122,15 @@ class Mutation(list):
         
 
 
+if __name__ == "__main__":
+
+    ma = Mutation("[S13S,S494P,N501N,D614G,P681H,T716I,S982S,D1118D]")
+    mb = Mutation().init_from_line("[S13S,L141-,G142-,V143-,A222A,L452R,D614G,T859T,D950D]")
+    mc = Mutation.merge(ma,mb)
+    print("A:",ma)
+    print("B:",mb)
+    print("C inconsistent:",mc.inconsistent())
+    print("C:",mc.check(),mc)
+    print("C:",mc.sort())
+
+    
