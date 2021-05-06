@@ -72,6 +72,16 @@ first sequence in the specified reference fasta file.
 given an input fasta file, the first of which is a reference sequence,
 find the most common sequences, and express them in terms of mutation strings
 
+## USITES
+
+computes the highest-entropy sites for the global sequence set and for each of the
+continents's sequence sets (which are subsets of the global set), and then returns
+the union of those lists.  you specify the number of sites you want in the final union
+list.  this list of sites is useful as input to `xspike` if you want different runs
+over different geographical regions to all be using a common set of sites.
+
+___
+
 # SOME USEFUL LIBRARIES
 
 ### readseq/sequtil 
