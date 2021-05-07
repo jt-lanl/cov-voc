@@ -142,7 +142,7 @@ def main(args):
                 cpatt[patt] += c[seq]
                 #break
 
-    ## make table to appearances
+    ## make table of patterns and counts
     for line in intlist.write_numbers_vertically(sitelist):
         vprint(line,line)
     for patt in mutants:
@@ -150,11 +150,12 @@ def main(args):
     if args.ctable:
         with open(args.ctable,"w") as fout:
             for line in intlist.write_numbers_vertically(sitelist):
-                print(line,line,file=fout)
+                print(line,file=fout)
+            print(master,namefmt % "Name","Counts",file=fout)
             for patt in mutants:
                 if patt == "other":
                     continue
-                print(patt,relname(patt),cpatt[patt],file=fout)
+                print(relname(patt),mnames[patt],cpatt[patt],file=fout)
 
     ## Add s.date and s.mutt attributes to each sequence
     x_count=0
