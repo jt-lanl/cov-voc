@@ -67,6 +67,10 @@ and produces a fasta file, each sequence of which corresponds to a mutant
 specified by the string, relative to the reference sequence, which is the
 first sequence in the specified reference fasta file.
 
+## VFASTA
+
+for viewing fasta files; you can just look at subsets of sequences and/or subsets of sites
+
 ## COMMONTYPES
 
 given an input fasta file, the first of which is a reference sequence,
@@ -79,6 +83,12 @@ continents's sequence sets (which are subsets of the global set), and then retur
 the union of those lists.  you specify the number of sites you want in the final union
 list.  this list of sites is useful as input to `xspike` if you want different runs
 over different geographical regions to all be using a common set of sites.
+
+## MUTANTSRISING
+
+similar to `embers` but draws line plots on on a log y-axis; makes it easier to see if some
+variant is increasing in frequency even if its total frequency is small compared to currently
+dominant variants
 
 ___
 
