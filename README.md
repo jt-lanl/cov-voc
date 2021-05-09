@@ -90,6 +90,12 @@ similar to `embers` but draws line plots on on a log y-axis; makes it easier to 
 variant is increasing in frequency even if its total frequency is small compared to currently
 dominant variants
 
+## SHIVER-BARPLOT
+
+takes output of `shiver` and produces a bar plot showing coverages for different continents
+and different number of components.  (currently you have to edit out all but the table from
+the shiver output in order to provide input for this routine)
+
 ___
 
 # SOME USEFUL LIBRARIES
@@ -113,7 +119,7 @@ manipulates single-site and multiple-site mutations and parses mutation strings 
 contains a lot of hard-coded covid-specific routines and constants (eg, definition of where RBD and NTD regions are)
 
 ### colornames
-simple module for translating common color names into hash-character names
+simple module for translating common color names into hash-hexcodes
 
 ### intlist
 generic utilities for dealing with lists of integers; for instance, can create headers such as the following,
