@@ -214,9 +214,6 @@ def filter_seqs_by_date(seqs,args):
     if not args.daysago and not args.dates:
         return seqs
 
-    firstseq = seqs[:1]
-    seqs = seqs[1:]
-
     if args.daysago:
         t = datetime.date.today()
         f = t - datetime.timedelta(days=args.daysago)
@@ -225,7 +222,7 @@ def filter_seqs_by_date(seqs,args):
     if args.dates:
         seqs = sequtil.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
 
-    return firstseq + seqs
+    return seqs
 
 def filter_seqs_by_pattern(seqs,args):
 
