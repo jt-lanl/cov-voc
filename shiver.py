@@ -311,12 +311,13 @@ def main(args):
 
         v_fullseq_name = name
         
-        variant_table[v] = "%s %-20s %6d %6d %6d %s" % (
+        variant_table[v] = "%s %-20s %6d %6d %6d   %4.1f%% %s" % (
             srseq[v],
             name,
             continent_cnt[c][v],
             global_cnt[v],
             vcnt[v_fullseq],
+            100*vcnt[v_fullseq]/global_cnt[v],
             mutliststr,
         )
         cocktail_fasta.append(
@@ -340,12 +341,10 @@ def main(args):
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
     print(TABLE_VARIANTS)        
-    TabVar_Heading="Name                    LPM    GPM    GSM [Mutations]"
-    for line in vertlines:
-        if line == vertlines[-1]:
-            print(line,TabVar_Heading)
-        else:
-            print(line)
+    TabVar_Heading="Name                    LPM    GPM    GSM GSM/GPM [Mutations]"
+    for line in vertlines[:-1]:
+        print(line)
+    print(vertlines[-1],TabVar_Heading)
     for v in variant_table:
         print(variant_table[v])
         
