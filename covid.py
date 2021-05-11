@@ -27,7 +27,7 @@ def corona_args(ap):
         help="Do not strip columns with dash in ref sequence")
     paa("--dates","-d",nargs=2,
         help="range of dates (two dates, yyyy-mm-dd format)")
-    paa("--daysago",type=int,default=0,
+    paa("--days",type=int,default=0,
         help="Consider date range from DAYSAGO days ago until today")
 
     return
@@ -209,14 +209,15 @@ def filter_seqs(seqs,args):
 
 def filter_seqs_by_date(seqs,args):
 
-    if args.daysago and args.dates:
-        raise RuntimeError("Cannot specify both --daysago AND --dates")
-    if not args.daysago and not args.dates:
+    if args.days and args.dates:
+        raise RuntimeError("Cannot specify both --days AND --dates")
+    if not args.days and not args.dates:
         return seqs
 
-    if args.daysago:
-        t = datetime.date.today()
-        f = t - datetime.timedelta(days=args.daysago)
+    if args.days:
+        lastdate = sequtil.range_of_dates(seqs)[1]
+        t = sequtil.date_fromiso(lastdate) ## not: datetime.date.today()
+        f = t - datetime.timedelta(days=args.days)
         args.dates = f,t
 
     if args.dates:
