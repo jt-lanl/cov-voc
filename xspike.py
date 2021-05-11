@@ -195,11 +195,16 @@ def main(args):
     ## Get title for plots and tables
     title = get_title(args)
 
-    print("Running",title,file=sys.stderr)
+    print("Running",title,file=sys.stderr,flush=True)
 
     allseqs = covid.read_seqfile(args)
+    vprint("Read",len(allseqs),"seqences, date range:",sequtil.range_of_dates(allseqs))
     allseqs = covid.filter_seqs_by_date(allseqs,args)
+    vprint("Date-filtered",len(allseqs),"seqences, date range:",sequtil.range_of_dates(allseqs))
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
+    vprint("Pattern-filtered",len(seqs),"seqences, date range:",sequtil.range_of_dates(seqs))
+    seqs = sequtil.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
+    vprint("Pattern-date-filtered",len(seqs),"seqences, date range:",sequtil.range_of_dates(seqs))
 
     firstseq = seqs[0].seq
     seqs = seqs[1:]
@@ -209,6 +214,12 @@ def main(args):
 
     N = len(seqs)
     M = len(seqs[0].seq)
+
+    print(f"Evaluating {N} sequences of length {M}")
+    print("Sampled from %s to %s."
+          % sequtil.range_of_dates(seqs))
+    if args.dates:
+        print("Specified Date Range:",args.dates)
 
     #### SINGLE-SITE ENTROPY
     vprint("Single-site entropy...",end="")
@@ -276,24 +287,39 @@ def main(args):
     for s in pattseqs:
         s.seq = "".join(s.seq[n-1] for n in esites)        
     cnt = Counter([s.seq for s in pattseqs])
+    
+    if not args.keepx:
+        ## set count[patt]=0 if "X" in patt
+        ## one-liner: cnt = { patt: cnt[patt] * bool("X" not in patt) for patt in cnt }
+        xpatts = [patt for patt in cnt if "X" in patt]
+        for patt in xpatts:
+                cnt[patt]=0
+
     patternlist = sorted(cnt, key=cnt.get, reverse=True)
+    vvprint("Sums:",args.filterbyname,len(seqs),sum(cnt.values()))
 
     #### Get counts for the various continents
     #### Use all the sequences, not just those that fit pattern
     allseqs = allseqs[1:] ## don't keep the reference sequence
 
     cont_cnt = dict() ## cnt's for the various continents
+    cont_sum = dict()
     Cxcx = covid.parse_continents()
     for cx,c,x in [("Global","Global","")] + Cxcx:
         cseqs = sequtil.filter_by_pattern(allseqs,c)
         if x:
             cseqs = sequtil.filter_by_pattern_exclude(cseqs,x)
-        cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,esites))
+        cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,esites,keepx=args.keepx))
+        cont_sum[c] = len(cseqs)
+        vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
     
     master =  "".join(firstseq[n-1] for n in esites)
     print(master," Local Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
           "[Context]")
+    ## Totals do not include sequences with X at any of the high-entropy sites
+    print(" "*len(master),"%6d %6d"%(sum(cnt.values()),sum(cont_cnt['Global'].values())),
+          " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx])) ## Totals
     for p in patternlist:
         if args.keepx == False and "X" in p:
             continue
