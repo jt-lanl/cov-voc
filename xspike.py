@@ -203,8 +203,6 @@ def main(args):
     vprint("Date-filtered",len(allseqs),"seqences, date range:",sequtil.range_of_dates(allseqs))
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
     vprint("Pattern-filtered",len(seqs),"seqences, date range:",sequtil.range_of_dates(seqs))
-    seqs = sequtil.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
-    vprint("Pattern-date-filtered",len(seqs),"seqences, date range:",sequtil.range_of_dates(seqs))
 
     firstseq = seqs[0].seq
     seqs = seqs[1:]
@@ -314,20 +312,22 @@ def main(args):
         vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
     
     master =  "".join(firstseq[n-1] for n in esites)
-    print(master," Local Global",
+    print(master," Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
-          "[Context]")
+          " Local  Exact  Pct [Context]")
     ## Totals do not include sequences with X at any of the high-entropy sites
-    print(" "*len(master),"%6d %6d"%(sum(cnt.values()),sum(cont_cnt['Global'].values())),
-          " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx])) ## Totals
+    print(" "*len(master),"%7d" % sum(cont_cnt['Global'].values()),
+          " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx]),
+          "%6d"% sum(cnt.values()),"<----------- Totals" ) ## Totals
     for p in patternlist:
         if args.keepx == False and "X" in p:
             continue
         if cnt[p] <  2: #max([args.cvthresh,min([200,N//5000])]):
             break
-        print("%s %6d %6d " % (sequtil.relativename(master,p),cnt[p],
+        print("%s %7d " % (sequtil.relativename(master,p),
                                cont_cnt["Global"][p]),end="")
         print(" ".join("%6d"% cont_cnt[c][p] for _,c,_ in Cxcx),end="")
+        print(" %6d" % cnt[p],end="")
 
         ## What is the context for this pattern
         if args.nomutlist:
@@ -336,9 +336,9 @@ def main(args):
             pseqnames = set(s.name for s in pattseqs if s.seq == p)
             pfullseqs = [s for s in seqs if s.name in pseqnames]
             pcnt = Counter([s.seq for s in pfullseqs])
-            pcommonseq,_ = pcnt.most_common(1)[0]
+            pcommonseq,npcs = pcnt.most_common(1)[0]
             mutantstr = sequtil.mutantlist(firstseq,pcommonseq,returnstring=True)
-            print("",mutantstr)
+            print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr}")
         
 
 if __name__ == "__main__":
