@@ -93,8 +93,7 @@ dominant variants
 ## SHIVER-BARPLOT
 
 takes output of `shiver` and produces a bar plot showing coverages for different continents
-and different number of components.  (currently you have to edit out all but the table from
-the shiver output in order to provide input for this routine)
+and different number of components. 
 
 ___
 

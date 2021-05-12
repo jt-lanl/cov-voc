@@ -1,3 +1,6 @@
+DESCRIPTION='''
+Make a barpolot of the coverages in the output from shiver.py
+'''
 import sys
 import argparse
 import re
@@ -6,10 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def getargs():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=DESCRIPTION)
     paa = ap.add_argument
     paa("input",
-        help="input file with site, continent, fractions")
+        help="input file is output from shiver run")
     #paa("--set","-s",type=int,default=1,
     #    help="how many set vaccines")
     paa("--lack",action="store_true",
@@ -25,10 +28,19 @@ def getargs():
 
 def main(args):
     lines=[]
+    skipIntro=True ## Skip ahead until "Table of Coverages"
     with open(args.input) as f:
         for line in f:
-            vprint("line=",line)
+            vvprint("line=",line.strip())
+            if line.strip() == "Table of Coverages":
+                ## just keep skipping until we get to Table of Variants
+                vvprint("OK: START READING NOW")
+                skipIntro=False
+            if skipIntro:
+                continue
+            
             try:
+                ## Relevant lines are of the form: Continent vacc-name fraction (possibly multiple values, only use first)
                 cont,vacc,*flist = line.strip().split()
                 fo = flist[0]
                 cont = re.sub("-w/o.*","",cont)
