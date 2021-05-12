@@ -13,8 +13,31 @@ The first variant in the input alignment is taken as the reference
 sequence, and should be the ancestral Wuhan variant to ensure epitope
 regions are chosen appropriately. The epitope regions in Spike that
 are featured as are defined as: The NTD supersite includes Spike
-positions 14-20, 140-158, and 242-264 (note, however, that site 18 is
-not included); the RBD has positions 330-521.
+positions 13-20, 140-158, and 242-264 (note, however, that site 18 is
+not included in the analysis because it is so variable that both the 
+ancestral L18 form and the common variant L18F are very often both 
+found in significant numbers among Variants of Interest).
+
+The NTD supersite sites selected are for inclusion are based on:
+
+Sites 14-20, 140-158, and 245-264:
+N-terminal domain antigenic mapping reveals a site of vulnerability for SARS-CoV-2
+McCallum, M. et al. bioRxiv
+doi: 10.1101/2021.01.14.426475  
+
+Site 13: 
+SARS-CoV-2 immune evasion by variant B.1.427/B.1.429 
+McCallum, M. et al. bioRxiv, 2021/04/07
+doi: 10.1101/2021.03.31.437925 PMC8020983
+ 
+Sites 242-244:
+SARS-CoV-2 501Y.V2 escapes neutralization by South African COVID-19 donor plasma
+Wibmer, C. et al. bioRxiv,
+doi: 10.1101/2021.01.18.427166
+ 
+Sites 330-521:
+The RBD region includes positions 330-521, based on a synthesis of 
+the literature from early 2020. 
 
 All distinct variants found within these boundaries are identified and
 tallied, and the most common variants are selected.  Windows in time
