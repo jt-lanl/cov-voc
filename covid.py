@@ -19,9 +19,9 @@ def corona_args(ap):
     paa("--input","-i",type=Path,
         default=Path(DEFAULTFASTA),
         help="input fasta file with aligned sequences (first is master)")
-    paa("--filterbyname","-f",
+    paa("--filterbyname","-f",nargs='+',
         help="Only use sequences whose name matches this pattern")
-    paa("--xfilterbyname","-x",
+    paa("--xfilterbyname","-x",nargs='+',
         help="Do not use sequences whose name matches this pattern")
     paa("--keepdashcols",action="store_true",
         help="Do not strip columns with dash in ref sequence")
@@ -168,11 +168,11 @@ def parse_continents(withglobal=False):
 
 def get_title(args):
     ## Get title for plots and tables
-    title = args.filterbyname or "Global"
+    title = "+".join(args.filterbyname) if args.filterbyname else "Global"
     if title==".":
         title = "Global"
     if args.xfilterbyname:
-        title = title + " w/o " + args.xfilterbyname
+        title = title + " w/o " + "+".join(args.xfilterbyname)
     return title
 
 def read_seqfile(args,**kwargs):
@@ -192,10 +192,7 @@ def read_seqfile(args,**kwargs):
 
     return seqs
 
-def filter_seqs(seqs,args):
-    seqs = filter_seqs_by_date(seqs,args)
-    seqs = filter_seqs_by_pattern(seqs,args)
-    
+def fix_seqs(seqs,args):
     firstseq = seqs[0].seq
     if "-" in firstseq and not args.keepdashcols:
         warnings.warn("Stripping sites with dashes in first sequence")
@@ -204,6 +201,14 @@ def filter_seqs(seqs,args):
     if 0: #args.fixsiteseventy:
         fixes = fixsiteseventy(seqs)
         print("Fixed sites 68-70 for",fixes,"sequences")
+
+    return seqs
+    
+
+def filter_seqs(seqs,args):
+    seqs = filter_seqs_by_date(seqs,args)
+    seqs = filter_seqs_by_pattern(seqs,args)
+    seqs = fix_seqs(seqs,args)
 
     return seqs
 
@@ -231,17 +236,28 @@ def filter_seqs_by_pattern(seqs,args):
         if args.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-    if args.filterbyname and args.filterbyname != "Global":
-        patt,wo,xpatt = args.filterbyname.partition("-w/o-")
-        seqs = sequtil.filter_by_pattern(seqs,patt,keepfirst=True)
-        vprint(len(seqs),"sequences fit pattern:",patt)
-        if xpatt:
-            seqs = sequtil.filter_by_pattern_exclude(seqs,xpatt,keepfirst=True)
-            vprint(len(seqs),"sequences after removing x-pattern:",xpatt)
+    if args.filterbyname:
+        allseqs = seqs[:1] ## do keep the first sequence
+        for name in args.filterbyname:
+            patt,wo,xpatt = name.partition("-w/o-")
+            if name == "Global":
+                fseqs = seqs
+            else:
+                fseqs = sequtil.filter_by_pattern(seqs,patt,keepfirst=True)
+            vprint(len(fseqs),"sequences fit pattern:",patt)
+            if xpatt:
+                fseqs = sequtil.filter_by_pattern_exclude(fseqs,xpatt,keepfirst=True)
+                vprint(len(fseqs),"sequences after removing x-pattern:",xpatt)
+            allseq_names = set(s.name for s in allseqs)
+            allseqs.extend(s for s in fseqs if s.name not in allseq_names)
+        seqs = allseqs
+        vprint(len(seqs),"sequences fit pattern","+".join(args.filterbyname))
+            
 
     if args.xfilterbyname:
-        seqs = sequtil.filter_by_pattern_exclude(seqs,args.xfilterbyname,keepfirst=True)
-        vprint(len(seqs),"sequences after removing x-pattern:",args.xfilterbyname)
+        for name in args.xfilterbyname:
+            seqs = sequtil.filter_by_pattern_exclude(seqs,name,keepfirst=True)
+            vprint(len(seqs),"sequences after removing x-pattern:",name)
 
     return seqs
     
