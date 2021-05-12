@@ -404,9 +404,9 @@ def main(args):
                 f = cov/tot
                 yield "%25s %-4s   %.4f" % (cx,CocktailName,f)
 
-
-    print("\nNote: coverage plot below is based on possibly larger sequence set:")
-    print_sequence_counts_by_continent(ConExclude,all_cont_cnt)                
+    if len(allpattseqs) > len(pattseqs):
+        print("\nNote: coverage plot below is based on possibly larger sequence set:")
+        print_sequence_counts_by_continent(ConExclude,all_cont_cnt)                
 
     COVERAGETABLE = f'''
 Table of Coverages
