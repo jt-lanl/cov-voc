@@ -28,7 +28,7 @@ def corona_args(ap):
     paa("--dates","-d",nargs=2,
         help="range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
-        help="Consider date range from DAYSAGO days ago until today")
+        help="Consider date range of DAYS days ending on the last sampled date")
 
     return
 
