@@ -130,7 +130,13 @@ def main(args):
                 cseqs.append(s)
         cnt = Counter(s.seq for s in cseqs)
         continent_cnt[cx] = cnt
+        vprint(f"{cx:25s} {sum(cnt.values()):7d}")
 
+    ## Let use sort ConExclude by total counts
+    def conex_sortkey(cxcx):
+        cx,_,_ = cxcx
+        return sum(continent_cnt[cx].values())
+    ConExclude = sorted(ConExclude, key=conex_sortkey, reverse=True)        
             
     vprint("                Continent   #Seqs [Coverage in first five patterns  ]")
     for cx,cnt in continent_cnt.items():
