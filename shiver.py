@@ -77,7 +77,7 @@ def getargs():
     covid.corona_args(ap)
     paa("--output","-o",
         help="output fasta file with variant sequences")
-    paa("-n",type=int,default=1,
+    paa("-n",type=int,default=29,
         help="number of components in cocktail")
     paa("--strategy","-s",default="taketurns",
         help="how to pick variants: (T)aketurns, (M)ostimproved, (G)lobalonly")
@@ -95,8 +95,11 @@ def main(args):
     if TGM not in "TGM":
         raise RuntimeError(f"Strategy [{args.strategy}] should be one of T,G,M")
 
-    fullseqs = covid.read_seqfile(args)
-    fullseqs = covid.filter_seqs(fullseqs,args)
+    allfullseqs = covid.read_seqfile(args)
+    allfullseqs = covid.filter_seqs_by_date(allfullseqs,args)
+    allfullseqs = covid.fix_seqs(allfullseqs,args)
+    
+    fullseqs = covid.filter_seqs_by_pattern(allfullseqs,args)
     vprint("Read",len(fullseqs),"sequences")
     firstseq = fullseqs[0].seq
 
@@ -106,20 +109,27 @@ def main(args):
     pattseqs = sequtil.copy_seqlist(fullseqs)
     for s in pattseqs:
         s.seq = "".join(s.seq[n-1] for n in sitenums)
-
     ## Filter out sequences with X's
     pattseqs = [s for s in pattseqs if "X" not in s.seq]
     vprint("Sequences:",len(pattseqs),
            "w/o X in pattern region:",args.region)
+    
+    allpattseqs = sequtil.copy_seqlist(allfullseqs)
+    for s in allpattseqs:
+        s.seq = "".join(s.seq[n-1] for n in sitenums)
+    allpattseqs = [s for s in allpattseqs if "X" not in s.seq]
 
     firstpatt = pattseqs[0].seq
     pattseqs = pattseqs[1:]
 
     global_cnt = Counter(s.seq for s in pattseqs)
+    all_global_cnt = Counter(s.seq for s in allpattseqs)
 
     continent_cnt = dict()
+    all_cont_cnt = dict()
     continent_cnt["Global"] = global_cnt
-
+    all_cont_cnt["Global"] = all_global_cnt
+    
     ConExclude = covid.parse_continents()
     for cx,c,x in ConExclude:
         cseqs = []
@@ -131,8 +141,17 @@ def main(args):
         cnt = Counter(s.seq for s in cseqs)
         continent_cnt[cx] = cnt
         vprint(f"{cx:25s} {sum(cnt.values()):7d}")
+        cseqs = []
+        for s in allpattseqs:
+            if x and x in s.name:
+                continue
+            if c in s.name:
+                cseqs.append(s)
+        cnt = Counter(s.seq for s in cseqs)            
+        all_cont_cnt[cx] = cnt
 
-    ## Let use sort ConExclude by total counts
+    ## Sort ConExclude by total counts
+    ## so continent w/ most sequences gets to go first
     def conex_sortkey(cxcx):
         cx,_,_ = cxcx
         return sum(continent_cnt[cx].values())
@@ -317,7 +336,7 @@ def main(args):
 
         v_fullseq_name = name
         
-        variant_table[v] = "%s %-20s %6d %6d %6d   %4.1f%% %s" % (
+        variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %s" % (
             srseq[v],
             name,
             continent_cnt[c][v],
@@ -347,7 +366,7 @@ def main(args):
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
     print(TABLE_VARIANTS)        
-    TabVar_Heading="Name                    LPM    GPM    GSM GSM/GPM [Mutations]"
+    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations]"
     for line in vertlines[:-1]:
         print(line)
     print(vertlines[-1],TabVar_Heading)
@@ -369,7 +388,7 @@ def main(args):
         ### (fraction of sequences witht exact match in RBD/NTD regions)
         CocktailName = f"{TGM}-{len(cocktail_array)}"
         for cx,c,x in [("Global","Global","")] + ConExclude:
-            cnt = continent_cnt[cx]
+            cnt = all_cont_cnt[cx]  ## not continent_cnt[cx]
             tot = sum(cnt.values())
             cov = sum(cnt[v] for v in cocktail_array)
             if tot>0:
