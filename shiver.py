@@ -28,8 +28,7 @@ of the sequencing has been from the UK.
 T_STRATEGY='''This run uses the T=taketurns strategy for identifying further
 variants.  Each continent, in turn, chooses the next variant, based on
 which is the most common variant in that continent that has not
-already been chosen.  The order of the continents is: UK,
-Eu-without-UK, N-America, Asia, Africa, S-America, and Oceania -- this
+already been chosen.  The order of the continents 
 is based on number of samples available in those continents.  '''
 
 G_STRATEGY='''This run uses the G=globalonly strategy for identifying further
@@ -88,6 +87,13 @@ def getargs():
     args = ap.parse_args()
     return args
 
+def print_sequence_counts_by_continent(Continents,counts):
+    maxlen = max(len(cx) for cx,_,_ in Continents)
+    fmt = "%%-%ds" % maxlen
+    print("  #Seqs Continent") #fmt % ("Continent",),"#Seqs")
+    for cx,_,_ in [("Global","Global","")] + Continents:
+        print("%7d %s" % (sum(counts[cx].values()),cx))
+
 def main(args):
 
     STRATEGIES = { "T": "Taketurns", "G": "Globalonly", "M": "Mostimproved" }
@@ -98,9 +104,9 @@ def main(args):
     allfullseqs = covid.read_seqfile(args)
     allfullseqs = covid.filter_seqs_by_date(allfullseqs,args)
     allfullseqs = covid.fix_seqs(allfullseqs,args)
-    
+    vprint("Read",len(allfullseqs),"sequences")
     fullseqs = covid.filter_seqs_by_pattern(allfullseqs,args)
-    vprint("Read",len(fullseqs),"sequences")
+    vprint("Read",len(fullseqs),"sequences after filtering")
     firstseq = fullseqs[0].seq
 
     ## patt seqs is a copy of full seqs,
@@ -121,6 +127,7 @@ def main(args):
 
     firstpatt = pattseqs[0].seq
     pattseqs = pattseqs[1:]
+    allpattseqs = allpattseqs[1:]
 
     global_cnt = Counter(s.seq for s in pattseqs)
     all_global_cnt = Counter(s.seq for s in allpattseqs)
@@ -155,8 +162,8 @@ def main(args):
     def conex_sortkey(cxcx):
         cx,_,_ = cxcx
         return sum(continent_cnt[cx].values())
-    ConExclude = sorted(ConExclude, key=conex_sortkey, reverse=True)        
-            
+    ConExclude = sorted(ConExclude, key=conex_sortkey, reverse=True)
+
     vprint("                Continent   #Seqs [Coverage in first five patterns  ]")
     for cx,cnt in continent_cnt.items():
         total = sum(cnt.values()) ## same as len(cseqs)
@@ -359,9 +366,11 @@ def main(args):
     if TGM == "M": print(M_STRATEGY)
 
     print()
-    print("This run uses",len(fullseqs),"sequences")
-    print("Sampled from %s to %s." \
-          % sequtil.range_of_dates(fullseqs))
+    print("This run uses sequences sampled from %s to %s." \
+          % sequtil.range_of_dates(pattseqs))
+    print("The number of sequences, broken out by continent is:")
+    print_sequence_counts_by_continent(ConExclude,continent_cnt)
+            
     print("Note: the focus here is specifically on the region:",args.region)
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
@@ -396,18 +405,21 @@ def main(args):
                 yield "%25s %-4s   %.4f" % (cx,CocktailName,f)
 
 
-    COVERAGETABLE = f'''
+    print("\nNote: coverage plot below is based on possibly larger sequence set:")
+    print_sequence_counts_by_continent(ConExclude,all_cont_cnt)                
 
+    COVERAGETABLE = f'''
 Table of Coverages
 
 In table below, {TGM}-n refers to a batch of the first n variants.
 Coverage is defined as fraction of sequences in the continent with an 
 exact match (over the RBD/NTD regions) to one of the first n variants.
 (Here, '{TGM}' corresponds to the {STRATEGIES[TGM]} strategy.)
-
+The coverage table is based on {len(allpattseqs)} sequences.
 '''
 
     print(COVERAGETABLE)
+
     print("%25s %-4s %s" % ("Continent","Name","Coverage"))
     for n in range(1,len(cocktail)+1,7):
         print()
