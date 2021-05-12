@@ -31,21 +31,22 @@ def main(args):
     skipIntro=True ## Skip ahead until "Table of Coverages"
     with open(args.input) as f:
         for line in f:
-            vvprint("line=",line.strip())
-            if line.strip() == "Table of Coverages":
-                ## just keep skipping until we get to Table of Variants
+            line = line.strip()
+            vvprint("line=",line)
+            if line == "Table of Coverages":
+                ## just keep skipping until we get to Table of Coverages
                 vvprint("OK: START READING NOW")
                 skipIntro=False
             if skipIntro:
                 continue
             
             try:
-                ## Relevant lines are of the form: Continent vacc-name fraction (possibly multiple values, only use first)
-                cont,vacc,*flist = line.strip().split()
-                fo = flist[0]
+                ## Relevant lines are of the form: Continent vacc-name fraction
+                cont,vacc,*flist = line.split()
+                fo = float( flist[0] )
                 cont = re.sub("-w/o.*","",cont)
                 cont = re.sub("-"," ",cont)
-                lines.append((cont,vacc,float(fo)))
+                lines.append((cont,vacc,fo))
             except:
                 pass
 
