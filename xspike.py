@@ -39,14 +39,12 @@ def getargs():
         help="make plots")
     paa("--writeplot",
         help="Write plots to file (instead of showing them on screen)")
-    paa("--stripdashcols",action="store_true",
-        help="Strip dashes from master, and align rest, saving to specified file")
     paa("--restrictsites",
         help="Consider only these sites (RBD, NTD, NTD+RBD, or comma-separated list)")
     paa("--nomutlist",action="store_true",
         help="Dont make mutant list at end of lines")
-    paa("--nopairs",action="store_true",
-        help="do not look for pairwise correlations")
+    paa("--pairs",action="store_true",
+        help="analyze pairwise correlations")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -271,7 +269,7 @@ def main(args):
         print("%6s %7.4f" % (mutname[e],E[e-1]))
 
     #### PAIRWISE ANALYSIS
-    if not args.nopairs:
+    if args.pairs:
         pairwise(args,esites,charsatsite,mutname,title=title)
 
 
@@ -314,7 +312,9 @@ def main(args):
     master =  "".join(firstseq[n-1] for n in esites)
     print(master," Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
-          " Local  Exact  Pct [Context]")
+          " Local",
+          " Exact  Pct [Context]" if not args.nomutlist else "")
+
     ## Totals do not include sequences with X at any of the high-entropy sites
     print(" "*len(master),"%7d" % sum(cont_cnt['Global'].values()),
           " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx]),
