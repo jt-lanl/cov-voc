@@ -82,7 +82,8 @@ GSM = Global Sequence Matches = # of seqs that match over whole Spike protein
 
 
 import sys
-from collections import Counter
+import re
+from collections import Counter,namedtuple
 import numpy as np
 import datetime
 import argparse
@@ -90,6 +91,7 @@ import argparse
 import readseq
 import sequtil
 import intlist
+import mutant
 import covid
 
 
@@ -105,17 +107,27 @@ def getargs():
         help="how to pick variants: (T)aketurns, (M)ostimproved, (G)lobalonly")
     paa("--region",default="NTD-18+RBD",
         help="region of spike sequence over which patterns are defined")
+    paa("--colormut",
+        help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     return args
 
-def print_sequence_counts_by_continent(Continents,counts):
+def print_sequence_counts_by_continent2(Continents,counts):
+    '''as a nicely formatted table'''
     maxlen = max(len(cx) for cx,_,_ in Continents)
     fmt = "%%-%ds" % maxlen
     print("  #Seqs Continent") #fmt % ("Continent",),"#Seqs")
     for cx,_,_ in [("Global","Global","")] + Continents:
         print("%7d %s" % (sum(counts[cx].values()),cx))
+
+def print_sequence_counts_by_continent(Continents,counts):
+    ''' as just a list, that can be part of a paragraph '''
+    print("Total: %d" % sum(counts["Global"].values()),end="")
+    for cx,_,_ in Continents:
+        print(", %s: %d" % (cx,sum(counts[cx].values())),end="")
+    print(".")
 
 def main(args):
 
@@ -340,6 +352,25 @@ def main(args):
     ## OK, now that we have our cocktail, can we expand to what the full
     ## spike sequences would be
 
+    ## But first lets build a way to map mutation patterns to lineage names 
+    NamedPattern = namedtuple('NamedPattern',['name','pattern'])
+    lineages = []
+    if args.colormut:
+        with open(args.colormut) as f:
+            for line in f:
+                line = re.sub("#.*","",line).strip()
+                if not line:
+                    #ignore empty and commented-out lines
+                    continue
+                ## Match: Color [Mutation]! Name, with "!" optional and Name optional
+                m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
+                if not m:
+                    warnings.warn(f"No match: {line}")
+                    continue
+                mpattern = mutant.Mutation(m[2]).pattern(firstseq,exact=bool(m[3]))                
+                lineages.append( NamedPattern(name=m[4],pattern=mpattern) )
+                vvprint(mpattern,m[4])
+
     variant_table = dict()
     cocktail_fasta = []
     vo = cocktail[0]
@@ -364,15 +395,23 @@ def main(args):
                                         returnstring=True,badchar="X")
         vvprint(v,mutliststr)
 
+        ## convert mutliststr into lineage name if available/appropriate
+        mut_shortname=""
+        for lineage in lineages:
+            if re.match(lineage.pattern,v_fullseq):
+                mut_shortname = lineage.name
+                break ## match first available
+
         v_fullseq_name = name
         
-        variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %s" % (
+        variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %10s %s" % (
             srseq[v],
             name,
             continent_cnt[c][v],
             global_cnt[v],
             vcnt[v_fullseq],
             100*vcnt[v_fullseq]/global_cnt[v],
+            mut_shortname,
             mutliststr,
         )
         cocktail_fasta.append(
@@ -398,13 +437,14 @@ def main(args):
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
     print(TABLE_VARIANTS)        
-    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations]"
+    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM %10s [Mutations]" % ("Lineage" if args.colormut else "*")
     for line in vertlines[:-1]:
         print(line)
     print(vertlines[-1],TabVar_Heading)
     for v in variant_table:
         print(variant_table[v])
-        
+    if not args.colormut:
+        print("\n* Note: lineages not available with this run")
 
     if args.output:
         fname = args.output
