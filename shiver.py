@@ -252,7 +252,8 @@ def main(args):
     def make_name(c):
         n = len(cocktail)
         nc = sum(1 for cname in cockname if c in cname)
-        return "%d-%s-%d" % (n,c,nc+1)
+        cc = "Local" if c=="Global" and args.filterbyname else c
+        return "%d-%s-%d" % (n,cc,nc+1)
     
     def alt_get_next_variant():
         candidates = []
@@ -430,10 +431,14 @@ def main(args):
     print()
     print("This run uses sequences sampled from %s to %s." \
           % sequtil.range_of_dates(pattseqs))
+    if args.filterbyname:
+        print("Filtered by geographic region(s):","+".join(args.filterbyname))
+    if args.xfilterbyname:
+        print("Excluding geographic region(s):","+".join(args.xfilterbyname))
     print("The number of sequences, broken out by continent is:")
     print_sequence_counts_by_continent(ConExclude,continent_cnt)
             
-    print("Note: the focus here is specifically on the region:",args.region)
+    print("Note: the focus here is specifically on the epitope region:",args.region)
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
     print(TABLE_VARIANTS)        
