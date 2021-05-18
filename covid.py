@@ -242,22 +242,23 @@ def filter_seqs_by_pattern(seqs,args):
         for name in args.filterbyname:
             patt,wo,xpatt = name.partition("-w/o-")
             if name == "Global":
-                fseqs = seqs
+                fseqs = seqs[1:]
             else:
-                fseqs = sequtil.filter_by_pattern(seqs,patt,keepfirst=True)
+                ## nb, the r"\."+ means names have to be preceeded by a dot
+                fseqs = sequtil.filter_by_pattern(seqs[1:],r"\."+patt,keepfirst=False)
             vprint(len(fseqs),"sequences fit pattern:",patt)
             if xpatt:
-                fseqs = sequtil.filter_by_pattern_exclude(fseqs,xpatt,keepfirst=True)
+                fseqs = sequtil.filter_by_pattern_exclude(fseqs,r"\."+xpatt,keepfirst=False)
                 vprint(len(fseqs),"sequences after removing x-pattern:",xpatt)
             allseq_names = set(s.name for s in allseqs)
             allseqs.extend(s for s in fseqs if s.name not in allseq_names)
         seqs = allseqs
-        vprint(len(seqs),"sequences fit pattern","+".join(args.filterbyname))
+        vprint(len(seqs),"sequences fit pattern","+".join(args.filterbyname)) ## includes refseq
             
 
     if args.xfilterbyname:
         for name in args.xfilterbyname:
-            seqs = sequtil.filter_by_pattern_exclude(seqs,name,keepfirst=True)
+            seqs = sequtil.filter_by_pattern_exclude(seqs,r"\."+name,keepfirst=True)
             vprint(len(seqs),"sequences after removing x-pattern:",name)
 
     return seqs
