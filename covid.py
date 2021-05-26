@@ -12,6 +12,7 @@ import sequtil
 import intlist
 
 DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210101-20210504.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210519.fasta.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -29,6 +30,8 @@ def corona_args(ap):
         help="range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
         help="Consider date range of DAYS days ending on the last sampled date")
+    paa("--fixsiteseventy",action="store_true",
+        help="Sites 68-70 should be I--, not -I- or --I")
 
     return
 
@@ -101,13 +104,14 @@ the_variant = {
     'UG': UGvariant,
     }
 
-def fixsiteseventy(seqs):
+def fixsiteseventy(seqs,args):
     count=0
     for s in seqs:
         if s.seq[67:70] == "--I" or s.seq[67:70] == "-I-":
             count += 1
             s.seq = s.seq[:67] + "I--" + s.seq[70:]
-            print("fix70: ",s.name,file=sys.stderr)
+            if args.verbose > 1:
+                print("fix70: ",s.name,file=sys.stderr)
     return count
 
 site_specifications = {
@@ -199,9 +203,10 @@ def fix_seqs(seqs,args):
         warnings.warn("Stripping sites with dashes in first sequence")
         sequtil.stripdashcols(firstseq,seqs)
 
-    if 0: #args.fixsiteseventy:
-        fixes = fixsiteseventy(seqs)
-        print("Fixed sites 68-70 for",fixes,"sequences")
+    if args.fixsiteseventy:
+        fixes = fixsiteseventy(seqs,args)
+        if fixes>0:
+            print("Fixed sites 68-70 for",fixes,"sequences")
 
     return seqs
     
