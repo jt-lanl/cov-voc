@@ -274,7 +274,7 @@ def main(args):
 
 
     #### COMMON PATTERNS
-    print("\nMost common patterns for:",title)
+    print("\nMost common patterns for local area, where Local =",title)
     esites = np.sort(esites)
     for lines in intlist.write_numbers_vertically(esites,plusone=0):
         print(lines)
