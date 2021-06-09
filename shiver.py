@@ -83,7 +83,7 @@ GSM = Global Sequence Matches = # of seqs that match over whole Spike protein
 
 import sys
 import re
-from collections import Counter,namedtuple
+from collections import Counter
 import numpy as np
 import datetime
 import argparse
@@ -353,24 +353,8 @@ def main(args):
     ## OK, now that we have our cocktail, can we expand to what the full
     ## spike sequences would be
 
-    ## But first lets build a way to map mutation patterns to lineage names 
-    NamedPattern = namedtuple('NamedPattern',['name','pattern'])
-    lineages = []
-    if args.colormut:
-        with open(args.colormut) as f:
-            for line in f:
-                line = re.sub("#.*","",line).strip()
-                if not line:
-                    #ignore empty and commented-out lines
-                    continue
-                ## Match: Color [Mutation]! Name, with "!" optional and Name optional
-                m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
-                if not m:
-                    warnings.warn(f"No match: {line}")
-                    continue
-                mpattern = mutant.Mutation(m[2]).pattern(firstseq,exact=bool(m[3]))                
-                lineages.append( NamedPattern(name=m[4],pattern=mpattern) )
-                vvprint(mpattern,m[4])
+    ## But first lets build a way to map mutation patterns to lineage names
+    lineages = covid.init_lineages(args.colormut,firstseq)
 
     variant_table = dict()
     cocktail_fasta = []
@@ -397,11 +381,7 @@ def main(args):
         vvprint(v,mutliststr)
 
         ## convert mutliststr into lineage name if available/appropriate
-        mut_shortname=""
-        for lineage in lineages:
-            if re.match(lineage.pattern,v_fullseq):
-                mut_shortname = lineage.name
-                break ## match first available
+        mut_shortname= covid.match_lineages(lineages,v_fullseq)
 
         v_fullseq_name = name
         

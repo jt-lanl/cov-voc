@@ -4,15 +4,15 @@ import sys
 import re
 import datetime
 from pathlib import Path
-from collections import Counter
+from collections import Counter,namedtuple
 import warnings
 
 import readseq
 import sequtil
 import intlist
+import mutant
 
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210101-20210504.fasta.gz"
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210519.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210608.fasta.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -267,7 +267,37 @@ def filter_seqs_by_pattern(seqs,args):
             vprint(len(seqs),"sequences after removing x-pattern:",name)
 
     return seqs
-    
+
+
+def init_lineages(filename,firstseq):
+    NamedPattern = namedtuple('NamedPattern',['name','pattern'])
+    lineages = []
+    if not filename:
+        return lineages
+    with open(filename) as f:
+        for line in f:
+            line = re.sub("#.*","",line).strip()
+            if not line:
+                #ignore empty and commented-out lines
+                continue
+            ## Match: Color [Mutation]! Name, with "!" optional and Name optional
+            m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
+            if not m:
+                warnings.warn(f"No match: {line}")
+                continue
+            mpattern = mutant.Mutation(m[2]).pattern(firstseq,exact=bool(m[3]))                
+            lineages.append( NamedPattern(name=m[4],pattern=mpattern) )
+    return lineages
+
+def match_lineages(lineages,fullseq):
+    lineage_name=""
+    for lineage in lineages:
+        if re.match(lineage.pattern,fullseq):
+            lineage_name = lineage.name
+            break ## match first available
+    return lineage_name
+            
+
 
 SARS_REGIONS = '''
 SP     1   13
