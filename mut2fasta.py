@@ -15,10 +15,10 @@ import mutant
 def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
     paa = ap.add_argument
-    paa("--reference","-r",required=True,
-        help="input fasta file with reference sequence (eg Wuhan form)")
-    paa("--includeref",action="store_true",
-        help="include reference sequence in fasta output file")
+    paa("--input","-i",
+        help="input fasta file with reference sequence first")
+    paa("--skiperef",action="store_true",
+        help="do not include reference sequence in fasta output file")
     paa("--mutstrings","-m",nargs='+',
         help="one or more strings of the form '[L5F,...,Q957R]'")
     paa("--mutfile",
