@@ -43,6 +43,8 @@ def getargs():
         help="Consider only these sites (RBD, NTD, NTD+RBD, or comma-separated list)")
     paa("--nomutlist",action="store_true",
         help="Dont make mutant list at end of lines")
+    paa("--colormut",
+        help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
     paa("--pairs",action="store_true",
         help="analyze pairwise correlations")
     paa("--verbose","-v",action="count",default=0,
@@ -319,7 +321,11 @@ def main(args):
     print(" "*len(master),"%7d" % sum(cont_cnt['Global'].values()),
           " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx]),
           "%6d"% sum(cnt.values()),"<----------- Totals" ) ## Totals
+
+    lineages = covid.init_lineages(args.colormut,firstseq)
+    
     for p in patternlist:
+
         if args.keepx == False and "X" in p:
             continue
         if cnt[p] <  2: #max([args.cvthresh,min([200,N//5000])]):
@@ -338,7 +344,11 @@ def main(args):
             pcnt = Counter([s.seq for s in pfullseqs])
             pcommonseq,npcs = pcnt.most_common(1)[0]
             mutantstr = sequtil.mutantlist(firstseq,pcommonseq,returnstring=True)
-            print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr}")
+            lineage_name = covid.match_lineages(lineages,pcommonseq)
+            #print("p=",p)
+            #print("pcommon=",len(pcommonseq),pcommonseq)
+            print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr} {lineage_name}")
+        
         
 
 if __name__ == "__main__":
