@@ -45,15 +45,18 @@ class Mutation(list):
         return mergedmut.sort()
 
     def __init__(self,ssms=None):
-        if isinstance(ssms,list):
-            self.extend(ssms)
-        elif isinstance(ssms,str):
-            self.init_from_line(ssms)
-        elif isinstance(ssms,tuple):
-            self.init_from_sequences(*ssms)
-        else:
-            ## just initialize as empty list
-            pass
+        try:
+            if isinstance(ssms,list):
+                self.extend(ssms)
+            elif isinstance(ssms,str):
+                self.init_from_line(ssms)
+            elif isinstance(ssms,tuple):
+                self.init_from_sequences(*ssms)
+            else:
+                ## just initialize as empty list
+                pass
+        except:
+            raise RuntimeError(f"Unable to initialze with ssms={ssms}")
 
     def init_from_line(self,line):
         muts = line.strip().strip("[]")
