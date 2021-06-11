@@ -138,7 +138,7 @@ def main(args):
     for seq in c:
         for patt in mutants:
             if re.search(patt,seq):
-                vprint(seq,patt,relname(patt),c[seq])
+                vvprint(seq,patt,relname(patt),c[seq])
                 cpatt[patt] += c[seq]
                 #break
 
@@ -180,7 +180,7 @@ def main(args):
         for patt in mutants:
             if re.search(patt,s.seq):
                 if s.mutt:
-                    warnings.warn(f"seq: {s.seq} matches {s.mutt} AND {patt}")
+                    warnings.warn(f"{s.seq} matches\n{s.mutt} and\n{patt}")
                     continue
                 s.mutt = patt
                 #break
@@ -195,33 +195,33 @@ def main(args):
         vprint(line,line)
     seq_nomat = []
     for seq in set(no_matches):
-        seq_nomat.append((seq,len([s for s in no_matches if s == seq])))
+        seq_nomat.append((seq,sum(1 for s in no_matches if s == seq)))
     for seq,nomat in sorted(seq_nomat,key=lambda x: -x[1])[:50]:
         vprint(seq,relname(seq),nomat)
 
-    nmutt = len([s for s in seqlist if s.mutt and s.date])
+    nmutt = sum(1 for s in seqlist if s.mutt and s.date)
     vprint("   mutt sequences:",nmutt)
     if nmutt==0:
-        raise RuntimeError("No sequences for pattern: " + args.filterbyname)
+        raise RuntimeError("No sequences for pattern: " + " ".join(args.filterbyname))
 
-    DG_datelist={m: [] for m in mutants}
+    DG_datecounter = {m: Counter() for m in mutants}
     for s in seqlist:
         if s.mutt and s.date:
-            DG_datelist[s.mutt].append(s.date)
-    for p in DG_datelist:
-        vprint(p,len(DG_datelist[p]))
+            DG_datecounter[s.mutt][s.date] += 1
+    for p in DG_datecounter:
+        vprint(p,sum(DG_datecounter[p].values()))
 
-    all_datelist=[]
-    for p in DG_datelist:
-        all_datelist.extend(DG_datelist[p])
-
-    onset = {m: min(DG_datelist[m]) for m in mutants if DG_datelist[m]}
+    onset = {m: min(DG_datecounter[m]) for m in mutants if DG_datecounter[m]}
     for m in onset:
         vprint("onset",m,onset[m])
         
-    vprint("Range of dates:",min(all_datelist),max(all_datelist))
-    ordmin = min(all_datelist).toordinal()
-    ordmax = max(all_datelist).toordinal()
+    all_dateset=set()
+    for p in DG_datecounter:
+        all_dateset.update(DG_datecounter[p])
+
+    vprint("Range of dates:",min(all_dateset),max(all_dateset))
+    ordmin = min(all_dateset).toordinal()
+    ordmax = max(all_dateset).toordinal()
 
     ordplotmin = ordmin
     ordplotmax = ordmax
@@ -237,12 +237,13 @@ def main(args):
     vprint("Days:",Ndays,ordmin,ordmax)
    
     DG_cum=dict()
-    for m in DG_datelist:
+    for m in DG_datecounter:
         DG_cum[m] = []
+        
     for ord in range(ordmin,ordmax+1):
         day = datetime.date.fromordinal(ord)
-        for m in DG_datelist:
-            DG_cum[m].append( len([dt for dt in DG_datelist[m] if dt <= day]) )
+        for m in DG_datecounter:
+            DG_cum[m].append( sum(DG_datecounter[m][dt] for dt in DG_datecounter[m] if dt <= day ) )
 
     if args.weekly or args.daily: ## Weekly averages:
         DAYSPERWEEK=7 if args.weekly else 1
@@ -295,8 +296,6 @@ def main(args):
             mr = relname(master)
         if mr == "other":
             mr = "." * len(master)
-            #mr = 'SLVYALKNLYESNATQP', #G beige
-            #mr = "......other......"
             #mr = "other            "
             #mr = ""
 
