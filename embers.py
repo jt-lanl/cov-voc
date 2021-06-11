@@ -151,11 +151,12 @@ def main(args):
         with open(args.ctable,"w") as fout:
             for line in intlist.write_numbers_vertically(sitelist):
                 print(line,file=fout)
-            print(master,namefmt % "Name","Counts",file=fout)
+            print(master,namefmt % "Name","Counts Percent",file=fout)
             for patt in mutants:
                 if patt == "other":
                     continue
-                print(relname(patt),mnames[patt],cpatt[patt],file=fout)
+                print("%s %s %6d  %5.2f%%" % (relname(patt),mnames[patt],
+                                             cpatt[patt],100*cpatt[patt]/Nsequences),file=fout)
 
     ## Add s.date and s.mutt attributes to each sequence
     x_count=0
@@ -199,6 +200,17 @@ def main(args):
     for seq,nomat in sorted(seq_nomat,key=lambda x: -x[1])[:50]:
         vprint(seq,relname(seq),nomat)
 
+    if args.ctable:
+        xctable = re.sub(r"(.*/)?([^/]+)",r"\1x-\2",args.ctable)
+        vprint("Missed sequences in file:",xctable)
+        with open(xctable,"w") as fout:
+            for line in intlist.write_numbers_vertically(sitelist):
+                print(line,file=fout)
+            print(seqlist[0].seq,"Counts Percent",file=fout)
+            for seq,nomat in sorted(seq_nomat,key=lambda x: -x[1])[:50]:
+                print("%s %6d  %5.2f%%" % (relname(seq),nomat,100*nomat/Nsequences),file=fout)
+                
+            
     nmutt = sum(1 for s in seqlist if s.mutt and s.date)
     vprint("   mutt sequences:",nmutt)
     if nmutt==0:
