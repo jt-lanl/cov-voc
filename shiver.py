@@ -381,19 +381,20 @@ def main(args):
         vvprint(v,mutliststr)
 
         ## convert mutliststr into lineage name if available/appropriate
-        mut_shortname= covid.match_lineages(lineages,v_fullseq)
+        mut_lineage = covid.match_lineages(lineages,v_fullseq)
+        mut_lineage = f"({mut_lineage})" if mut_lineage else ""
 
         v_fullseq_name = name
         
-        variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %10s %s" % (
+        variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %s %s" % (
             srseq[v],
             name,
             continent_cnt[c][v],
             global_cnt[v],
             vcnt[v_fullseq],
             100*vcnt[v_fullseq]/global_cnt[v],
-            mut_shortname,
             mutliststr,
+            mut_lineage,
         )
         cocktail_fasta.append(
             readseq.SequenceSample(v_fullseq_name,
@@ -422,14 +423,14 @@ def main(args):
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
     print(TABLE_VARIANTS)        
-    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM %10s [Mutations]" % ("Lineage" if args.colormut else "*")
+    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations] %s" % ("(Lineage)" if args.colormut else "")
     for line in vertlines[:-1]:
         print(line)
     print(vertlines[-1],TabVar_Heading)
     for v in variant_table:
         print(variant_table[v])
-    if not args.colormut:
-        print("\n* Note: lineages not available with this run")
+    #if not args.colormut:
+    #    print("\n* Note: lineages not available with this run")
 
     if args.output:
         fname = args.output
