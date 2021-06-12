@@ -12,7 +12,7 @@ import sequtil
 import intlist
 import mutant
 
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210608.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210609.fasta.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -285,7 +285,7 @@ def init_lineages(filename,firstseq):
             if not m:
                 warnings.warn(f"No match: {line}")
                 continue
-            mpattern = mutant.Mutation(m[2]).pattern(firstseq,exact=bool(m[3]))                
+            mpattern = mutant.Mutation(m[2]).regex_pattern(firstseq,exact=bool(m[3]))
             lineages.append( NamedPattern(name=m[4],pattern=mpattern) )
     return lineages
 
