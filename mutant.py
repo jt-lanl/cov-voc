@@ -4,7 +4,7 @@ where Mutation is a list of SingleSiteMutations.
 A SingleSiteMutation has three components:
   site = integer site at which mutation occurs
   ref  = character amino acid at that site in reference sequence
-  mut  = character amino acid at that site in mutated sequence
+  mut  = character amino acid at that site in mutated sequence ('.' == any, '!' == any but ref)
 '''
 
 import sys
@@ -87,7 +87,12 @@ class Mutation(list):
             for ssmb in self:
                 if ssma.site != ssmb.site:
                     continue
+                if ssma.ref != ssmb.ref:
+                    ## not only inconsistent, but one of then doesn't match refseq
+                    return((str(ssma),str(ssmb)))
                 if ssma.mut == "." or ssmb.mut == ".":
+                    continue
+                if ssma.mut == "!" or ssmb.mut == "!":
                     continue
                 if ssma.mut != ssmb.mut:
                     return((str(ssma),str(ssmb)))
@@ -108,7 +113,7 @@ class Mutation(list):
         return check
 
     def pattern(self,refseq,exact=False):
-        '''return pattern that can be used as regex to search for mutation'''
+        '''return pattern to describe mutation'''
         ## exact: needs to match refseq at all sites not in mutation
         ## otherwise: only needs to match at mutation sites
         pattern = list(refseq) if exact else list("." * len(refseq))
@@ -116,14 +121,28 @@ class Mutation(list):
             pattern[ssm.site-1] = ssm.mut
         return "".join(pattern)
     
+    def regex_pattern(self,refseq,exact=False):
+        '''return pattern that can be used as regex to search for mutation'''
+        ## exact: needs to match refseq at all sites not in mutation
+        ## otherwise: only needs to match at mutation sites
+        pattern = list(refseq) if exact else list("." * len(refseq))
+        for ssm in self:
+            if ssm.mut == "!":
+                pattern[ssm.site-1] = "[^"+ssm.ref+"]"
+            else:
+                pattern[ssm.site-1] = ssm.mut
+        return "".join(pattern)
+
     def mutate_sequence(self,refseq):
-        '''return squence that is mutated versino of refseq'''
+        '''return sequence that is mutated version of refseq'''
+        if any( ssm.mut == "!" for ssm in self ):
+            print("mutated sequence includes !'s",file=sys.stderr,flush=True)
         return self.pattern(refseq,exact=True)
 
     def __str__(self):
         return "[" + ",".join(str(ssm) for ssm in self) + "]"
         
-
+## TO-DO: an out-of-class function to read a file with mutations (also: colors, names?)
 
 if __name__ == "__main__":
 

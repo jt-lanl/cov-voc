@@ -84,6 +84,15 @@ def reltoabsname(master,mutant,dittochar='_'):
         s += a if b==dittochar else b
     return s
 
+def get_regex_mutant(master,mutant):
+    r=""
+    for a,b in zip(master,mutant):
+        if b == "!":
+            r += "[^"+a+"]"
+        else:
+            r += b
+    return r
+
 def main(args):
 
     seqlist = covid.read_seqfile(args)
@@ -96,7 +105,7 @@ def main(args):
         warnings.warn("Default color-mutation list may be out of date")
         svar.init_from_defaults()
         
-    mutants = svar.mutants
+    mutants = svar.mutants  ## better if these were mutant class instances instead of mutant pattern strings??
     master = svar.master
     colors = svar.colors
     sitelist = svar.sites
@@ -104,6 +113,8 @@ def main(args):
     colors[0]  = '#eeeeee' ## very-light gray
     colors[-1] = '#dddddd' ## light gray
 
+    regex_mutants = [get_regex_mutant(master,m) for m in mutants]
+    
     if len(mutants) != len(colors):
         print(len(mutants),"mutants")
         print(len(colors),"colors")
@@ -136,8 +147,8 @@ def main(args):
     ## How many of each mutant
     cpatt = Counter()
     for seq in c:
-        for patt in mutants:
-            if re.search(patt,seq):
+        for patt,rpatt in zip(mutants,regex_mutants):
+            if re.search(rpatt,seq):
                 vvprint(seq,patt,relname(patt),c[seq])
                 cpatt[patt] += c[seq]
                 #break
@@ -178,10 +189,10 @@ def main(args):
             s.date = s.mutt = None
             continue
         s.mutt = None
-        for patt in mutants:
-            if re.search(patt,s.seq):
+        for patt,rpatt in zip(mutants,regex_mutants):
+            if re.search(rpatt,s.seq):
                 if s.mutt:
-                    warnings.warn(f"{s.seq} matches\n{s.mutt} and\n{patt}")
+                    warnings.warn(f"\n{s.seq} matches\n{relname(s.mutt)} and\n{relname(patt)} with regex\n{rpatt}")
                     continue
                 s.mutt = patt
                 #break
@@ -286,6 +297,9 @@ def main(args):
         plt.figure(figsize=(6,3))
     else:
         plt.figure(figsize=(12,1+len(mutants)/4.5))
+
+    bigLegend=False
+        
     title = covid.get_title(args)
     title = title + ": %d sequences" % (Nsequences,)
     plt.title(title,fontsize='x-large')
@@ -296,11 +310,13 @@ def main(args):
         DG_bottom_current = [x+y for x,y in zip(DG_bottom_current,DG_cum[m])]
 
     ## plot a dummy level to get it into the legend as a title
+    dummylabel = " "*(maxnamelen+2)
+    if bigLegend:
+        dummylabel += master
     plt.bar(range(Ndays),[0]*Ndays,width=1,
-            label=" "*(maxnamelen+2) + master,color="white")
+            label=dummylabel,color="white")
+    
     for m in  mutants[::-1]:
-        #print(m,"Ndays=",Ndays,
-        #      "len(DG_cum[m])=",len(DG_cum[m]),len(DG_bottom[m]))
         mr = rmutants[m]
 
         ## various hacks
@@ -311,7 +327,9 @@ def main(args):
             #mr = "other            "
             #mr = ""
 
-        name = mnames[m] + " " + mr
+        name = mnames[m]
+        if bigLegend:
+            name += " " + mr
         name = " " + name ## hack! leading underscore doesn't make it to legend??
         if args.fraction:
             fm = [a/(b+0.001) for a,b in zip(DG_cum[m],DG_bottom_current)]
