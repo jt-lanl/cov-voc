@@ -4,7 +4,7 @@ XSPIKE: eXplore the SPIKE protein sequence in the SARS CoV-2 virus
 
 import sys
 import re
-from collections import Counter
+from collections import Counter,defaultdict
 import numpy as np
 import itertools as it
 import scipy.stats as sst
@@ -25,6 +25,8 @@ def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
     covid.corona_args(ap)
     paa = ap.add_argument
+    paa("--pairs",action="store_true",
+        help="analyze pairwise correlations")
     paa("--allsites",
         help="write fasta file with patterns involving /all/ sites")
     paa("--addsites",
@@ -33,7 +35,9 @@ def getargs():
         help="Number of highest-entropy sites to use")
     paa("--keepx",action="store_true",
         help="Keep sequences that have X's in them")
-    paa("--cvthresh",type=int,default=3,
+    paa("--thresh",type=int,default=2,
+        help="Only include patterns that appear at least this many times")
+    paa("--cvthresh",type=int,default=3, ## should maybe just be hardcoded
         help="Require this many sequences for each site in the pairwise correlation")
     paa("--plot",action="store_true",
         help="make plots")
@@ -45,8 +49,6 @@ def getargs():
         help="Dont make mutant list at end of lines")
     paa("--colormut",
         help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
-    paa("--pairs",action="store_true",
-        help="analyze pairwise correlations")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -323,12 +325,17 @@ def main(args):
           "%6d"% sum(cnt.values()),"<----------- Totals" ) ## Totals
 
     lineages = covid.init_lineages(args.colormut,firstseq)
-    
+
+    ## dict indexes list of full sequences based on pattseq
+    pattseqdict=defaultdict(list)
+    for ps,s in zip(pattseqs,seqs):
+        pattseqdict[ps.seq].append(s)
+
     for p in patternlist:
 
         if args.keepx == False and "X" in p:
             continue
-        if cnt[p] <  2: #max([args.cvthresh,min([200,N//5000])]):
+        if cnt[p] <  args.thresh:
             break
         print("%s %7d " % (sequtil.relativename(master,p),
                                cont_cnt["Global"][p]),end="")
@@ -339,14 +346,10 @@ def main(args):
         if args.nomutlist:
             print()
         else:
-            pseqnames = set(s.name for s in pattseqs if s.seq == p)
-            pfullseqs = [s for s in seqs if s.name in pseqnames]
-            pcnt = Counter([s.seq for s in pfullseqs])
+            pcnt = Counter(s.seq for s in pattseqdict[p]) ## count full seq's consistent with pattern p
             pcommonseq,npcs = pcnt.most_common(1)[0]
             mutantstr = sequtil.mutantlist(firstseq,pcommonseq,returnstring=True)
             lineage_name = covid.match_lineages(lineages,pcommonseq)
-            #print("p=",p)
-            #print("pcommon=",len(pcommonseq),pcommonseq)
             print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr} {lineage_name}")
         
         
