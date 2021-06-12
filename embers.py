@@ -24,8 +24,8 @@ def getargs():
     covid.corona_args(ap)
     paa("--keepx",action="store_true",
         help="Keep sequences with X in the pattern")
-    paa("--fraction",action="store_true",
-        help="Plot fractional instead of numerical values")
+    #paa("--fraction",action="store_true",
+    #    help="Plot fractional instead of numerical values")
     paa("--weekly",action="store_true",
         help="Make weekly average plots instead of cumulative")
     paa("--daily",action="store_true",
@@ -288,100 +288,106 @@ def main(args):
             DG_cum[m] = ztmp
         ordmin = ordplotmin
         Ndays = ordplotmax+1-ordmin
-   
-    #for m in DG_cum:
-    #    plt.plot(DG_cum[m],label=m)
-    #plt.legend()
 
-    if args.nolegend:
-        plt.figure(figsize=(6,3))
-    else:
-        plt.figure(figsize=(12,1+len(mutants)/4.5))
+    def makeplot(DG_cum,bigLegend=False,fraction=False):
 
-    bigLegend=False
+        mutants = list(DG_cum)
         
-    title = covid.get_title(args)
-    title = title + ": %d sequences" % (Nsequences,)
-    plt.title(title,fontsize='x-large')
-    DG_bottom = dict()
-    DG_bottom_current = [0] * len(DG_cum[mutants[0]])
-    for m in mutants:
-        DG_bottom[m] = DG_bottom_current
-        DG_bottom_current = [x+y for x,y in zip(DG_bottom_current,DG_cum[m])]
-
-    ## plot a dummy level to get it into the legend as a title
-    dummylabel = " "*(maxnamelen+2)
-    if bigLegend:
-        dummylabel += master
-    plt.bar(range(Ndays),[0]*Ndays,width=1,
-            label=dummylabel,color="white")
-    
-    for m in  mutants[::-1]:
-        mr = rmutants[m]
-
-        ## various hacks
-        if mr == master:
-            mr = relname(master)
-        if mr == "other":
-            mr = "." * len(master)
-            #mr = "other            "
-            #mr = ""
-
-        name = mnames[m]
-        if bigLegend:
-            name += " " + mr
-        name = " " + name ## hack! leading underscore doesn't make it to legend??
-        if args.fraction:
-            fm = [a/(b+0.001) for a,b in zip(DG_cum[m],DG_bottom_current)]
-            bm = [a/(b+0.001) for a,b in zip(DG_bottom[m],DG_bottom_current)]
-            plt.bar(range(Ndays),fm,width=1,bottom=bm,
-                    label=name, color=mcolors[m])
+        if args.nolegend:
+            plt.figure(figsize=(6,3))
         else:
-            vprint("m,mr,mc:",m,mr,mcolors[m])
-            plt.bar(range(Ndays),DG_cum[m],width=1,bottom=DG_bottom[m],
-                    label=name, color=mcolors[m])
+            plt.figure(figsize=(12,1+len(mutants)/4.5))
 
-    if args.fraction:
-        plt.ylim([0,1.05])
+        title = covid.get_title(args)
+        title = title + ": %d sequences" % (Nsequences,)
+        plt.title(title,fontsize='x-large')
             
-    if not args.nolegend:
-        plt.legend(bbox_to_anchor=(1.02, 1),
-                   #handlelength=3,
-                   #markerfirst=False,
-                   frameon=False,
-                   handletextpad=0,
-                   labelspacing=0.45,
-                   loc='upper left', borderaxespad=0.,
-                   prop={'family' : 'monospace'})
+        DG_bottom = dict()
+        DG_bottom_current = [0] * len(DG_cum[mutants[0]])
+        for m in DG_cum:
+            DG_bottom[m] = DG_bottom_current
+            DG_bottom_current = [x+y for x,y in zip(DG_bottom_current,DG_cum[m])]
 
-        
-    plt.xlim(ordplotmin-ordmin-1,ordplotmax-ordmin+1)
-    xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
-    xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
-    xlabels = [date_friendly(dt) for dt in xlabels]
-    if len(xlabels) > 16:
-        xlabels = half_labels(xlabels)
-    plt.xticks(xticks,xlabels,fontsize='small',
-               rotation=45,ha='right',position=(0,0.01))
-    #plt.xlabel("Date (2020)")
+        ## plot a dummy level to get it into the legend as a title
+        dummylabel = " "*(maxnamelen+2)
+        if bigLegend:
+            dummylabel += master
+        plt.bar(range(Ndays),[0]*Ndays,width=1,  ## Ndays
+                label=dummylabel,color="white")
 
-    if args.onsets:
-        ylo,yhi = plt.gca().get_ylim()
-        for m in mutants:
-            if m not in onset:
-                continue
-            if m == "other":
-                continue
-            x = onset[m].toordinal() - ordmin
-            kwargs=dict(lw=1,color=mcolors[m])
-            if not args.fraction:
-                kwargs['zorder']=0
-            plt.plot([x,x],[ylo,yhi],**kwargs)
+        for m in  mutants[::-1]:
+            mr = rmutants[m] ## rmutants
 
-    plt.tight_layout()
+            ## various hacks
+            if mr == master: ## master
+                mr = relname(master)
+            if mr == "other":
+                mr = "." * len(master)
+                #mr = "other            "
+                #mr = ""
+
+            name = mnames[m] ## mnames
+            if bigLegend:
+                name += " " + mr
+            name = " " + name ## hack! leading underscore doesn't make it to legend??
+            if fraction:
+                fm = [a/(b+0.001) for a,b in zip(DG_cum[m],DG_bottom_current)]
+                bm = [a/(b+0.001) for a,b in zip(DG_bottom[m],DG_bottom_current)]
+                plt.bar(range(Ndays),fm,width=1,bottom=bm,
+                        label=name, color=mcolors[m])
+            else:
+                vprint("m,mr,mc:",m,mr,mcolors[m])
+                plt.bar(range(Ndays),DG_cum[m],width=1,bottom=DG_bottom[m],
+                        label=name, color=mcolors[m])
+
+        if fraction:
+            plt.ylim([0,1.05])
+
+        if not args.nolegend:
+            plt.legend(bbox_to_anchor=(1.02, 1),
+                       #handlelength=3,
+                       #markerfirst=False,
+                       frameon=False,
+                       handletextpad=0,
+                       labelspacing=0.45,
+                       loc='upper left', borderaxespad=0.,
+                       prop={'family' : 'monospace'})
+
+
+        plt.xlim(ordplotmin-ordmin-1,ordplotmax-ordmin+1)
+        xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
+        xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
+        xlabels = [date_friendly(dt) for dt in xlabels]
+        if len(xlabels) > 16:
+            xlabels = half_labels(xlabels)
+        plt.xticks(xticks,xlabels,fontsize='small',
+                   rotation=45,ha='right',position=(0,0.01))
+        #plt.xlabel("Date (2020)")
+
+        if args.onsets:
+            ylo,yhi = plt.gca().get_ylim()
+            for m in mutants:
+                if m not in onset:
+                    continue
+                if m == "other":
+                    continue
+                x = onset[m].toordinal() - ordmin
+                kwargs=dict(lw=1,color=mcolors[m])
+                if not fraction:
+                    kwargs['zorder']=0
+                plt.plot([x,x],[ylo,yhi],**kwargs)
+
+        plt.tight_layout()
+
+    makeplot(DG_cum,fraction=True)
     if args.output:
-        plt.savefig(args.output)
-    else:
+        plt.savefig("f-wk-"+ args.output)
+
+    makeplot(DG_cum,fraction=False)
+    if args.output:
+        plt.savefig("c-wk-"+ args.output)
+        
+    if not args.output:
         plt.show()
 
 if __name__ == "__main__":
