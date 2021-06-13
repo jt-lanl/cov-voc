@@ -331,6 +331,7 @@ def main(args):
                 label=dummylabel,color="white")
 
         #for m in  mutants[::-1]:
+        name_color_sofar = set()
         for v in vocs[::-1]:
             m = v.pattern
             mr = rmutants[m] ## rmutants
@@ -347,15 +348,22 @@ def main(args):
             if bigLegend:
                 name += " " + mr
             name = " " + name ## hack! leading underscore doesn't make it to legend??
+
+            name_color = (name,mcolors[m])
+            if name_color in name_color_sofar:
+                kwargs = dict(color=mcolors[m])
+            else:
+                name_color_sofar.add(name_color)
+                kwargs = dict(label=name,color=mcolors[m])
+            
+            
             if fraction:
                 fm = [a/(b+0.001) for a,b in zip(DG_cum[m],DG_bottom_current)]
                 bm = [a/(b+0.001) for a,b in zip(DG_bottom[m],DG_bottom_current)]
-                plt.bar(range(Ndays),fm,width=1,bottom=bm,
-                        label=name, color=mcolors[m])
+                plt.bar(range(Ndays),fm,width=1,bottom=bm,**kwargs)
             else:
                 vprint("m,mr,mc:",m,mr,mcolors[m])
-                plt.bar(range(Ndays),DG_cum[m],width=1,bottom=DG_bottom[m],
-                        label=name, color=mcolors[m])
+                plt.bar(range(Ndays),DG_cum[m],width=1,bottom=DG_bottom[m],**kwargs)
 
         if fraction:
             plt.ylim([0,1.05])
