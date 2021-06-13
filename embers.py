@@ -1,9 +1,12 @@
 import sys
 import re
-import datetime
 from collections import Counter
+import datetime
+
+import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pickle
+
 import warnings
 import argparse
 
@@ -14,7 +17,7 @@ import spikevariants
 import covid
 
 DESCRIPTION='''
-Stacked barplots of variant counts over time
+Stacked barplots (also, optionally, line-plots) of variant counts over time
 '''
 
 def getargs():
@@ -30,6 +33,8 @@ def getargs():
         help="Make weekly average plots instead of cumulative")
     paa("--daily",action="store_true",
         help="Make daily plots instead of cumulative")
+    paa("--lineplot",action="store_true",
+        help="Make log-linear line plot instead of linear stacked bar plot")
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
     paa("--nolegend",action="store_true",help="avoid putting legend on plot")
@@ -85,6 +90,7 @@ def reltoabsname(master,mutant,dittochar='_'):
     return s
 
 def get_regex_mutant(master,mutant):
+    raise RuntimeError("dont use this")
     r=""
     for a,b in zip(master,mutant):
         if b == "!":
@@ -95,31 +101,29 @@ def get_regex_mutant(master,mutant):
 
 def main(args):
 
-    seqlist = covid.read_seqfile(args)
-    seqlist = covid.filter_seqs(seqlist,args)
-
     svar = spikevariants.SpikeVariants()
     if args.colormut:
-        svar.init_from_colormut(args.colormut,seqlist[0].seq)
+        svar.init_from_colormut(args.colormut)
     else:
         warnings.warn("Default color-mutation list may be out of date")
         svar.init_from_defaults()
-        
-    mutants = svar.mutants  ## better if these were mutant class instances instead of mutant pattern strings??
+
+    ## Would we prefer array of svar's where each svar has mutant, color, name (also a regex_mutant)
+    ## Clearly master and sites would be separate arrays
+
+    svar.append_other() ## there's probably a better way!
+    
+    mutants = svar.mutants 
     master = svar.master
+    vocs = svar.vocs
     colors = svar.colors
     sitelist = svar.sites
     namelist = svar.names
     colors[0]  = '#eeeeee' ## very-light gray
     colors[-1] = '#dddddd' ## light gray
 
-    regex_mutants = [get_regex_mutant(master,m) for m in mutants]
-    
-    if len(mutants) != len(colors):
-        print(len(mutants),"mutants")
-        print(len(colors),"colors")
-        return
-    
+    print("master:",master)
+
     mcolors = {m:c for m,c in zip(mutants,colors)}
 
     maxnamelen = max(len(n) for n in namelist)
@@ -131,10 +135,17 @@ def main(args):
     
     rmutants = {mut: relname(mut) for mut in mutants}
 
+    ## mnames and rmutants could also be part of struct
+
     if args.verbose:
         for m in rmutants:
             vprint(m,rmutants[m])
 
+    print("ok, reading sequences now...",flush=True)
+    seqlist = covid.read_seqfile(args)
+    seqlist = covid.filter_seqs(seqlist,args)
+    print("ok, done reading now...",flush=True)
+    svar.checkmaster(seqlist[0].seq) ## ensure master agrees with first seqlist
     for s in seqlist:
         s.seq = "".join(s.seq[n-1] for n in sitelist)
         
@@ -142,28 +153,29 @@ def main(args):
         
     ## How many of each sequence
     c = Counter(s.seq for s in seqlist)
-    #print(c)
 
     ## How many of each mutant
     cpatt = Counter()
     for seq in c:
-        for patt,rpatt in zip(mutants,regex_mutants):
-            if re.search(rpatt,seq):
-                vvprint(seq,patt,relname(patt),c[seq])
-                cpatt[patt] += c[seq]
+        for voc in vocs:
+            if re.search(voc.re_pattern,seq):
+                vvprint(seq,voc.pattern,relname(voc.pattern),c[seq])
+                cpatt[voc.pattern] += c[seq]
                 #break
 
     ## make table of patterns and counts
     for line in intlist.write_numbers_vertically(sitelist):
         vprint(line,line)
-    for patt in mutants:
-        vprint(patt,relname(patt),cpatt[patt])
+    for voc in vocs:
+        p = voc.pattern
+        vprint(p, relname(p), cpatt[p])
     if args.ctable:
         with open(args.ctable,"w") as fout:
             for line in intlist.write_numbers_vertically(sitelist):
                 print(line,file=fout)
             print(master,namefmt % "Name","Counts Percent",file=fout)
-            for patt in mutants:
+            for voc in vocs:
+                patt = voc.pattern
                 if patt == "other":
                     continue
                 print("%s %s %6d  %5.2f%%" % (relname(patt),mnames[patt],
@@ -181,6 +193,7 @@ def main(args):
             x_count += 1
             s.date = s.mutt = None
             continue
+        ## a not-very-robust way to get the date
         tokens = s.name.split('.')
         try:
             s.date = date_fromiso(tokens[-2])
@@ -189,7 +202,9 @@ def main(args):
             s.date = s.mutt = None
             continue
         s.mutt = None
-        for patt,rpatt in zip(mutants,regex_mutants):
+        for voc in vocs:
+            patt = voc.pattern
+            rpatt = voc.re_pattern
             if re.search(rpatt,s.seq):
                 if s.mutt:
                     warnings.warn(f"\n{s.seq} matches\n{relname(s.mutt)} and\n{relname(patt)} with regex\n{rpatt}")
@@ -289,7 +304,7 @@ def main(args):
         ordmin = ordplotmin
         Ndays = ordplotmax+1-ordmin
 
-    def makeplot(DG_cum,bigLegend=False,fraction=False):
+    def stackedbarplot(DG_cum,bigLegend=False,fraction=False):
 
         mutants = list(DG_cum)
         
@@ -315,7 +330,9 @@ def main(args):
         plt.bar(range(Ndays),[0]*Ndays,width=1,  ## Ndays
                 label=dummylabel,color="white")
 
-        for m in  mutants[::-1]:
+        #for m in  mutants[::-1]:
+        for v in vocs[::-1]:
+            m = v.pattern
             mr = rmutants[m] ## rmutants
 
             ## various hacks
@@ -379,13 +396,126 @@ def main(args):
 
         plt.tight_layout()
 
-    makeplot(DG_cum,fraction=True)
-    if args.output:
-        plt.savefig("f-wk-"+ args.output)
+    def lineplot(DG_cum,fraction=True):
+        
+        if args.nolegend:
+            plt.figure(figsize=(6,3))
+        else:
+            plt.figure(figsize=(8,max([3,len(mutants)/4])))
+            #plt.figure(figsize=(12,1+len(mutants)/4.5))
+        title = covid.get_title(args)
+        title = title + ": %d sequences" % (Nsequences,)
+        plt.title(title,fontsize='x-large')
+        DG_bottom = dict()
+        DG_bottom_current = [0] * len(DG_cum[mutants[0]])
+        for m in mutants:
+            DG_bottom[m] = DG_bottom_current
+            DG_bottom_current = [x+y for x,y in zip(DG_bottom_current,DG_cum[m])]
 
-    makeplot(DG_cum,fraction=False)
-    if args.output:
-        plt.savefig("c-wk-"+ args.output)
+        ## plot a dummy level to get it into the legend as a title
+        #plt.bar(range(Ndays),[0]*Ndays,width=1,
+        #        label=" "*(maxnamelen+2) + master,color="white")
+        for m in  mutants[::-1]:
+            #print(m,"Ndays=",Ndays,
+            #      "len(DG_cum[m])=",len(DG_cum[m]),len(DG_bottom[m]))
+            mr = rmutants[m]
+
+            ## various hacks
+            if mr == master:
+                mr = relname(master)
+            if mr == "other":
+                mr = "." * len(master)
+                #mr = 'SLVYALKNLYESNATQP', #G beige
+                #mr = "......other......"
+                #mr = "other            "
+                #mr = ""
+
+            name = mnames[m]
+            #name = name + " " + mr
+            name = " " + name ## hack! leading underscore doesn't make it to legend??
+            plotkw = dict(lw=2, label=name, color=mcolors[m])
+            if fraction:
+                fm = [a/(b+0.001) for a,b in zip(DG_cum[m],DG_bottom_current)]
+                bm = [a/(b+0.001) for a,b in zip(DG_bottom[m],DG_bottom_current)]
+                dy = np.array(range(Ndays))
+                fm = np.array(fm)
+                dy = dy[fm>0]
+                fm = fm[fm>0]
+                plt.semilogy(dy,fm, **plotkw)
+            else:
+                vprint("m,mr,mc:",m,mr,mcolors[m])
+                plt.semilogy(range(Ndays),DG_cum[m], **plotkw)
+
+        #if args.fraction:
+        #    plt.ylim([0,1.05])
+
+        if not args.nolegend:
+            plt.legend(bbox_to_anchor=(1.02, 1),
+                       #handlelength=3,
+                       #markerfirst=False,
+                       frameon=False,
+                       handletextpad=0,
+                       labelspacing=0.45,
+                       loc='upper left', borderaxespad=0.,
+                       prop={'family' : 'monospace'})
+
+
+        plt.xlim(ordplotmin-ordmin-1,ordplotmax-ordmin+1)
+        xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
+        xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
+        xlabels = [date_friendly(dt) for dt in xlabels]
+        if len(xlabels) > 16:
+            xlabels = half_labels(xlabels)
+        plt.xticks(xticks,xlabels,fontsize='small',
+                   rotation=45,ha='right',position=(0,0.01))
+
+        if args.onsets:
+            ylo,yhi = plt.gca().get_ylim()
+            for m in mutants:
+                if m not in onset:
+                    continue
+                if m == "other":
+                    continue
+                x = onset[m].toordinal() - ordmin
+                if x == 0:
+                    continue
+                kwargs=dict(lw=1,color=mcolors[m])
+                if not fraction:
+                    kwargs['zorder']=0
+                plt.plot([x,x],[ylo,1],**kwargs)
+                plt.text(x,1 - 0.03*math.log(ylo),mnames[m],rotation='vertical',ha='center',size=6)
+                plt.ylim(bottom = ylo,
+                         top = (1/ylo)**(0.3))
+
+        if args.nolegend:
+            plt.subplots_adjust(bottom=0.15,right=0.95) ## hardcoded hack!
+        else:
+            #plt.subplots_adjust(bottom=0.15,right=0.8) ## still hardcoded!
+            plt.subplots_adjust(bottom=0.15,right=0.7) ## still hardcoded!
+
+        def ytickformat(x,pos):
+            vvprint("x,pos=",x,pos)
+            if x>1:
+                return ""
+            else:
+                return "%.1g" % x
+
+        #plt.gca().yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.1g'))
+        plt.gca().yaxis.set_major_formatter(mpl.ticker.FuncFormatter(ytickformat))
+
+    if args.lineplot:
+        lineplot(DG_cum)
+        if args.output:
+            plt.savefig("lin-" + args.output)
+
+    else:
+        stackedbarplot(DG_cum,fraction=True)
+        if args.output:
+            plt.savefig("f-wk-"+ args.output)
+
+        stackedbarplot(DG_cum,fraction=False)
+        if args.output:
+            plt.savefig("c-wk-"+ args.output)
         
     if not args.output:
         plt.show()
