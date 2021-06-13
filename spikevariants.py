@@ -1,4 +1,5 @@
 import re
+from collections import namedtuple
 import warnings
 
 import intlist
@@ -82,26 +83,56 @@ def get_colors():
 def get_names():
     return [mcn[2] for mcn in get_mutants_colors_names()]
 
+def get_regex_pattern(master,pattern):
+    ## warning, vaguely redundant with mutant.Mutation.regex_pattern()
+    ## bigger warning, returns a COMPILED regex
+    r=""
+    for a,b in zip(master,pattern):
+        if b == "!":
+            r += "[^"+a+"]"
+        else:
+            r += b
+    return re.compile(r)
+
+## VOC (variant of concern)
+VOC = namedtuple('VOC',['pattern','color','name','re_pattern'])
 
 class SpikeVariants():
-    def __init__(self, sites=None, master=None, mutants=None, colors=None, names=None):
+    def __init__(self, sites=None, master=None, vocs=None):
         self.sites = sites
         self.master = master
-        self.mutants = mutants
-        self.colors = colors
-        self.names = names
+        self.vocs = vocs
+
+    @property
+    def mutants(self):
+        return [v.pattern for v in self.vocs]
+
+    @property
+    def colors(self):
+        return [v.color for v in self.vocs]
+
+    @property
+    def names(self):
+        return [v.name for v in self.vocs]
 
     def init_from_defaults(self):
         self.sites = get_sites()
         self.master = get_master()
-        self.mutants = get_mutants()
-        self.colors = get_colors()
-        self.names = get_names()
+        patterns = get_mutants()
+        colors = get_colors()
+        names = get_names()
+        self.vocs = [VOC(p,c,n,get_regex_pattern(p))
+                     for p,c,n in zip(patterns,colors,names)]
+        for v in self.vocs:
+            v.re_pattern = get_regex_pattern(self.master,v.pattern)
         return self
 
         
-    def init_from_colormut(self,colormutfile,refseq,includeother=True):
+    def init_from_colormut(self,colormutfile,refseq=None):
 
+        ## note: strictly speaking, refseq isn't necessary
+        ## could infer from mutation list
+        
         mutants=[]
         colors=[]
         exact=[]
@@ -114,7 +145,7 @@ class SpikeVariants():
                     #ignore empty and commented-out lines
                     continue
 
-                ## Match: Color [Mutation]! Name, with "!" optional and Name optional
+                ## Match: Color [Mutation]! Name, with "!" optional 
                 m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
                 if not m:
                     warnings.warn(f"No match: {line}")
@@ -134,8 +165,21 @@ class SpikeVariants():
         ## union of sites that appear in all the different mutants
         sites=set()
         for mut in mutants:
-            sites.update(m.site for m in mut)
+            sites.update(ssm.site for ssm in mut)
         sites = list(sorted(sites))
+
+        if not refseq:
+            ## then make a pseudo-refseq, consistent with actual refseq
+            ## at all sites specified in all the mutations
+            ## and "x" everywhere else
+            refval = dict()
+            for mut in mutants:
+                for ssm in mut:
+                    refval[ssm.site] = ssm.ref
+            refseq = ["x"] * (max(sites)+1)
+            for n in sites:
+                refseq[n-1] = refval[n]
+            refseq = "".join(refseq)
 
         mutant_patterns = []
         for mut,xact in zip(mutants,exact):
@@ -145,26 +189,24 @@ class SpikeVariants():
             pattern = ''.join(full_pattern[n-1] for n in sites)
             mutant_patterns.append( pattern )
 
+                
         master = "".join(refseq[n-1] for n in sites)
-        mutant_patterns = [master] + mutant_patterns
-        colors = ["#eeeeee"] + colors
-        names = ["Ancestral"] + names
+
+        vocs = [ VOC(pattern,color,name,get_regex_pattern(master,pattern))
+                 for pattern,color,name in zip(mutant_patterns,colors,names) ]
+
+
+        vocs.insert(0, VOC(master,"#eeeeee","Ancestral",get_regex_pattern(master,master)))
 
         self.sites = sites
         self.master = master
-        self.mutants = mutant_patterns
-        self.colors = colors
-        self.names = names
+        self.vocs = vocs
         
-        if includeother:
-            self.append_other()
-            
         return self
 
     def append_other(self):
-        self.mutants.append("other")
-        self.colors.append("#000000")
-        self.names.append("other")
+        ## really don't like this function
+        self.vocs.append( VOC("other", "#000000", "other", re.compile("other") ) )
         return self
 
     def check(self):
@@ -175,6 +217,11 @@ class SpikeVariants():
                 assert( len(m) == L )
         assert( len(self.mutants) == len(self.colors) )
         assert( len(self.names) == len(self.colors) )
+
+    def checkmaster(self,refseq):
+        for n,s in enumerate(self.sites):
+            assert ( self.master[n] == refseq[s-1] )
+            
 
     def pprint(self,**kwxtra):
         print("\n".join( intlist.write_numbers_vertically(self.sites) ),**kwxtra)
