@@ -1,6 +1,6 @@
 import sys
 import re
-from collections import Counter
+from collections import Counter,defaultdict
 import datetime
 
 import numpy as np
@@ -77,13 +77,57 @@ def date_friendly(dt):
     dd = dt.strftime("%-d")
     return "%3s %2d" % (mmm, int(dd))
 
-def relativename(master,mutant,dittochar='_'):
+def date_from_seqname(sname):
+    ## a not-very-robust way to get the date
+    ## alternative would be to search for /d/d/d/d-/d/d-/d/d
+    tokens = sname.split('.')
+    try:
+        date = date_fromiso(tokens[-2])
+    except IndexError:
+        warnings.warn(f"No date found for: {sname}, tokens={tokens}")
+        date = None
+    return date
+
+def get_daterange(datecounter,argsdates):
+    ''' find range of dates, in ordinal numbers, based on:
+    datecounter[mutant][date] = count of mutants in date, and
+    argsdates is basically args.dates '''
+    
+    all_dateset=set()
+    for p in datecounter:
+        all_dateset.update(datecounter[p])
+
+    vprint("Range of dates:",min(all_dateset),max(all_dateset))
+    ordmin = min(all_dateset).toordinal()
+    ordmax = max(all_dateset).toordinal()
+
+    ordplotmin = ordmin
+    ordplotmax = ordmax
+    if argsdates and argsdates[0] and argsdates[0] != ".":
+        ordplotmin = date_fromiso(argsdates[0]).toordinal()
+    if argsdates and argsdates[1] and argsdates[1] != ".":
+        ordplotmax = date_fromiso(argsdates[1]).toordinal()
+
+    ordmin = min([ordmin,ordplotmin])
+    ordmax = max([ordmax,ordplotmax])
+
+    return ordmin, ordmax, ordplotmin, ordplotmax
+
+def filename_prepend(pre,file):
+    ## prepend a string to a file name; eg
+    ## "pre","file" -> "prefile", but also
+    ## "pre","dir/file" -> "dir/prefile"
+    if not file:
+        return file
+    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
+
+def relativepattern(master,mutant,dittochar='_'):
     s=""
     for a,b in zip(master,mutant):
         s += dittochar if a==b else b
     return s
 
-def reltoabsname(master,mutant,dittochar='_'):
+def reltoabspattern(master,mutant,dittochar='_'):
     s=""
     for a,b in zip(master,mutant):
         s += a if b==dittochar else b
@@ -101,6 +145,9 @@ def get_regex_mutant(master,mutant):
 
 def main(args):
 
+    OTHER="other"
+    OTHERCOLOR='#dddddd' 
+
     svar = spikevariants.SpikeVariants()
     if args.colormut:
         svar.init_from_colormut(args.colormut)
@@ -108,67 +155,71 @@ def main(args):
         warnings.warn("Default color-mutation list may be out of date")
         svar.init_from_defaults()
 
-    ## Would we prefer array of svar's where each svar has mutant, color, name (also a regex_mutant)
-    ## Clearly master and sites would be separate arrays
-
-    svar.append_other() ## there's probably a better way!
+    #svar.append_other() ## there's probably a better way!
+    #and "other" should be a variable OTHER that's maybe all spaces or something
     
-    mutants = svar.mutants 
     master = svar.master
-    vocs = svar.vocs
-    colors = svar.colors
     sitelist = svar.sites
-    namelist = svar.names
-    colors[0]  = '#eeeeee' ## very-light gray
-    colors[-1] = '#dddddd' ## light gray
+    vocs = svar.vocs
 
-    print("master:",master)
+    mutants = [v.pattern for v in vocs]
+    patterns = mutants + [OTHER]
+    
+    colors = [v.color for v in vocs] + [OTHERCOLOR]
+    mcolors = {m:c for m,c in zip(patterns,colors)}
 
-    mcolors = {m:c for m,c in zip(mutants,colors)}
-
+    namelist = [v.name for v in vocs] + [OTHER]
     maxnamelen = max(len(n) for n in namelist)
     namefmt = "%%-%ds" % maxnamelen
-    mnames =  {m: namefmt%n for m,n in zip(mutants,namelist)}
-
-    def relname(mut):
-        return relativename(master,mut,dittochar='_')
+    mnames =  {m: namefmt%n for m,n in zip(patterns,namelist)}
     
-    rmutants = {mut: relname(mut) for mut in mutants}
+    #colors[-1] = '#dddddd' ## light gray
 
-    ## mnames and rmutants could also be part of struct
+    def relpattern(mut):
+        if mut == OTHER:
+            return "." * len(master)
+        return relativepattern(master,mut,dittochar='_')
+    
+    rmutants = {p: relpattern(p) for p in patterns}
 
-    if args.verbose:
-        for m in rmutants:
-            vprint(m,rmutants[m])
-
-    print("ok, reading sequences now...",flush=True)
+    vprint("ok, reading sequences now...",end="")
     seqlist = covid.read_seqfile(args)
     seqlist = covid.filter_seqs(seqlist,args)
-    print("ok, done reading now...",flush=True)
     svar.checkmaster(seqlist[0].seq) ## ensure master agrees with first seqlist
     for s in seqlist:
         s.seq = "".join(s.seq[n-1] for n in sitelist)
-        
+
     Nsequences = len(seqlist)-1  ## -1 not to count the reference sequence
+
+    if not args.keepx:
+        seqlist = [s for s in seqlist if "X" not in s.seq]
+        vprint("Removed",Nsequences+1-len(seqlist),"sequences with X")
+        Nsequences = len(seqlist)-1        
         
     ## How many of each sequence
-    c = Counter(s.seq for s in seqlist)
+    c = Counter(s.seq for s in seqlist[1:])
 
     ## How many of each mutant
     cpatt = Counter()
+    xpatt = Counter()
     for seq in c:
-        for voc in vocs:
-            if re.search(voc.re_pattern,seq):
-                vvprint(seq,voc.pattern,relname(voc.pattern),c[seq])
-                cpatt[voc.pattern] += c[seq]
-                #break
 
-    ## make table of patterns and counts
-    for line in intlist.write_numbers_vertically(sitelist):
-        vprint(line,line)
-    for voc in vocs:
-        p = voc.pattern
-        vprint(p, relname(p), cpatt[p])
+        vocmatch = [voc for voc in vocs if voc.re_pattern.match(seq)]
+        for voc in vocmatch:
+            cpatt[voc.pattern] += c[seq]
+
+        ## Ideally just one match, if zero or more than one, then...
+        if len(vocmatch)==0:
+            xpatt[seq] = c[seq]
+        elif len(vocmatch)>1:
+            warn_msg = f"\n{seq} (count={c[seq]}) matches\n"
+            warn_msg += " and\n".join(f"{relpattern(v.pattern)}" for v in vocmatch)
+            warnings.warn(warn_msg)
+
+            
+    vprint("Unmatched sequences:",sum(xpatt.values()))
+
+    ## Write counts table to file
     if args.ctable:
         with open(args.ctable,"w") as fout:
             for line in intlist.write_numbers_vertically(sitelist):
@@ -178,106 +229,58 @@ def main(args):
                 patt = voc.pattern
                 if patt == "other":
                     continue
-                print("%s %s %6d  %5.2f%%" % (relname(patt),mnames[patt],
+                print("%s %s %6d  %5.2f%%" % (relpattern(patt),mnames[patt],
                                              cpatt[patt],100*cpatt[patt]/Nsequences),file=fout)
 
-    ## Add s.date and s.mutt attributes to each sequence
-    x_count=0
-    no_matches=[]
-    for s in seqlist:
-        if s.name == "master" or s.name == "NC_045512_spike_surface_glycoprotein":
-            vprint("Special case:",s.seq,s.name)
-            s.date = s.mutt = None
-            continue
-        if not args.keepx and "X" in s.seq:
-            x_count += 1
-            s.date = s.mutt = None
-            continue
-        ## a not-very-robust way to get the date
-        tokens = s.name.split('.')
-        try:
-            s.date = date_fromiso(tokens[-2])
-        except IndexError:
-            vprint("seq:",s.seq,s.name,"tokens:",tokens)
-            s.date = s.mutt = None
-            continue
-        s.mutt = None
-        for voc in vocs:
-            patt = voc.pattern
-            rpatt = voc.re_pattern
-            if re.search(rpatt,s.seq):
-                if s.mutt:
-                    warnings.warn(f"\n{s.seq} matches\n{relname(s.mutt)} and\n{relname(patt)} with regex\n{rpatt}")
-                    continue
-                s.mutt = patt
-                #break
-        if s.mutt is None:
-            vvprint("No match",s.seq,s.name)
-            no_matches.append(s.seq)
-            s.mutt = 'other'
-                
-    vprint("Sequences with X:",x_count)
-    vprint("Sequences without matches:",len(no_matches))
-    for line in intlist.write_numbers_vertically(sitelist):
-        vprint(line,line)
-    seq_nomat = []
-    for seq in set(no_matches):
-        seq_nomat.append((seq,sum(1 for s in no_matches if s == seq)))
-    for seq,nomat in sorted(seq_nomat,key=lambda x: -x[1])[:50]:
-        vprint(seq,relname(seq),nomat)
-
+    ## Write x-counts table to file (sequences that don't match patterns)
     if args.ctable:
-        xctable = re.sub(r"(.*/)?([^/]+)",r"\1x-\2",args.ctable)
-        vprint("Missed sequences in file:",xctable)
+        xctable = filename_prepend("x-",args.ctable)
+        vprint("Unmatched sequences in file:",xctable)
         with open(xctable,"w") as fout:
             for line in intlist.write_numbers_vertically(sitelist):
                 print(line,file=fout)
-            print(seqlist[0].seq,"Counts Percent",file=fout)
-            for seq,nomat in sorted(seq_nomat,key=lambda x: -x[1])[:50]:
-                print("%s %6d  %5.2f%%" % (relname(seq),nomat,100*nomat/Nsequences),file=fout)
+            print(master,"Counts Percent",file=fout)
+            for seq in sorted(xpatt,key=xpatt.get,reverse=True)[:50]:
+                print("%s %6d %6.2f%%" %
+                      (relpattern(seq),xpatt[seq],100*xpatt[seq]/Nsequences),file=fout)
+
                 
+    DG_datecounter = {m: Counter() for m in patterns}
+    DG_other = Counter()
+    for s in seqlist[1:]:
+        if not args.keepx and "X" in s.seq:
+            raise RuntimeError("X's should have already been filtered out")
+
+        s.date = date_from_seqname(s.name)
+        if not s.date:
+            continue
+
+        vocmatch = [voc for voc in vocs if voc.re_pattern.match(s.seq)]
+        for voc in vocmatch:
+            DG_datecounter[voc.pattern][s.date] += 1
+        if not vocmatch:
+            DG_other[s.date] += 1
+            #DG_datecounter['other'][s.date] += 1
             
-    nmutt = sum(1 for s in seqlist if s.mutt and s.date)
-    vprint("   mutt sequences:",nmutt)
-    if nmutt==0:
+    nmatches = sum(sum(DG_datecounter[p].values()) for p in patterns)
+    vprint("matched sequences:",nmatches)
+    if nmatches==0:
         raise RuntimeError("No sequences for pattern: " + " ".join(args.filterbyname))
 
-    DG_datecounter = {m: Counter() for m in mutants}
-    for s in seqlist:
-        if s.mutt and s.date:
-            DG_datecounter[s.mutt][s.date] += 1
     for p in DG_datecounter:
         vprint(p,sum(DG_datecounter[p].values()))
 
     onset = {m: min(DG_datecounter[m]) for m in mutants if DG_datecounter[m]}
     for m in onset:
         vprint("onset",m,onset[m])
-        
-    all_dateset=set()
-    for p in DG_datecounter:
-        all_dateset.update(DG_datecounter[p])
 
-    vprint("Range of dates:",min(all_dateset),max(all_dateset))
-    ordmin = min(all_dateset).toordinal()
-    ordmax = max(all_dateset).toordinal()
+    DG_datecounter['other'] = DG_other
 
-    ordplotmin = ordmin
-    ordplotmax = ordmax
-    if args.dates and args.dates[0] and args.dates[0] != ".":
-        ordplotmin = date_fromiso(args.dates[0]).toordinal()
-    if args.dates and args.dates[1] and args.dates[1] != ".":
-        ordplotmax = date_fromiso(args.dates[1]).toordinal()
-
-    ordmin = min([ordmin,ordplotmin])
-    ordmax = max([ordmax,ordplotmax])
-    
+    ordmin, ordmax, ordplotmin, ordplotmax = get_daterange(DG_datecounter,args.dates)
     Ndays = ordmax+1-ordmin
     vprint("Days:",Ndays,ordmin,ordmax)
    
-    DG_cum=dict()
-    for m in DG_datecounter:
-        DG_cum[m] = []
-        
+    DG_cum=defaultdict(list)
     for ord in range(ordmin,ordmax+1):
         day = datetime.date.fromordinal(ord)
         for m in DG_datecounter:
@@ -287,7 +290,7 @@ def main(args):
         DAYSPERWEEK=7 if args.weekly else 1
         DG_weekly=dict()
         for m in DG_cum:
-            DG_weekly[m] = [x for x in DG_cum[m]]
+            DG_weekly[m] = DG_cum[m][:]
             for n in range(DAYSPERWEEK,Ndays):
                 DG_weekly[m][n] = DG_cum[m][n] - DG_cum[m][n-DAYSPERWEEK]
             DG_cum[m] = DG_weekly[m]
@@ -295,7 +298,7 @@ def main(args):
     ## Only keep data that is within the specified date range
     ## That way, automatic scaling on the y-axis will be based on available data
     if args.dates:
-        for m in mutants:
+        for m in DG_cum:
             ztmp = []
             for i,cnt in enumerate(DG_cum[m]):
                 if ordplotmin <= ordmin+i <= ordplotmax:
@@ -306,19 +309,19 @@ def main(args):
 
     def stackedbarplot(DG_cum,bigLegend=False,fraction=False):
 
-        mutants = list(DG_cum)
+        patterns = list(DG_cum)
         
         if args.nolegend:
             plt.figure(figsize=(6,3))
         else:
-            plt.figure(figsize=(12,1+len(mutants)/4.5))
+            plt.figure(figsize=(12,1+len(patterns)/4.5))
 
         title = covid.get_title(args)
         title = title + ": %d sequences" % (Nsequences,)
         plt.title(title,fontsize='x-large')
             
         DG_bottom = dict()
-        DG_bottom_current = [0] * len(DG_cum[mutants[0]])
+        DG_bottom_current = [0] * len(DG_cum[patterns[0]])
         for m in DG_cum:
             DG_bottom[m] = DG_bottom_current
             DG_bottom_current = [x+y for x,y in zip(DG_bottom_current,DG_cum[m])]
@@ -330,21 +333,19 @@ def main(args):
         plt.bar(range(Ndays),[0]*Ndays,width=1,  ## Ndays
                 label=dummylabel,color="white")
 
-        #for m in  mutants[::-1]:
         name_color_sofar = set()
-        for v in vocs[::-1]:
-            m = v.pattern
-            mr = rmutants[m] ## rmutants
+        for m in  patterns[::-1]:
+            if m == OTHER:
+                name = OTHER
+                mr = "." * len(master)
+            else:
+                name = mnames[m] ## mnames
+                mr = rmutants[m] ## rmutants
 
             ## various hacks
             if mr == master: ## master
-                mr = relname(master)
-            if mr == "other":
-                mr = "." * len(master)
-                #mr = "other            "
-                #mr = ""
+                mr = relpattern(master)
 
-            name = mnames[m] ## mnames
             if bigLegend:
                 name += " " + mr
             name = " " + name ## hack! leading underscore doesn't make it to legend??
@@ -391,10 +392,10 @@ def main(args):
 
         if args.onsets:
             ylo,yhi = plt.gca().get_ylim()
-            for m in mutants:
+            for m in patterns:
                 if m not in onset:
                     continue
-                if m == "other":
+                if m == OTHER:
                     continue
                 x = onset[m].toordinal() - ordmin
                 kwargs=dict(lw=1,color=mcolors[m])
@@ -405,6 +406,8 @@ def main(args):
         plt.tight_layout()
 
     def lineplot(DG_cum,fraction=True):
+
+        mutants = list(DG_cum)
         
         if args.nolegend:
             plt.figure(figsize=(6,3))
@@ -430,7 +433,7 @@ def main(args):
 
             ## various hacks
             if mr == master:
-                mr = relname(master)
+                mr = relpattern(master)
             if mr == "other":
                 mr = "." * len(master)
                 #mr = 'SLVYALKNLYESNATQP', #G beige
@@ -514,16 +517,22 @@ def main(args):
     if args.lineplot:
         lineplot(DG_cum)
         if args.output:
-            plt.savefig("lin-" + args.output)
+            plt.savefig(filename_prepend("line-",args.output))
 
     else:
+        outfilename = args.output
+        if args.weekly:
+            outfilename = filename_prepend("wk-",outfilename)
+        if args.daily:
+            outfilename = filename_prepend("dy-",outfilename)
+            
         stackedbarplot(DG_cum,fraction=True)
         if args.output:
-            plt.savefig("f-wk-"+ args.output)
+            plt.savefig(filename_prepend("f-",outfilename))
 
-        stackedbarplot(DG_cum,fraction=False)
+        stackedbarplot(DG_cum,fraction=False,bigLegend=False)
         if args.output:
-            plt.savefig("c-wk-"+ args.output)
+            plt.savefig(filename_prepend("c-",outfilename))
         
     if not args.output:
         plt.show()

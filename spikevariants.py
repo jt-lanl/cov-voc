@@ -206,7 +206,7 @@ class SpikeVariants():
 
     def append_other(self):
         ## really don't like this function
-        self.vocs.append( VOC("other", "#000000", "other", re.compile("other") ) )
+        self.vocs.append( VOC("other", "#000000", "other", re.compile("$-") ) )
         return self
 
     def check(self):
