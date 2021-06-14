@@ -1,0 +1,80 @@
+# Format for this file:
+#   Comments begin with '#' and are ignored
+#   Each line has: <color> <mutation> <name> <etc>
+#   <color> is common color name, with no spaces (eg, DarkGreen not Dark Green), limited to X11_color_names
+#   <mutation> is of form [<ssm>,<ssm>,...<ssm>], possibly followed by an '!'
+#       <ssm> is a single site mutation of form <rchar><site><mchar>, where
+#             <rchar> = character in reference sequence
+#             <site> = integer site number
+#             <mchar> = character in mutated sequence
+#       '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
+#           mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
+#           site is among the union of all the sites in all the mutation strings
+#   <name> is the name associated with the mutation (eg, Pango lineage)
+#   <etc>  is any further text; it is treated as a comment and is ignored
+#           
+ 
+# Exact matches
+
+#FloralWhite	[D614D]! ## this is already included!!	
+Gainsboro	[D614G]!	G=D614G	
+Gainsboro	[L5F,D614G]!	L5F_G	
+	
+LightGrey	[D614G,A222V]!	GV=A222V	
+LightGrey	[L18F,A222V,D614G]!	L18F_GV	
+LightGrey	[L5F,L18F,A222V,D614G]!	L5F_GV	
+	
+LightSteelBlue	[S477N,D614G]!	S477N	
+Fuchsia	[D614G,P681H]!	P681H	
+	
+#	Origin	or	Commonly	sampled	
+	
+Orange	[H69-,V70-,Y144-,W152W,E484E,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	B.1.1.7=Alpha	
+Coral	[H69-,V70-,Y144-,W152R,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	Alpha+W152R	
+LightCoral	[H69-,V70-,Y144-,E484K,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	Alpha+E484K	
+Plum	[L18.,D80A,D215G,L242-,A243-,L244-,K417N,E484K,N501Y,D614G,A701V]	B.1.351=Beta	
+FireBrick	[L18.,T20N,P26S,D138Y,R190S,K417.,E484K,N501Y,D614G,H655Y,T1027I,V1176F]	P.1=Gamma	
+BlueViolet	[T19R,G142.,E156-,F157-,R158G,L452R,T478K,D614G,P681R,D950N]	B.1.617.2=Delta	
+DarkBlue	[S13I,W152C,L452R,D614G]	B.1.429/7=Epsilon	
+Purple	[L5.,T95I,D253G,E484K,D614G,A701V]	B.1.526=Iota	
+DarkSeaGreen	[Q52R,A67V,H69-,V70-,Y144-,E484K,D614G,Q677H,F888L]	B.1.525=Eta	
+DarkMagenta	[T95.,G142.,E154.,E156E,F157F,R158R,L452R,E484Q,D614G,P681R,Q1071.]	B.1.617.1=Kappa	
+#DarkMagenta	[T95.,G142D,E154K,L452R,E484Q,D614G,P681R,Q1071H]	B.1.617.1	##	Kappa	(tighter)	
+Red	[T95T,K417K,E484K,N501N,D614G,F888F,V1176F]	P.2=Zeta	##	subset	of	P.1	
+#LightPink	[L141-,G142-,V143-,A243-,L244-,Y265C,E484K,N501Y,D614G,P681H,E1092K,H1101Y,V1176F]	P.3=Theta	
+LightPink	[G142-,V143-,Y265C,E484K,N501Y,D614G,P681H,E1092K,H1101Y,V1176F]	P.3	Theta	
+	
+	
+Aquamarine	[L18.,L452R,N501Y,D614D,A653V,H655Y,D796Y,G1219V]	A.27	
+#Green	[G75V,T76I,R246-,S247-,Y248-,L249-,T250-,P251-,G252-,D253N,L452Q,F490S,D614G,T859N]	C.37	##	original	
+Green	[G75V,T76I,R246.,S247-,Y248-,L249-,T250-,P251-,G252-,D253.,L452Q,F490S,D614G,T859N]	C.37	
+	
+#	Other	recurring	variants	
+	
+Chocolate	[F157L,V367F,Q613H,D614D,P681R]	A23.1	
+RoyalBlue	[T478K,D614G,P681H,T732A]	B.1.1.519	
+LawnGreen	[D80G,Y144-,F157S,L452R,D614G,T859N,D950H]	B.1.526.1	
+Aqua	[M153T,G184S,D614G,Q677H]	B.1.1.284	
+HotPink	[W152L,E484K,D614G,G769V]	R.1	#Japan	
+Indigo	[A222V,A262S,P272L,D614G]	B.1.177	
+LimeGreen	[L5.,T95I,D253G,S477N,D614G,Q957R]	B.1.526.2	
+DarkOliveGreen	[S494P,N501N,D614G,P681H,T716I,S982S,D1118D]	B.1.575	##	subset	of	B.1.1.7+S494P	
+Gold	[H69-,V70-,L189F,N439K,D614G,V772I]	B.1.258.17	
+#LightSlateGray	[S13S,L141-,G142-,V143-,A222A,L452R,D614G,T859T,D950D]	A.2.5.2	##	full	spec,	killed	by	bad	alignment	
+LightSlateGray	[S13S,G142-,V143-,A222A,L452R,E484E,D614G,T859T,D950D]	A.2.5.2	
+	
+#	New	
+	
+#Lavender	[insert214TDR,Q414K,N450K,D614G,T716I]	B.1.214.2	
+Lavender	[Q414K,N450K,D614G,T716I]	B.1.214.2	
+ForestGreen	[S12F,H69-,V70-,W152R,R346S,L452R,D614G,Q677H,A899S]	C.36	
+Indianred	[E156-,F157-,R158-,F306L,E484K,S494P,D614G,E780A,D839V,T1027I]	B.1.1.523	
+CadetBlue	[P26S,H69-,V70-,V126A,Y144-,L242-,A243-,L244-,H245Y,S477N,E484K,D614G,P681H,T1027I,D1118H]	B.1.620	
+	
+#	Not	used	
+	
+#DarkViolet	
+#LightCyan	
+#DarkGreen	
+#HotPink	
+	
