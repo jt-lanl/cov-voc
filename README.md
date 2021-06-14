@@ -39,13 +39,9 @@ XSPIKE (eXplore the SPIKE protein) does does three main tasks:
 EMBERS (not an acronym...yet!) creates colorful stacked barplots that show how variant counts vary over time.
 These are like the "blue wave" plots in our original D614G paper, but with many more variants and many more colors.
 
-The variants used in `embers` are defined in a "color mutation" file, two typical lines of which look like:
+The variants used in `embers` are defined in a "color mutation" file, described below
 
-    DarkGreen [N501Y,D614G]! N501Y
-    Orange [H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H] B.1.1.7 UK VOC
 
-Each line contains a `ColorName`, a `[MutationString]`, possibly a `!` symbol, and then a `VariantName`.
-In the second line above, the "UK VOC" is ignored.
 
 # SECONDARY PROGRAMS
 
@@ -84,18 +80,20 @@ the union of those lists.  you specify the number of sites you want in the final
 list.  this list of sites is useful as input to `xspike` if you want different runs
 over different geographical regions to all be using a common set of sites.
 
-## MUTANTSRISING
+## MUTANTSRISING (OBSOLETE)
 
 similar to `embers` but draws line plots on on a log y-axis; makes it easier to see if some
 variant is increasing in frequency even if its total frequency is small compared to currently
-dominant variants
+dominant variants.  (Now incorporated into EMBERS)
+
+## COUNTVARIANTS
+
+counts how many variants of a variant appear in an input set of sequences
 
 ## SHIVER-BARPLOT
 
 takes output of `shiver` and produces a bar plot showing coverages for different continents
 and different number of components. 
-
-___
 
 # SOME USEFUL LIBRARIES
 
@@ -129,6 +127,42 @@ column to get the number of the site.
     124455555444556613577890
     902423678234362779278441
     TTGYWMEFRLALDSAVKNLSTESN
+___
+
+# COLOR MUTATION TABLE
+
+Variants are defined in a color mutation table (eg, `color-mutation-table.txt` file); the
+table is a list of variants, with one variant per line.
+
+    Format for this file:
+      Comments begin with '#' and are ignored
+      Each line has: <color> <mutation> <name> <etc>
+      <color> is common color name, with no spaces (eg, DarkGreen not Dark Green), limited to X11_color_names
+      <mutation> is of form [<ssm>,<ssm>,...<ssm>], possibly followed by an '!'
+          <ssm> is a single site mutation of form <rchar><site><mchar>, where
+                <rchar> = character in reference sequence
+                <site> = integer site number
+                <mchar> = character in mutated sequence ('.' indicates any, '!' indicates any except <rchar>)
+          '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
+              mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
+              site is among the union of all the sites in all the mutation strings
+      <name> is the name associated with the mutation (eg, Pango lineage)
+      <etc>  is any further text; it is treated as a comment and is ignored
+
+For example, two typical lines look like:
+
+    Orange  [H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H] B.1.1.7 UK VOC
+    Fuchsia [D614G,Q677!]!                                               Near-Furin
+    
+Each line contains a `ColorName`, a `[MutationString]`, possibly a `!`
+symbol, and then a `VariantName`.  These components are separated by
+arbitrary whitespace.  In the first line above, the "UK
+VOC" is ignored.  In the second line, Q677! indicates that the
+mutation can have any character except Q at site 677.  The second '!'
+(after the ']') indicates that only mutations at sites 614 and 677 are
+permitted; a sequence that disagrees with the reference sequence at
+any other site will not be consistent with this pattern.
+
 ___
 
 ### The 'help' command-line option
