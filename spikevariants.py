@@ -6,6 +6,9 @@ import intlist
 import mutant
 import colornames
 
+### Note: now that we've made a distinction between pattern and re_pattern, we can use _'s in pattern instead of letters
+### which will be much more readable
+
 ## Defaults:
 
 def get_sites():
@@ -85,7 +88,7 @@ def get_names():
 
 def get_regex_pattern(master,pattern):
     ## warning, vaguely redundant with mutant.Mutation.regex_pattern()
-    ## bigger warning, returns a COMPILED regex
+    ## bigger warning, returns a COMPILED regex, not just a string
     r=""
     for a,b in zip(master,pattern):
         if b == "!":
@@ -130,9 +133,6 @@ class SpikeVariants():
         
     def init_from_colormut(self,colormutfile,refseq=None):
 
-        ## note: strictly speaking, refseq isn't necessary
-        ## could infer from mutation list
-        
         mutants=[]
         colors=[]
         exact=[]
@@ -185,7 +185,8 @@ class SpikeVariants():
         for mut,xact in zip(mutants,exact):
             if not mut.checkref(refseq,verbose=True):
                 warnings.warn(f"Mismatch with refseq in mutant: {mut}")
-            full_pattern = mut.pattern(refseq,exact=xact)
+            relseq = "_" * len(refseq)
+            full_pattern = mut.pattern(relseq,exact=xact)
             pattern = ''.join(full_pattern[n-1] for n in sites)
             mutant_patterns.append( pattern )
 
@@ -196,7 +197,7 @@ class SpikeVariants():
                  for pattern,color,name in zip(mutant_patterns,colors,names) ]
 
 
-        vocs.insert(0, VOC(master,"#eeeeee","Ancestral",get_regex_pattern(master,master)))
+        #vocs.insert(0, VOC(master,"#eeeeee","Ancestral",get_regex_pattern(master,master)))
 
         self.sites = sites
         self.master = master
