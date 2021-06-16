@@ -78,12 +78,6 @@ the union of those lists.  you specify the number of sites you want in the final
 list.  this list of sites is useful as input to `xspike` if you want different runs
 over different geographical regions to all be using a common set of sites.
 
-## MUTANTSRISING (OBSOLETE)
-
-similar to `embers` but draws line plots on on a log y-axis; makes it easier to see if some
-variant is increasing in frequency even if its total frequency is small compared to currently
-dominant variants.  (Now incorporated into EMBERS)
-
 ## COUNTVARIANTS
 
 counts how many variants of a variant appear in an input set of sequences
