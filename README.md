@@ -9,10 +9,10 @@ on the sequences provided by GISAID (<https://www.gisaid.org/>).
 The emphasis is on the spike protein, though some of the routines can be applied
 as well to other proteins in the SARS-CoV-2 genome.
 
-For most of these routines, the input sequence file (usually, but not necessarily, fasta) file whose
+For most of these routines, the input is a sequence file (usually, but not necessarily, in fasta format) whose
 first sequence is taken as the *reference* sequence, typically `NC_045512_spike_surface_glycoprotein` which is the ancestral Wuhan strain.
 
-# MAIN PROGRAMS
+# MAIN ANALYSIS PROGRAMS
 
 ## SHIVER
 
@@ -21,7 +21,7 @@ calculated to cover as much of the variation as possible, while focusing on just
 SHIVER identifies sets of variant forms of the SARS CoV-2 virus with a
 focus on just the NTD and RBD neutralizing antibody epitope regions of
 the Spike protein, chosen to maximize coverage globally and/or on
-separate continents[*], depending on which of several strategies is
+separate continents, depending on which of several strategies is
 employed.
 
 ## XSPIKE
@@ -34,21 +34,19 @@ XSPIKE (eXplore the SPIKE protein) does does three main tasks:
 
 * creates a digest of variants and a continent-wise count for each of those variants
 
+# SECONDARY PROGRAMS
+
 ## EMBERS
 
-EMBERS (not an acronym...yet!) creates colorful stacked barplots that show how variant counts vary over time.
+EMBERS is a display tool that creates colorful stacked barplots showing how variant counts change over time.
 These are like the "blue wave" plots in our original D614G paper, but with many more variants and many more colors.
 
 The variants used in `embers` are defined in a "color mutation" file, described below
 
-
-
-# SECONDARY PROGRAMS
-
 ## FIXFASTA
 
-`fixfasta` is a preprocessor routine that takes a fasta file (doesn't
-have to be fasta, can be tbl or fasta.gz or several other formats) and
+`fixfasta` is a preprocessor routine that takes an input sequence file
+(usually fasta, but can be tbl or fasta.gz or several other formats) and
 applies various filters to clean up the file.  An important one is to
 identify all the columns for which the reference sequence exhibits a
 dash (`-`) and to strip these columns from all the sequences.  The
