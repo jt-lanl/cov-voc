@@ -16,9 +16,8 @@ first sequence is taken as the *reference* sequence, typically `NC_045512_spike_
 
 ## SHIVER
 
-SHIVER (SARS CoV-2 Historically Identified Variants in Epitope Regions) provides a list of variants
-calculated to cover as much of the variation as possible, while focusing on just the NTD and RBD
-SHIVER identifies sets of variant forms of the SARS CoV-2 virus with a
+SHIVER (SARS CoV-2 Historically Identified Variants in Epitope Regions)
+identifies sets of variant forms of the SARS CoV-2 virus with a
 focus on just the NTD and RBD neutralizing antibody epitope regions of
 the Spike protein, chosen to maximize coverage globally and/or on
 separate continents, depending on which of several strategies is
@@ -40,6 +39,8 @@ XSPIKE (eXplore the SPIKE protein) does three main tasks:
 
 EMBERS is a display tool that creates colorful stacked barplots showing how variant counts change over time.
 These are like the "blue wave" plots in our original D614G paper, but with many more variants and many more colors.
+The routine can also create simple line plots on a logarithmic axis, which is useful for tracking variants that
+are much rarer than the dominant variants (but that may be increasing in time).
 
 The variants used in `embers` are defined in a "color mutation" file, described below
 
