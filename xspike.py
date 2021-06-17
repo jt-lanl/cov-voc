@@ -205,6 +205,7 @@ def main(args):
     vprint("Date-filtered",len(allseqs),"seqences, date range:",sequtil.range_of_dates(allseqs))
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
     vprint("Pattern-filtered",len(seqs),"seqences, date range:",sequtil.range_of_dates(seqs))
+    seqs = covid.fix_seqs(seqs,args)
 
     firstseq = seqs[0].seq
     seqs = seqs[1:]
