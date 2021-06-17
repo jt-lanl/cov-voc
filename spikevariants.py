@@ -185,8 +185,7 @@ class SpikeVariants():
         for mut,xact in zip(mutants,exact):
             if not mut.checkref(refseq,verbose=True):
                 warnings.warn(f"Mismatch with refseq in mutant: {mut}")
-            relseq = "_" * len(refseq)
-            full_pattern = mut.pattern(relseq,exact=xact)
+            full_pattern = mut.pattern(refseq,exact=xact)
             pattern = ''.join(full_pattern[n-1] for n in sites)
             mutant_patterns.append( pattern )
 
