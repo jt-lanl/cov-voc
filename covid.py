@@ -26,6 +26,8 @@ def corona_args(ap):
         help="Do not use sequences whose name matches this pattern")
     paa("--keepdashcols",action="store_true",
         help="Do not strip columns with dash in ref sequence")
+    paa("--keeplastchar",action="store_true",
+        help="Do not strip final stop codon from end of sequences")
     paa("--dates","-d",nargs=2,
         help="range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
@@ -202,11 +204,16 @@ def fix_seqs(seqs,args):
     if "-" in firstseq and not args.keepdashcols:
         warnings.warn("Stripping sites with dashes in first sequence")
         sequtil.stripdashcols(firstseq,seqs)
+        firstseq = seqs[0].seq
 
     if args.fixsiteseventy:
         fixes = fixsiteseventy(seqs,args)
         if fixes>0:
             print("Fixed sites 68-70 for",fixes,"sequences")
+
+    if not args.keeplastchar and firstseq[-1]=="$":
+        for s in seqlist:
+            s.seq = s.seq[:-1]
 
     return seqs
     
