@@ -16,24 +16,16 @@ import readseq
 import sequtil
 import intlist
 import mutant
+import covid
 
 def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
     paa = ap.add_argument
-    paa("--input","-i",type=Path,
-        help="input fasta file with all spike sequences")
+    covid.corona_args(ap)
     paa("--random",action="store_true",
         help="randomize input data order")
     paa("-N",type=int,default=0,
         help="keep at most this many sequences")
-    paa("--dates",nargs=2,
-        help="range of dates (two dates, yyyy-mm-dd format)")
-    paa("--keepdashcols",action="store_true",
-        help="Do not strip columns with dash in reference sequence")
-    paa("--keeplastchar",action="store_true",
-        help="Do not strip final stop codon from end of sequences")
-    paa("--fixsiteseventy",action="store_true",
-        help="Replace --I and -I- with I-- at sites 68,69,70")
     paa("--badisls",
         help="File with list of EPI_ISL numbers to exclude")
     paa("--output","-o",type=Path,
@@ -54,26 +46,11 @@ def getisls(file):
                 isls.append(m[1])
     return isls
 
-def fixsiteseventy(seqs):
-    count=0
-    for s in seqs:
-        if s.seq[67:70] == "--I" or s.seq[67:70] == "-I-":
-            count += 1
-            s.seq = s.seq[:67] + "I--" + s.seq[70:]
-            #print("fix70: ",s.name,file=sys.stderr)
-    return count
+def main(args):
 
-def filterseqs(args,seqlist):
-    ''' pull out a sublist of the sequence list, based on 
-    various options in the args structure '''
-
-    firstseq = seqlist[0].seq
-
-    if args.dates:
-        seqlist = sequtil.filter_by_date(seqlist,
-                                         args.dates[0],args.dates[1],
-                                         keepfirst=True)
-        vprint(len(seqlist),"sequences in date range:",args.dates)
+    seqlist = covid.read_seqfile(args)
+    seqlist = covid.filter_seqs(seqlist,args)
+    vprint(len(seqlist),"sequences after filtering")
 
     if args.badisls:
         bads = getisls(args.badisls)
@@ -81,27 +58,6 @@ def filterseqs(args,seqlist):
                    if not any( b in s.name for b in bads )]
         vprint(len(seqlist),"sequences after removing bad ISLs")
 
-    if "-" in firstseq and not args.keepdashcols:
-        vprint("Stripping sites with dashes in first sequence...",end="")
-        sequtil.stripdashcols(firstseq,seqlist)
-        vprint("ok")
-        if "-" in seqlist[0].seq:
-            raise RuntimeError("strip dash failed!")
-
-    firstseq = seqlist[0].seq
-    
-    if "-" in firstseq:
-        warnings.warn("dashes in reference sequence")
-
-    return seqlist
-
-def main(args):
-
-    seqlist = readseq.read_seqfile(args.input)
-    vprint(len(seqlist),"sequences read")
-
-    seqlist = filterseqs(args,seqlist)
-    vprint(len(seqlist),"sequences after filtering")
 
     if args.random:
         seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
@@ -112,14 +68,6 @@ def main(args):
         seqlist = seqlist[:args.N]
         vprint(len(seqlist),"sequences after truncation")
 
-    if args.fixsiteseventy:
-        count = fixsiteseventy(seqlist)
-        if count:
-            vprint(count,"sequences fixed at site 70")
-
-    if not args.keeplastchar and firstseq[-1]=="$":
-        for s in seqlist:
-            s.seq = s.seq[:-1]
 
     if args.output:
         readseq.write_seqfile(args.output,seqlist)
