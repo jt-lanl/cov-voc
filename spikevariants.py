@@ -5,100 +5,66 @@ import warnings
 import intlist
 import mutant
 import colornames
+from defaultspikevars import \
+    get_sites, get_master, get_mutants, get_colors, get_names
 
-### Note: now that we've made a distinction between pattern and re_pattern, we can use _'s in pattern instead of letters
-### which will be much more readable
-
-## Defaults:
-
-def get_sites():
-    sites = [
-           5,   13,   18,   20,   26,   52,   67,   69,   70,   75,   76,   80,   95,
-          98,  138,  141,  142,  143,  144,  152,  153,  154,  157,  180,  184,  189,
-         190,  215,  222,  242,  243,  244,  246,  247,  248,  249,  250,  251,  252,
-         253,  262,  272,  367,  417,  439,  452,  477,  478,  484,  490,  494,  501,
-         570,  613,  614,  653,  655,  675,  677,  681,  701,  716,  732,  769,  772,
-         796,  859,  888,  950,  982, 1027, 1071, 1118, 1176, 1219,
-    ]
-    return sites
-
-def get_master():
-    master = \
-        'LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQDAHQQPATTGVDTFDSTQDVG'
-    return master
-
-def get_mutants_colors_names():
-    mcnlist = [
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQDAHQQPATTGVDTFDSTQDVG', '#eeeeee', 'Ancestral'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#DCDCDC', 'G=D614G'),
-        ('FSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#DCDCDC', 'L5F_G'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#D3D3D3', 'GV=A222V'),
-        ('LSFTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#D3D3D3', 'L18F_GV'),
-        ('FSFTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#D3D3D3', 'L5F_GV'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLNTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#B0C4DE', 'S477N'),
-        ('LSLTPQAHVGTDTFDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#E6E6FA', 'S98F'),
-        ('LSLTPQAHVGTDTSDLGVYWTEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#E0FFFF', 'M153T'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFPNAQGAHQQPATTGVDTFDSTQDVG', '#CD5C5C', 'S494P'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTKFSNAQGAHQQPATTGVDTFDSTQDVG', '#FF7F50', 'E484K'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNRSTEFSNAQGAHQQPATTGVDTFDSTQDVG', '#F08080', 'L452R'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQHATTGVDTFDSTQDVG', '#FF00FF', 'P681H'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQHPATTGVDTFDSTQDVG', '#FF00FF', 'Q677H'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHHQPATTGVDTFDSTQDVG', '#FF00FF', 'Q675H'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQQRATTGVDTFDSTQDVG', '#FF00FF', 'P681R'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQRPATTGVDTFDSTQDVG', '#FF00FF', 'Q677R'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHRQPATTGVDTFDSTQDVG', '#FF00FF', 'Q675R'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDVLALRSYLTPGDAPVKNLSTEFSNAQGAHHQPATTGVDTFDSTQDVG', '#FF00FF', 'Q675H_GV'),
-        ('FSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQHPATTGVDTFDSTQDVG', '#FF00FF', 'Q677H'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSNAQGAHQPPATTGVDTFDSTQDVG', '#9400D3', 'Q677P'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSTAQGAHQQPATTGVDTFDSTQDVG', '#228B22', 'N501T'),
-        ('LSLTPQAHVGTDTSDLGVYWMEFEGLRDALALRSYLTPGDAPVKNLSTEFSYAQGAHQQPATTGVDTFDSTQDVG', '#006400', 'N501Y'),
-        ('.......--.........-................................YD.G....H.I.......A..H..', '#FFA500', 'B.1.1.7'),
-        ('.I.................C.........................R........G....................', '#00008B', 'B.1.429/7'),
-        ('...........A...............G.---...........N....K..Y..G.....V..............', '#DDA0DD', 'B.1.351'),
-        ('..FNS.........Y...........S................T....K..Y..G.Y.............I..F.', '#B22222', 'P.1'),
-        ('...........................................K....K..N..G..................F.', '#FF0000', 'P.2'),
-        ('F...........I..........................G........K.....G.....V..............', '#800080', 'B.1.526'),
-        ('......................L...................F..........HD....R...............', '#D2691E', 'A23.1'),
-        ('.....RV--.........-.............................K.....G...H........L.......', '#8FBC8F', 'B.1.525'),
-        ('...............................................K......G....H..A............', '#4169E1', 'B.1.1.519'),
-        ('................S......V..............................G...H................', '#5F9EA0', 'B.1.234'),
-        ('...........G......-...S......................R........G...........N.H......', '#7CFC00', 'B.1.526.1'),
-        ('..F..........................................R.....Y..DVY........Y........V', '#7FFFD4', 'A.27'),
-        ('....................T...S.............................G...H................', '#00FFFF', 'B.1.1.284'),
-        ('...................L............................K.....G........V...........', '#8A2BE2', 'R.1'),
-        ('.........VI.....................-------N.....Q...S....G...........N........', '#008000', 'B.1.1.1'),
-        ('............I...D....K.......................R..Q.....G....R...........H...', '#8B008B', 'B.1.617.1'),
-        ('..................................................PY..G....H.I.......S..D..', '#556B2F', 'B.1.575'),
-        ('.......--................F..................K.........G.........I..........', '#FFD700', 'B.1.258.17'),
-        ('............................V...........SL............G....................', '#4B0082', 'B.1.177'),
-        ('...................R........................K.........G....R...............', '#FF69B4', 'B.1.466.2'),
-        ('.S.............---...........................R........G...........N.D......', '#FFC0CB', 'A.2.5.2'),
-        ('other', '#000000', 'other'),
-    ]
-    return mcnlist
-
-def get_mutants():
-    return [mcn[0] for mcn in get_mutants_colors_names()]
-
-def get_colors():
-    return [mcn[1] for mcn in get_mutants_colors_names()]
-
-def get_names():
-    return [mcn[2] for mcn in get_mutants_colors_names()]
 
 def get_regex_pattern(master,pattern):
     ## warning, vaguely redundant with mutant.Mutation.regex_pattern()
     ## bigger warning, returns a COMPILED regex, not just a string
     r=""
     for a,b in zip(master,pattern):
-        if b == "!":
+        if b == "*":
             r += "[^"+a+"]"
         else:
             r += b
     return re.compile(r)
 
 ## VOC (variant of concern)
-VOC = namedtuple('VOC',['pattern','color','name','re_pattern'])
+#VOC = namedtuple('VOC',['pattern','color','name','re_pattern'])
+
+class VOC():
+    def __init__(self,p,c,n):
+        self.pattern=p
+        self.color=c
+        self.name=n
+        self.re_pattern=None
+
+    def get_re_pattern(self,master):
+        self.re_pattern=get_regex_pattern(master,self.pattern)
+        return self.re_pattern
+
+    def get_best_mstring(self,sites,master):
+        # "best" == shortest
+        ex_string = self.get_mstring(sites,master,exact=True)
+        un_string = self.get_mstring(sites,master,exact=False)
+        if len(un_string) <= len(ex_string):
+            return un_string
+        else:
+            return ex_string
+        
+
+    def get_mstring(self,sites,master,exact=False):
+        muts = []
+        for n,m,p in zip(sites,master,self.pattern):
+            if p == '.' and not exact:
+                continue
+            if p == m and exact:
+                continue
+            muts.append( "%s%d%s" % (m,n,p) )
+        mstring = "[" + ",".join(muts) + "]"
+        if exact:
+            mstring += "!"
+        return mstring
+
+    def relpattern(self,master):
+        s = ""
+        for p,m in zip(self.pattern,master):
+            s += p if p != m else "_"
+        return s
+            
+            
+        
 
 class SpikeVariants():
     def __init__(self, sites=None, master=None, vocs=None):
@@ -124,7 +90,7 @@ class SpikeVariants():
         patterns = get_mutants()
         colors = get_colors()
         names = get_names()
-        self.vocs = [VOC(p,c,n,get_regex_pattern(p))
+        self.vocs = [VOC(p,c,n)
                      for p,c,n in zip(patterns,colors,names)]
         for v in self.vocs:
             v.re_pattern = get_regex_pattern(self.master,v.pattern)
@@ -154,7 +120,6 @@ class SpikeVariants():
                     color = colornames.tohex(color)
                 except KeyError:
                     raise RuntimeError(f"Invalid color: {color}")
-                    color = colornames.random_hex()
 
                 mutants.append( mutant.Mutation(m[2]) )
                 colors.append(color)
@@ -192,9 +157,10 @@ class SpikeVariants():
                 
         master = "".join(refseq[n-1] for n in sites)
 
-        vocs = [ VOC(pattern,color,name,get_regex_pattern(master,pattern))
-                 for pattern,color,name in zip(mutant_patterns,colors,names) ]
-
+        vocs = [ VOC(p,c,n)
+                 for p,c,n in zip(mutant_patterns,colors,names) ]
+        for v in vocs:
+            v.get_re_pattern(master)
 
         #vocs.insert(0, VOC(master,"#eeeeee","Ancestral",get_regex_pattern(master,master)))
 
@@ -204,9 +170,11 @@ class SpikeVariants():
         
         return self
 
-    def append_other(self):
+    def append_other(self,master):
         ## really don't like this function
-        self.vocs.append( VOC("other", "#000000", "other", re.compile("$-") ) )
+        vother = VOC("." * len(master), "#000000", "other")
+        vother.get_re_pattern(self.master)
+        self.vocs.append( vother )
         return self
 
     def check(self):
@@ -227,13 +195,38 @@ class SpikeVariants():
         print("\n".join( intlist.write_numbers_vertically(self.sites) ),**kwxtra)
         print(self.master,"Master",**kwxtra)
         fmt="%%-%ds" % (len(self.master),)
-        for m,c,n in zip(self.mutants,self.colors,self.names):
+        for v in self.vocs:
+            p,c,n = v.pattern, v.color, v.name
+            r = v.relpattern(self.master)
             name = n if n else ""
-            print(fmt % m,c,name,**kwxtra)        
+            print(fmt % r,c,name,**kwxtra)
+
+    def key_print(self,**kwxtra):
+        ''' pattern variant '''
+        namelen = max(len(v.name) for v in self.vocs)
+        fmt = "%%-%ds" % namelen
+        lines = intlist.write_numbers_vertically(self.sites)
+        white = "#FFFFFF"
+        for line in lines:
+            print(white, fmt % ("'",), line, **kwxtra)
+        print(white, fmt % ("'",), self.master, **kwxtra)
+        for v in self.vocs[::-1]:
+            print(v.color,fmt % (v.name,), v.relpattern(self.master), **kwxtra)
+
+    def key_print2(self,**kwxtra):
+        ''' mutation string variant '''
+        mstringlist = [v.get_best_mstring(self.sites,self.master)
+                       for v in self.vocs]
+        strlen = max(len(mstr) for mstr in mstringlist)
+        namelen = max(len(v.name) for v in self.vocs)
+        fmt = "%%-%ds %%-%ds" % (namelen,strlen)
+        for v in self.vocs[::-1]:
+            m = v.get_best_mstring(self.sites,self.master)
+            print(v.color,fmt % (v.name,m),**kwxtra)
 
     def pyprint(self,fileptr):
         ''' writes python code to define functions:
-            get_sites() get_mutants(), get_colors(), get_names(), get_master()
+            get_sites() get_master(), get_mutants(), get_colors(), get_names()
         based on the current stuctures in SpikeVariants'''
         def fprint(*p,**kw):
             print(*p,file=fileptr,**kw)
@@ -250,31 +243,17 @@ class SpikeVariants():
             fprint(f"    return {name}")
             fprint()
 
+        fprint("# Default spike variants")
+        fprint()
         fprint_item("sites",intlist.format_intlist(self.sites),quoted=False)
-        #fprint_item("mutants",self.mutants,quoted=True)
-        #fprint_item("colors",self.colors,quoted=True)
-        #fprint_item("names",self.names,quoted=True)
         fprint("def get_master():")
         fprint("    master = \\")
         fprint(f"        '{self.master}'")
         fprint("    return master")
         fprint()           
-
-        fprint("def get_mutants_colors_names():")
-        fprint("    mcnlist = [")
-        for m,c,n in zip(self.mutants,self.colors,self.names):
-            fprint(f"        ('{m}', '{c}', '{n}'),")
-        fprint("    ]")
-        fprint("    return mcnlist")
-        fprint()
-        fprint("def get_mutants():")
-        fprint("    return [mcn[0] for mcn in get_mutants_colors_names()]")
-        fprint()
-        fprint("def get_colors():")
-        fprint("    return [mcn[1] for mcn in get_mutants_colors_names()]")
-        fprint()
-        fprint("def get_names():")
-        fprint("    return [mcn[2] for mcn in get_mutants_colors_names()]")
+        fprint_item("mutants",self.mutants,quoted=True)
+        fprint_item("colors",self.colors,quoted=True)
+        fprint_item("names",self.names,quoted=True)
 
 if __name__ == "__main__":
 
@@ -285,10 +264,12 @@ if __name__ == "__main__":
     sv.check()
     sv.pprint(file=sys.stderr)
 
-    seqs = readseq.read_seqfile("Data/wuhan.fasta")
-    sv = SpikeVariants().init_from_colormut("color-mut-Apr18.txt",seqs[0].seq,includeother=False).append_other()
+    seqs = readseq.read_seqfile("Data/wuhan.fasta.gz")
+    sv = SpikeVariants().init_from_colormut("color-mutation-table-v2.txt")
     sv.check()
     sv.pprint(file=sys.stderr)
+
+    sv.key_print2(file=sys.stderr)
     
     sv.pyprint(sys.stdout)
 
