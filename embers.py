@@ -38,7 +38,7 @@ def getargs():
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
     #paa("--nolegend",action="store_true",help="avoid putting legend on plot")
-    paa("--legend",type=int,default=0,
+    paa("--legend",type=int,default=0,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
     paa("--colormut",
         help="read SpikeVariants structure from color-mut file")
@@ -155,6 +155,23 @@ def check_dups(xlist):
         xset.add(x)
     return duplist
 
+def neighbor_patterns(sitelist,master,voclist,xpatt):
+    ''' for each of the seq patterns in xpatt, find nearest pattern in voclist '''
+    ## routine yields lines that are meant to be printed
+    for line in intlist.write_numbers_vertically(sitelist):
+        yield line
+    yield f"{master} Counts Neighbor"
+    for seq in sorted(xpatt,key=xpatt.get,reverse=True)[:50]:
+        rseq = relativepattern(master,seq)
+        dv = {v: sum(bool(x != y and y != ".")
+                     for x,y in zip(seq,v.pattern))
+              for v in voclist}
+        if min(dv.values()) > 1:
+            yield "%s %6d" % (rseq,xpatt[seq])
+        for v in dv:
+            if dv[v] < 2:
+                yield "%s %6d %s" % (rseq,xpatt[seq],v.name)
+
 def main(args):
 
     OTHER="other"
@@ -186,6 +203,8 @@ def main(args):
     namelist = [v.name for v in voclist] + [OTHER]
     maxnamelen = max(len(n) for n in namelist)
     namefmt = "%%-%ds" % maxnamelen
+    for v in voclist:
+        v.name = namefmt % v.name
     mnames =  {m: namefmt%n for m,n in zip(patterns,namelist)}
     dups = check_dups(namelist)
     if dups:
@@ -250,7 +269,7 @@ def main(args):
                 patt = voc.pattern
                 if patt == "other":
                     continue
-                print("%s %s %6d  %5.2f%%" % (relpattern(patt),mnames[patt],
+                print("%s %s %6d  %5.2f%%" % (relpattern(patt),voc.name,
                                              cpatt[patt],100*cpatt[patt]/Nsequences),file=fout)
 
     ## Write x-counts table to file (sequences that don't match patterns)
@@ -265,7 +284,15 @@ def main(args):
                 print("%s %6d %6.2f%%" %
                       (relpattern(seq),xpatt[seq],100*xpatt[seq]/Nsequences),file=fout)
 
-                
+    ## at this point find for each x-pattern, the c-pattern that is closest
+    if args.ctable:
+        nctable = filename_prepend("n-",args.ctable)
+        with open(nctable,"w") as fout:
+            for line in neighbor_patterns(sitelist,master,voclist,xpatt):
+                print(line,file=fout)
+
+    ## now go through the sequences and tally dates
+    
     DG_datecounter = {m: Counter() for m in patterns} 
     for s in seqlist[1:]:
         if not args.keepx and "X" in s.seq:
