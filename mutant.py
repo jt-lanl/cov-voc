@@ -92,7 +92,7 @@ class Mutation(list):
                     return((str(ssma),str(ssmb)))
                 if ssma.mut == "." or ssmb.mut == ".":
                     continue
-                if ssma.mut == "!" or ssmb.mut == "!":
+                if ssma.mut == "*" or ssmb.mut == "*":
                     continue
                 if ssma.mut != ssmb.mut:
                     return((str(ssma),str(ssmb)))
@@ -127,7 +127,7 @@ class Mutation(list):
         ## otherwise: only needs to match at mutation sites
         pattern = list(refseq) if exact else list("." * len(refseq))
         for ssm in self:
-            if ssm.mut == "!":
+            if ssm.mut == "*":
                 pattern[ssm.site-1] = "[^"+ssm.ref+"]"
             else:
                 pattern[ssm.site-1] = ssm.mut
