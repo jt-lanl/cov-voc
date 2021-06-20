@@ -200,12 +200,12 @@ def main(args):
     print("Running",title,file=sys.stderr,flush=True)
 
     allseqs = covid.read_seqfile(args)
-    vprint("Read",len(allseqs),"seqences, date range:",sequtil.range_of_dates(allseqs))
+    vprint("Read",len(allseqs),"sequences, date range:",sequtil.range_of_dates(allseqs))
     allseqs = covid.filter_seqs_by_date(allseqs,args)
-    vprint("Date-filtered",len(allseqs),"seqences, date range:",sequtil.range_of_dates(allseqs))
+    vprint("Date-filtered",len(allseqs),"sequences, date range:",sequtil.range_of_dates(allseqs))
+    allseqs = covid.fix_seqs(allseqs,args)
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
-    vprint("Pattern-filtered",len(seqs),"seqences, date range:",sequtil.range_of_dates(seqs))
-    seqs = covid.fix_seqs(seqs,args)
+    vprint("Pattern-filtered",len(seqs),"sequences, date range:",sequtil.range_of_dates(seqs))
 
     firstseq = seqs[0].seq
     seqs = seqs[1:]
