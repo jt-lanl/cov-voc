@@ -1,8 +1,6 @@
-'''
-match a sequence pattern to sequences in a seqfile
-ad hoc variant of vfasta.py
-requires full spike sequence to EXACTLY match the full sequence pattern
-created when Wuhan is mutated as specified at the specified sites
+DESCRIPTION='''
+find sequences in a fasta file that
+match a sequence pattern (or a mutant string) 
 '''
 import os
 import sys
@@ -20,12 +18,12 @@ import covid
 import mutant
 
 def getargs():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=DESCRIPTION)
     paa = ap.add_argument
     covid.corona_args(ap)
     paa("--random",action="store_true",
         help="randomize input data order")
-    paa("--mutants","-m",
+    paa("--mutant","-m",
         help="mutant string, such as '[W152R,N439K,D614G,P681R]'")
     paa("--sites","-s",
         help="list of sites; eg 145-148,156,178-188")
@@ -34,74 +32,36 @@ def getargs():
     paa("-N",type=int,default=0,
         help="show at most this many sequences")
     paa("--nlist",
-        help="list of sequences; eg. 1-100, or 3-6")
+        help="list of sequences (before filtering); eg. 1-100, or 3-6")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--fullmatch",action="store_true",
-        help="fullpattern = Wuhan + mutations; default: dots + mutations")
+        help="require all non-listed sites to match reference sequence")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     return args
 
-
-def filterseqs(args,seqlist):
-    ''' pull out a sublist of the sequence list, based on 
-    various options in the args structure '''
-
-    firstseq = seqlist[0].seq
-
-    if args.nlist:
-        seqlist = [seqlist[n]
-                   for n in intlist.string_to_intlist(args.nlist)]
-        vprint(len(seqlist),"sequences in:",args.nlist)
-
-    if args.dates:
-        seqlist = sequtil.filter_by_date(seqlist,
-                                         args.dates[0],args.dates[1],
-                                         keepfirst=True)
-        vprint(len(seqlist),"sequences in date range:",args.dates)
-
-    if args.filtername:
-        seqlist = seqlist[:1] + [s for s in seqlist[1:]
-                                 if args.filtername in s.name]
-        vprint(len(seqlist),"sequences with pattern:",args.filtername)
-
-    if args.stripdashcols and "-" in firstseq:
-        vprint("Stripping sites with dashes in first sequence...",end="")
-        sequtil.stripdashcols(firstseq,seqlist)
-        vprint("ok")
-        if "-" in seqlist[0].seq:
-            raise RuntimeError("strip dash failed!")
-
-    firstseq = seqlist[0].seq
-    
-    if "-" in firstseq:
-        warnings.warn("dashes in reference sequence")
-
-    return seqlist
-
 def main(args):
 
     seqlist = covid.read_seqfile(args)
     vprint(len(seqlist),"sequences read")
+    if args.nlist:
+        seqlist = seqlist[:1] + [seqlist[n]
+                                 for n in intlist.string_to_intlist(args.nlist)]
+        vprint(len(seqlist),"sequences in:",args.nlist)
     seqlist = covid.filter_seqs(seqlist,args)
     vprint(len(seqlist),"sequences after filtering")
 
     if args.random:
         seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
 
-    ## lop off that damn ending '$'
-    bottomdollar = re.compile("\$$")
-    for s in seqlist:
-        s.seq = bottomdollar.sub("",s.seq)
-
     firstseq = seqlist[0].seq
     
-    if args.mutants:
+    if args.mutant:
         assert(not args.sites)
         assert(not args.seqpattern)
-        muts = mutant.Mutation().init_from_line(args.mutants)
+        muts = mutant.Mutation().init_from_line(args.mutant)
         assert( muts.checkref(firstseq,verbose=True) )
         matchpatt = muts.regex_pattern(firstseq,exact=bool(args.fullmatch))
         sites = [mut.site for mut in muts]
