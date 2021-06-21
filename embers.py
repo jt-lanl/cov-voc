@@ -155,22 +155,27 @@ def check_dups(xlist):
         xset.add(x)
     return duplist
 
-def neighbor_patterns(sitelist,master,voclist,xpatt):
-    ''' for each of the seq patterns in xpatt, find nearest pattern in voclist '''
+def lineage_counts(sitelist,master,voclist,cpatt,Nsequences):
+    yield from intlist.write_numbers_vertically(sitelist)
+    yield f"{master} Counts Percent Lineage"
+    for voc in voclist:
+        patt = voc.pattern
+        rpatt = relativepattern(master,patt)
+        yield "%s %6d %6.2f%% %s" % (rpatt,cpatt[patt],100*cpatt[patt]/Nsequences,voc.name)
+
+def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,Nsequences):
+    ''' for each of the seq patterns in xpatt, find nearby patterns in voclist '''
     ## routine yields lines that are meant to be printed
-    for line in intlist.write_numbers_vertically(sitelist):
-        yield line
-    yield f"{master} Counts Neighbor"
+    yield from intlist.write_numbers_vertically(sitelist)
+    yield f"{master} Counts Percent NearbyLineage(s)"
     for seq in sorted(xpatt,key=xpatt.get,reverse=True)[:50]:
         rseq = relativepattern(master,seq)
         dv = {v: sum(bool(x != y and y != ".")
                      for x,y in zip(seq,v.pattern))
               for v in voclist}
-        if min(dv.values()) > 1:
-            yield "%s %6d" % (rseq,xpatt[seq])
-        for v in dv:
-            if dv[v] < 2:
-                yield "%s %6d %s" % (rseq,xpatt[seq],v.name)
+        vnearby_names = [v.name.strip() for v in dv if dv[v]<2]
+        yield "%s %6d %6.2f%% %s" % (rseq,xpatt[seq],100*xpatt[seq]/Nsequences,
+                             ", ".join(vnearby_names))
 
 def main(args):
 
@@ -262,33 +267,16 @@ def main(args):
     ## Write counts table to file
     if args.ctable:
         with open(args.ctable,"w") as fout:
-            for line in intlist.write_numbers_vertically(sitelist):
+            for line in lineage_counts(sitelist,master,voclist,cpatt,Nsequences):
                 print(line,file=fout)
-            print(master,namefmt % "Name","Counts Percent",file=fout)
-            for voc in voclist:
-                patt = voc.pattern
-                if patt == "other":
-                    continue
-                print("%s %s %6d  %5.2f%%" % (relpattern(patt),voc.name,
-                                             cpatt[patt],100*cpatt[patt]/Nsequences),file=fout)
-
+                
     ## Write x-counts table to file (sequences that don't match patterns)
+    ## Include the nearby c-pattern that is closest
     if args.ctable:
         xctable = filename_prepend("x-",args.ctable)
         vprint("Unmatched sequence patterns in file:",xctable)
         with open(xctable,"w") as fout:
-            for line in intlist.write_numbers_vertically(sitelist):
-                print(line,file=fout)
-            print(master,"Counts Percent",file=fout)
-            for seq in sorted(xpatt,key=xpatt.get,reverse=True)[:50]:
-                print("%s %6d %6.2f%%" %
-                      (relpattern(seq),xpatt[seq],100*xpatt[seq]/Nsequences),file=fout)
-
-    ## at this point find for each x-pattern, the c-pattern that is closest
-    if args.ctable:
-        nctable = filename_prepend("n-",args.ctable)
-        with open(nctable,"w") as fout:
-            for line in neighbor_patterns(sitelist,master,voclist,xpatt):
+            for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,Nsequences):
                 print(line,file=fout)
 
     ## now go through the sequences and tally dates
