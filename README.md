@@ -35,6 +35,14 @@ XSPIKE (eXplore the SPIKE protein) does three main tasks:
 
 # SECONDARY PROGRAMS
 
+A small ecosystem of python scripts has been developed to support and display the analysis done in
+the main routines `shiver` and `xspike`.
+
+Note that I often refer to sequence files as "fasta files" since that is the format I most often use. But all
+of these routines read sequence files using the `readseq.py` module, and this permits a number of file types
+(including fasta, mase, tbl, and raw sequences, and gzip'd versions of these as well); the file type is inferred
+from the extension of the file name.
+
 ## EMBERS
 
 EMBERS is a display tool that creates colorful stacked barplots showing how variant counts change over time.
@@ -65,6 +73,10 @@ first sequence in the specified reference fasta file.
 ## VFASTA
 
 for viewing fasta files; you can just look at subsets of sequences and/or subsets of sites
+
+## MATCHFASTA
+
+identifies sequences from a fasta file that matches a given pattern.
 
 ## COMMONTYPES
 
@@ -97,7 +109,10 @@ for reading fasta sequence files
 * also tbl, and several other formats, are supported;
 the routine `readseq.read_seqfile(...)` will determine the format of the file based on the file extension.
 
-* Note that gzip'd files also work so `-i sequencefile.fasta.gz` on the command line will also be automatically understood as a compressed fasta-formatted file, and it will be read without explicitly decompressing the file.  
+* Note that gzip'd files also work so `-i sequencefile.fasta.gz` on the command line will also be automatically understood as a compressed fasta-formatted file, and it will be read without explicitly decompressing the file.
+
+* Output files are also written according to their name, but output to `*.gz` files is not currently implemented. (You can
+just run `gzip` on the fasta file once it's written.)
 
 ### mutants/spikevariants 
 
