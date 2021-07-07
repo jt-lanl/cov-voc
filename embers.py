@@ -84,7 +84,7 @@ def date_from_seqname(sname):
     ## alternative would be to search for /d/d/d/d-/d/d-/d/d
     tokens = sname.split('.')
     try:
-        date = date_fromiso(tokens[-2])
+        date = date_fromiso(tokens[4])
     except IndexError:
         warnings.warn(f"No date found for: {sname}, tokens={tokens}")
         date = None
@@ -158,7 +158,7 @@ def check_dups(xlist):
 def lineage_counts(sitelist,master,voclist,cpatt,Nsequences):
     yield from intlist.write_numbers_vertically(sitelist)
     yield f"{master} Counts Percent Lineage"
-    for voc in voclist:
+    for voc in voclist[::-1]:
         patt = voc.pattern
         rpatt = relativepattern(master,patt)
         yield "%s %6d %6.2f%% %s" % (rpatt,cpatt[patt],100*cpatt[patt]/Nsequences,voc.name)
