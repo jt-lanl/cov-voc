@@ -22,6 +22,12 @@ class SingleSiteMutation():
         self.site = int(m[2])
         self.mut = m[3]
 
+        if self.mut == self.ref:
+            print(self,self.mut,"==",self.ref,file=sys.stderr)
+        
+        if self.mut == "_":
+            self.mut = self.ref
+
     def __eq__(self,other):
         return self.ref == other.ref and self.site == other.site and self.mut == other.mut
 
@@ -83,6 +89,7 @@ class Mutation(list):
         ## [T95I] and [G142D] are consistent because sites are different
         ## [T95I] and [T95T] are inconsistent, but
         ## [T95I] and [T95.] are unequal but consistent
+        ## don't (yet) handle [T95_] as synonym for [T95T]
         for ssma in self:
             for ssmb in self:
                 if ssma.site != ssmb.site:
@@ -129,6 +136,8 @@ class Mutation(list):
         for ssm in self:
             if ssm.mut == "*":
                 pattern[ssm.site-1] = "[^"+ssm.ref+"]"
+            elif ssm.mut == "_":
+                pattern[ssm.site-1] = ssm.ref
             else:
                 pattern[ssm.site-1] = ssm.mut
         return "".join(pattern)

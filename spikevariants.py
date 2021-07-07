@@ -51,6 +51,8 @@ class VOC():
                 continue
             if p == m and exact:
                 continue
+            if p == m:
+                p = "_"
             muts.append( "%s%d%s" % (m,n,p) )
         mstring = "[" + ",".join(muts) + "]"
         if exact:
@@ -188,7 +190,11 @@ class SpikeVariants():
 
     def checkmaster(self,refseq):
         for n,s in enumerate(self.sites):
-            assert ( self.master[n] == refseq[s-1] )
+            if self.master[n] != refseq[s-1]:
+                #print("refseq:",refseq)
+                errmsg = f"check fail: master[{n}]={self.master[n]} != refseq[{s}-1]={refseq[s-1]}"
+                #print("Err:",errmsg)
+                raise RuntimeError(errmsg)
             
 
     def pprint(self,**kwxtra):
@@ -258,17 +264,16 @@ class SpikeVariants():
 if __name__ == "__main__":
 
     import sys
-    import readseq
 
     sv = SpikeVariants().init_from_defaults()
     sv.check()
     sv.pprint(file=sys.stderr)
 
-    seqs = readseq.read_seqfile("Data/wuhan.fasta.gz")
-    sv = SpikeVariants().init_from_colormut("color-mutation-table-v2.txt")
+    sv = SpikeVariants().init_from_colormut("color-mutation-table-v4.txt")
     sv.check()
     sv.pprint(file=sys.stderr)
 
+    sv.key_print(file=sys.stderr)
     sv.key_print2(file=sys.stderr)
     
     sv.pyprint(sys.stdout)
