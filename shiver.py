@@ -476,15 +476,6 @@ The coverage table is based on {len(allpattseqs)} sequences.
             print(line)
 
 
-    DESCRIBE_FASTA = f'''
-
-The fasta file link contains these {len(cocktail)} variants as 
-full sequences over the spike protein.
-'''
-
-    print(DESCRIBE_FASTA)
-
-
 if __name__ == "__main__":
 
     args = getargs()
