@@ -57,6 +57,8 @@ def main(args):
         seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
 
     firstseq = seqlist[0].seq
+
+    matchpatt=None
     
     if args.mutant:
         assert(not args.sites)
@@ -79,9 +81,10 @@ def main(args):
             matchpatt[s-1] = c
         matchpatt = "".join(matchpatt)
 
-    rematchpatt = re.compile(matchpatt)
-    seqlist = seqlist[:1] + [s for s in seqlist[1:]
-                             if rematchpatt.match(s.seq)]
+    if matchpatt:
+        rematchpatt = re.compile(matchpatt)
+        seqlist = seqlist[:1] + [s for s in seqlist[1:]
+                                 if rematchpatt.match(s.seq)]
     
     vprint("Sequences:",len(seqlist)-1,"match seqpattern:",matchpatt)
     print("Matches: ",len(seqlist)-1)
