@@ -36,6 +36,8 @@ def getargs():
         help="list of sequences; eg. 1-100, or 3-6")
     paa("--keepx",action="store_true",
         help="include sequences with X in them")
+    paa("--xrepair",action="store_true",
+        help="repair sequences with X in them")
     paa("--mincount",type=int,default=0,
         help="Require varants to appear in this many sequences")
     #paa("--output","-o",type=Path,
@@ -47,6 +49,18 @@ def getargs():
     args = ap.parse_args()
     return args
 
+def xrepair(seqlist,X='X'):
+    '''replace all occurrences of X with the ancestral form in first sequence'''
+    ref = seqlist[0].seq
+    for s in seqlist[1:]:
+        if X in s.seq:
+            ss = list(s.seq)
+            for n in range(len(s.seq)):
+                if ss[n] == X:
+                    ss[n] = ref[n]
+            s.seq = "".join(ss)
+    return seqlist
+
 
 def main(args):
 
@@ -54,6 +68,10 @@ def main(args):
     vprint(len(seqlist),"sequences read")
     seqlist = covid.filter_seqs(seqlist,args)
     vprint(len(seqlist),"sequences after filtering")
+
+    if args.xrepair:
+        args.keepx = True
+        seqlist = xrepair(seqlist)
 
     if args.random:
         seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
@@ -64,6 +82,7 @@ def main(args):
         s.seq = bottomdollar.sub("",s.seq)
 
     firstseq = seqlist[0].seq
+    seqpattern = None
     
     if args.mutants:
         assert(not args.sites)
@@ -85,8 +104,9 @@ def main(args):
         seqpattern = args.seqpattern
 
     fullpatt = ["."] * len(seqlist[0].seq)
-    for c,s in zip(seqpattern,sites):
-        fullpatt[s-1] = c
+    if seqpattern:
+        for c,s in zip(seqpattern,sites):
+            fullpatt[s-1] = c
     fullpatt = "".join(fullpatt)
 
     seqlist = seqlist[:1] + [s for s in seqlist[1:]
@@ -94,23 +114,32 @@ def main(args):
     vprint("Sequences:",len(seqlist)-1,"match seqpattern:",seqpattern)
 
     ## Count all the sequences consistent with this sequence
-    cnt = Counter(s.seq for s in seqlist)
+    cnt = Counter(s.seq for s in seqlist[1:])
+
+    vprint(f"Matches {len(cnt):5d} distinct, {sum(cnt.values()):7d} total")
 
     ## Don't count sequences with X's in them
+    ## But don't censor sequence if X is last char
     if not args.keepx:
-        xlist = [s for s in cnt if "X" in s]
+        xlist = [s for s in cnt if "X" in s[:-1]]
         for x in xlist:
             del cnt[x]
+        vprint(f"w/o X's {len(cnt):5d} distinct, {sum(cnt.values()):7d} total")
 
     ## Don't count patterns with fewer than MINCOUNT appearances
     if args.mincount:
         xlist = [s for s in cnt if cnt[s] < args.mincount]
         for x in xlist:
             del cnt[x]
-    
-    print(len(cnt),"variants of the variant; here are the top",args.N)
+        vprint(f">mincnt {len(cnt):5d} distinct, {sum(cnt.values()):7d} total")
+
+    Ntop = args.N
+    if Ntop==0 or len(cnt)<Ntop:
+        Ntop = len(cnt)
+        
+    print(len(cnt),"variants of the variant; here are the top",Ntop)
     topcnt = sorted(cnt, key=cnt.get, reverse=True)
-    for seq in topcnt[:args.N]:
+    for seq in topcnt[:Ntop]:
         print(f"{cnt[seq]:6d}",mutant.Mutation().init_from_sequences(seqlist[0].seq,seq))
 
 if __name__ == "__main__":
