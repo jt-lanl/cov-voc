@@ -9,8 +9,10 @@ on the sequences provided by GISAID (<https://www.gisaid.org/>).
 The emphasis is on the spike protein, though some of the routines can be applied
 as well to other proteins in the SARS-CoV-2 genome.
 
-For most of these routines, the input is a sequence file (usually, but not necessarily, in fasta format) whose
+For most of these routines, the input is an aligned amino-acid sequence file (usually, but not necessarily, in fasta format) whose
 first sequence is taken as the *reference* sequence, typically `NC_045512_spike_surface_glycoprotein` which is the ancestral Wuhan strain.
+
+CAVEAT: Virtually all of the analysis in this software neglects insertions.  Only the sites at which the reference strain has an amino acid are considered.
 
 # MAIN ANALYSIS PROGRAMS
 
@@ -51,6 +53,15 @@ The routine can also create simple line plots on a logarithmic axis, which is us
 are much rarer than the dominant variants (but that may be increasing in time).
 
 The variants used in `embers` are defined in a "color mutation" file, described below
+
+## PANGOCOMMONFORMS
+
+Alignements from the LANL `cov-dev.lanl.gov` database now include pango lineages (see `cov-lineages.org`);
+The `pangocommonforms` code produces a report that identifies the common sequence patterns associated with
+these lineages.  In addition to the most common forms, a consensus form is also identified.  The consensus
+is defined site-by-site, and constructs a sequences by taking the most common amino-acid at each site. Usually
+the consensus is also the most common form, but that is not always the case, and in some cases, the consensus
+itself does not even appear in the database.
 
 ## FIXFASTA
 
