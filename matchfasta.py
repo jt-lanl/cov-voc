@@ -84,6 +84,7 @@ def main(args):
                              if rematchpatt.match(s.seq)]
     
     vprint("Sequences:",len(seqlist)-1,"match seqpattern:",matchpatt)
+    print("Matches: ",len(seqlist)-1)
 
     if args.N:
         seqlist = seqlist[:args.N+1]
