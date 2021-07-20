@@ -77,15 +77,21 @@ def main(args):
         seqlist = [s for s in seqlist if "X" not in s.seq[:-1]]
         vprint(len(seqlist),"sequences after removing X's")
 
-    print("PANGO COMMON FORMS")
+    print("COMMON FORMS OF SPIKE WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
-    print(f"For each lineage, show the consensus form, and the top {args.mostcommon} most common forms")
-    print("This run uses sequences sampled from %s to %s." \
+    print("For each lineage, we show the consensus form of Spike, "
+          "as well as its count within (and percentage of) the lineage.  "
+          f"We also show the {args.mostcommon} most common forms, "
+          "which may or may not include the consensus form.  "
+          "[Note that if a lineage contains several divergent forms of Spike, "
+          "the consensus form might not be found in nature.]  "
+          "Also, note that insertions are not included in these patterns.")
+    print()
+    
+    lastDays = f" in the last {args.days} days from our last update," if args.days else ""
+    print(f"This output is based on sequences sampled{lastDays} from %s to %s." \
           % sequtil.range_of_dates(seqlist))
-    print()
-    print("Pango     Lineage   Form   Form")
-    print("Lineage     Count  Count    Pct [Mutation string]")
-        
+
     firstseq = seqlist[0].seq
 
     cnt_lin = count_lineages(seqlist[1:])
@@ -101,20 +107,24 @@ def main(args):
     fmt_lin = {lin: fmt%lin for lin in lineages}
     fmt_lin["EMPTY"] = fmt % ("",)
 
+    print()
+    print(fmt % "Pango","Lineage   Form   Form")
+    print(fmt % "Lineage","  Count  Count    Pct [Mutation string]")
+        
     for lin in lineages:
         seqlin = list_by_lineage[lin]
         
         cons = consensus(seqlin)
         cnt = sum(1 for s in seqlin if s.seq == cons)
         m = mutant.Mutation((firstseq,cons))
-        print("%s %6d %6d %5.1f%% %s (consensus)" % (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],str(m)))
+        print("%s %7d %6d %5.1f%% %s (consensus)" % (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],str(m)))
 
         cntr = Counter(s.seq for s in seqlin)
         for comm,cnt in cntr.most_common(args.mostcommon):
             if comm == cons:
                 continue
             m = mutant.Mutation((firstseq,comm))
-            print("%s        %6d %5.1f%% %s" % (fmt_lin["EMPTY"],cnt,100*cnt/cnt_lin[lin],str(m)))
+            print("%s         %6d %5.1f%% %s" % (fmt_lin["EMPTY"],cnt,100*cnt/cnt_lin[lin],str(m)))
         
               
         
