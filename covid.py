@@ -12,7 +12,7 @@ import sequtil
 import intlist
 import mutant
 
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210609.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210716.fasta.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -265,7 +265,7 @@ def filter_seqs_by_pattern(seqs,args):
             allseq_names = set(s.name for s in allseqs)
             allseqs.extend(s for s in fseqs if s.name not in allseq_names)
         seqs = allseqs
-        vprint(len(seqs),"sequences fit pattern","+".join(args.filterbyname)) ## includes refseq
+        vprint(len(seqs)-1,"sequences fit pattern:","+".join(args.filterbyname)) ## does not include refseq
             
 
     if args.xfilterbyname:
@@ -277,7 +277,7 @@ def filter_seqs_by_pattern(seqs,args):
 
 
 def init_lineages(filename,firstseq):
-    NamedPattern = namedtuple('NamedPattern',['name','pattern'])
+    NamedPattern = namedtuple('NamedPattern',['name','pattern','color'])
     lineages = []
     if not filename:
         return lineages
@@ -293,7 +293,7 @@ def init_lineages(filename,firstseq):
                 warnings.warn(f"No match: {line}")
                 continue
             mpattern = mutant.Mutation(m[2]).regex_pattern(firstseq,exact=bool(m[3]))
-            lineages.append( NamedPattern(name=m[4],pattern=mpattern) )
+            lineages.append( NamedPattern(name=m[4],pattern=mpattern,color=m[1]) )
     return lineages
 
 def match_lineages(lineages,fullseq):
@@ -302,8 +302,18 @@ def match_lineages(lineages,fullseq):
         if re.match(lineage.pattern,fullseq):
             lineage_name = lineage.name
             break ## match first available
-    return lineage_name
-            
+    return lineage_name #,lineage_color
+
+def match_lineage_name_color(lineages,fullseq):
+    lineage_name="other"
+    lineage_color="Gray"
+    for lineage in lineages:
+        if re.match(lineage.pattern,fullseq):
+            lineage_name = lineage.name
+            lineage_color = lineage.color
+            break ## match first available
+    return lineage_name,lineage_color
+
 
 
 SARS_REGIONS = '''
