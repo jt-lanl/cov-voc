@@ -1,5 +1,5 @@
 '''
-Library of routines for reading sequence files (mase, fasta, tbl, seq)
+Library of routines for reading sequence files (mase, fasta, tbl, seq; also pkl)
 And for writing them
 And for dealing with them when the files are gzip'd
 Type "seq" is raw sequences (no names)
@@ -17,19 +17,25 @@ import sys
 import os.path
 import os
 import re
+import pickle
 from gzip import open as gzip_open
 
-from seqsample import SequenceSample
-#class SequenceSample:
-#    def __init__(self,name,seq):
-#        self.name = name
-#        self.seq = seq
 
-def open_fcn(gzip=False):
-    if gzip:
-        return lambda filename: gzip_open(filename,"rt")
+from seqsample import SequenceSample
+
+def xopen(filename,rw,gz=False,binaryfile=False):
+    ''' equivalent of open that works w/ and w/o gzip '''
+    rwstr = rw + "b" if binaryfile else rw
+    if gz and not binaryfile:            
+        rwstr += "t"
+    if gz:
+        return gzip_open(filename,rwstr)
     else:
-        return lambda filename: open(filename,"r")
+        return open(filename,rwstr)
+    
+def rd_pickle(fp):
+    '''pickled file contains sequence list as a single object'''
+    return pickle.load(fp)
 
 def rd_rawseq(fp):
     for line in fp:
@@ -85,11 +91,10 @@ def rd_fasta(fp):
         ## last sequence in the file
         yield SequenceSample(cur_name,cur_seq)
 
-def read_fasta(filename,gzip=False):
+def read_fasta(filename,gz=False):
     ## kept for backward compatibaility
     ## better to use: read_seqfile(filename,filetype="fasta")
-    opfcn = open_fcn(gzip)
-    with opfcn(filename) as fp:
+    with xopen(filename,'r',gz=True) as fp:
         seqlist = list( rd_fasta(fp) )
     return seqlist
     
@@ -119,25 +124,26 @@ FILEFUNCS = {
     "tbl"   : rd_tbl,
     "table" : rd_tbl,
     "seq"   : rd_rawseq,
+    "pkl"   : rd_pickle,
 }
 FILETYPES = list(FILEFUNCS)
 
 def auto_filetype(filename,filetypes=FILETYPES):
     if filename.endswith(".gz"):
-        gzip = True
+        gz = True
         filename = re.sub(".gz$","",filename)
     else:
-        gzip = False
+        gz = False
         
     for t in filetypes:
         if filename.lower().endswith("."+t):
-            return t,gzip
+            return t,gz
 
     _,ext = os.path.splitext(filename)
     raise RuntimeWarning(f"Filename extension [{ext}] "
                          f"not among supported filetypes: "
                          f"{filetypes}")
-    return "",gzip
+    return "",gz
 
 def rd_seqfile(filename,filetype="auto"):
     '''
@@ -155,7 +161,7 @@ def rd_seqfile(filename,filetype="auto"):
     if filetype not in ["auto"] + FILETYPES:
         raise RuntimeError("filetype="+filetype+" not supported")
 
-    atype,gzip = auto_filetype(filename)
+    atype,gz = auto_filetype(filename)
 
     if filetype != "auto" and atype and FILEFUNCS[atype] != FILEFUNCS[filetype]:
         raise RuntimeWarning("filetype="+filetype+
@@ -167,11 +173,12 @@ def rd_seqfile(filename,filetype="auto"):
         raise RuntimeError("Unknown filetype ["+filetype+
                            "] of sequence file ["+filename+"]")
 
+    binaryfile = True if filetype == "pkl" else False
+
     ## having gone through all that to determine what kind
     ## of file this is, now start reading it
-    o_fcn = open_fcn(gzip)
     read_fcn = FILEFUNCS[filetype]
-    with o_fcn(filename) as fp:
+    with xopen(filename,'r',gz=gz,binaryfile=binaryfile) as fp:
         yield from read_fcn(fp)
             
 def filter_seqs(seqs,
@@ -261,7 +268,7 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
 
     filename = os.fspath(filename)
     
-    atype,gzip = auto_filetype(filename)
+    atype,gz = auto_filetype(filename)
 
     if filetype != "auto" and filetype not in FILETYPES:
         raise RuntimeError("filetype="+filetype+" not supported")
@@ -271,9 +278,8 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
     if filetype == "auto":
         filetype = atype
     if filetype in FILETYPES:
-        o_fcn = open_fcn(gzip)
         read_fcn = FILEFUNCS[filetype]
-        with o_fcn(filename) as fp:
+        with xopen(filename,'r') as fp:
             seqlist = list( read_fcn(fp) )
     else:
         raise RuntimeError("Unknown filetype ["+filetype+
@@ -299,43 +305,44 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
 ################### WRITE SEQUENCE FILES
 
 
-
 def columnize(str,col=70):
-    strarr = []
+    '''break up a long string into a sequence of strings with col columns or less'''
     while len(str)>=col:
-        strarr.append( str[:col] )
+        yield str[:col]
         str = str[col:]
     if str:
-        strarr.append( str )
-    return strarr
+        yield str
 
-def write_fasta(filename,seq_samples):
-    with open(filename,"w") as fout:
+def write_fasta(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz) as fout:
         for s in seq_samples:
             fout.write(">" + s.name + "\n")
             for str in columnize(s.seq):
-                ## better to break these into 70 column units
                 fout.write(str)
                 fout.write("\n")
 
-def write_mase(filename,seq_samples):
-    with open(filename,"w") as fout:
+def write_mase(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz) as fout:
         for s in seq_samples:
             fout.write(";\n%s\n" % s.name)
             for str in columnize(s.seq):
                 fout.write(str + "\n")
 
-def write_tbl(filename,seq_samples):
-    with open(filename,"w") as fout:
+def write_tbl(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz) as fout:
         for s in seq_samples:
             sname = s.name.strip()
             sname = re.sub(" ","_",s.name) ## no spaces in name
             fout.write("%s\t%s\n" % (sname,s.seq))
 
-def write_rawseq(filename,seq_samples):
-    with open(filename,"w") as fout:
+def write_rawseq(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz) as fout:
         for s in seq_samples:
             fout.write("%s\n" % s.seq)
+
+def write_pickle(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz,binaryfile=True) as fout:
+        pickle.dump(seq_samples,fout)
 
 W_FILEFUNCS = {
     #"mase"  : write_mase,
@@ -348,6 +355,7 @@ W_FILEFUNCS = {
     "tbl"   : write_tbl,
     "table" : write_tbl,
     "seq"   : write_rawseq,
+    "pkl"   : write_pickle,
 }
             
             
@@ -357,20 +365,20 @@ def write_seqfile(filename,seq_samples,filetype="auto"):
 
     filename = os.fspath(filename) ## enables pathlib input
     
-    atype,gzip = auto_filetype(filename,filetypes=W_FILETYPES)
+    atype,gz = auto_filetype(filename,filetypes=W_FILETYPES)
 
     if filetype != "auto" and filetype not in W_FILETYPES:
         raise RuntimeError("filetype="+filetype+" not supported")
     if filetype != "auto" and atype and atype != filetype:
         raise RuntimeError("filetype="+filetype+" but file appears of filetype "+atype)
-    if gzip:
-        raise RuntimeError("gzip not currently supported for writing files")
+    #if gz and atype != "pgz":
+    #    raise RuntimeError("gzip not currently supported for writing files")
 
     if filetype == "auto":
         filetype = atype
     if filetype in W_FILETYPES:
         write_fcn = W_FILEFUNCS[filetype]
-        write_fcn(filename,seq_samples)
+        write_fcn(filename,seq_samples,gz=gz)
     else:
         raise RuntimeError("Unknown filetype ["+filetype+
                            "] of sequence file ["+filename+"]")
