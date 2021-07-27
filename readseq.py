@@ -37,6 +37,13 @@ def rd_pickle(fp):
     '''pickled file contains sequence list as a single object'''
     return pickle.load(fp)
 
+def rd_incr_pickle(fp):
+    while True:
+        try:
+            yield pickle.load(fp)
+        except EOFError:
+            return
+
 def rd_rawseq(fp):
     for line in fp:
         line = line.strip()
@@ -125,6 +132,7 @@ FILEFUNCS = {
     "table" : rd_tbl,
     "seq"   : rd_rawseq,
     "pkl"   : rd_pickle,
+    "ipkl"  : rd_incr_pickle,
 }
 FILETYPES = list(FILEFUNCS)
 
@@ -173,7 +181,7 @@ def rd_seqfile(filename,filetype="auto"):
         raise RuntimeError("Unknown filetype ["+filetype+
                            "] of sequence file ["+filename+"]")
 
-    binaryfile = True if filetype == "pkl" else False
+    binaryfile = True if filetype in ["ipkl","pkl"] else False
 
     ## having gone through all that to determine what kind
     ## of file this is, now start reading it
@@ -344,6 +352,11 @@ def write_pickle(filename,seq_samples,gz=False):
     with xopen(filename,'w',gz=gz,binaryfile=True) as fout:
         pickle.dump(seq_samples,fout)
 
+def write_incr_pickle(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz,binaryfile=True) as fout:
+        for s in seq_samples:
+            pickle.dump(s,fout)
+
 W_FILEFUNCS = {
     #"mase"  : write_mase,
     "fasta" : write_fasta,
@@ -356,6 +369,7 @@ W_FILEFUNCS = {
     "table" : write_tbl,
     "seq"   : write_rawseq,
     "pkl"   : write_pickle,
+    "ipkl"  : write_incr_pickle,
 }
             
             

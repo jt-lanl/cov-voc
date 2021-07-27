@@ -117,13 +117,15 @@ and different number of components.
 
 for reading fasta sequence files 
 
-* also tbl, and several other formats, are supported;
+* also tbl, mase, and seq (raw);
 the routine `readseq.read_seqfile(...)` will determine the format of the file based on the file extension.
 
 * Note that gzip'd files also work so `-i sequencefile.fasta.gz` on the command line will also be automatically understood as a compressed fasta-formatted file, and it will be read without explicitly decompressing the file.
 
-* Output files are also written according to their name, but output to `*.gz` files is not currently implemented. (You can
-just run `gzip` on the fasta file once it's written.)
+* Output files are also written according to their name, with output to `*.gz` files also implemented.
+
+* A recent addition is the 'pkl' and 'ipkl' filetypes -- this is a python pickle (and incremental pickle) file; the 'pkl' is a direct serialization of
+the `SequenceSample` array as one object; the 'ipkl' serializes each sample separately.
 
 ### mutants/spikevariants 
 
