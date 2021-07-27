@@ -163,7 +163,7 @@ table is a list of variants, with one variant per line.
           <ssm> is a single site mutation of form <rchar><site><mchar>, where
                 <rchar> = character in reference sequence
                 <site> = integer site number
-                <mchar> = character in mutated sequence ('.' indicates any, '!' indicates any except <rchar>)
+                <mchar> = character in mutated sequence ('.' indicates any, '*' indicates any except <rchar>)
           '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
               mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
               site is among the union of all the sites in all the mutation strings
@@ -173,13 +173,13 @@ table is a list of variants, with one variant per line.
 For example, two typical lines look like:
 
     Orange  [H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H] B.1.1.7 UK VOC
-    Fuchsia [D614G,Q677!]!                                               Near-Furin
+    Fuchsia [D614G,Q677*]!                                               Near-Furin
     
 Each line contains a `ColorName`, a `[MutationString]`, possibly a `!`
 symbol, and then a `VariantName`.  These components are separated by
 arbitrary whitespace.  In the first line above, the "UK
-VOC" is ignored.  In the second line, Q677! indicates that the
-mutation can have any character except Q at site 677.  The second '!'
+VOC" is ignored.  In the second line, `Q677*` indicates that the
+mutation can have any character except Q at site 677.  The '!'
 (after the ']') indicates that only mutations at sites 614 and 677 are
 permitted; a sequence that disagrees with the reference sequence at
 any other site will not be consistent with this pattern.
