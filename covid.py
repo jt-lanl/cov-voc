@@ -15,7 +15,7 @@ import sequtil
 import intlist
 import mutant
 
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210724.fasta.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210724.pkl.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -37,8 +37,6 @@ def corona_args(ap):
         help="Consider date range of DAYS days ending on the last sampled date")
     paa("--fixsiteseventy",action="store_true",
         help="Sites 68-70 should be I--, not -I- or --I")
-    paa("--dopickle","-P",action="store_true",
-        help="Use pickle file to speed up reading of input fasta file")
 
     return
 
@@ -193,25 +191,7 @@ def read_seqfile(args,**kwargs):
         if args.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-    if args.dopickle:
-        ## Compressed pickle file speeds up reading the input sequence files
-        pkl_file = Path(args.input).with_suffix(".pgz")
-        if pkl_file.exists():
-            ## If .pgz file exists, then read it instead of input fasta file
-            vprint("Reading compressed pickle file:",pkl_file)
-            with gzip.open(pkl_file, 'rb') as f:
-                seqs = pickle.load(f)
-        else:
-            ## If .pgz file does not exist, then make it
-            ## After reading the the input fasta file
-            seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-            vprint("Writing compressed pickle file:",pkl_file)
-            with gzip.open(pkl_file, 'wb') as f:
-                pickle.dump(seqs,f)
-        
-    else:
-        seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-
+    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
     vprint(len(seqs),"sequences read")
 
     clen = Counter([len(s.seq) for s in seqs])
