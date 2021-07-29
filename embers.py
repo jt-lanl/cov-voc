@@ -230,6 +230,7 @@ def main(args):
     vprint("ok, reading sequences now...",end="")
     seqlist = covid.read_seqfile(args)
     seqlist = covid.filter_seqs(seqlist,args)
+    seqlist = list(seqlist)
     svar.checkmaster(seqlist[0].seq) ## ensure master agrees with first seqlist
     for s in seqlist:
         s.seq = "".join(s.seq[n-1] for n in sitelist)
