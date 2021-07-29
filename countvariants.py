@@ -65,8 +65,8 @@ def xrepair(seqlist,X='X'):
 def main(args):
 
     seqlist = covid.read_seqfile(args)
-    vprint(len(seqlist),"sequences read")
     seqlist = covid.filter_seqs(seqlist,args)
+    seqlist = list(seqlist)
     vprint(len(seqlist),"sequences after filtering")
 
     if args.xrepair:
