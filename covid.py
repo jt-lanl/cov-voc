@@ -3,10 +3,9 @@
 import sys
 import re
 import datetime
+import itertools
 from pathlib import Path
 from collections import Counter,namedtuple
-import bz2
-import gzip
 import pickle
 import warnings
 
@@ -15,7 +14,7 @@ import sequtil
 import intlist
 import mutant
 
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210724.pkl.gz"
+DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210728.ipkl.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -109,6 +108,12 @@ the_variant = {
     'UG': UGvariant,
     }
 
+def fixsiteseventy_gen(seqs,args):
+    for s in seqs:
+        if s.seq[67:70] == "--I" or s.seq[67:70] == "-I-":
+            s.seq = s.seq[:67] + "I--" + s.seq[70:]
+        yield s
+
 def fixsiteseventy(seqs,args):
     count=0
     for s in seqs:
@@ -185,47 +190,54 @@ def get_title(args):
         title = title + " w/o " + "+".join(args.xfilterbyname)
     return title
 
-def read_seqfile(args,**kwargs):
-
-    def vprint(*p,**kw):
-        if args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
-    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-    vprint(len(seqs),"sequences read")
-
-    clen = Counter([len(s.seq) for s in seqs])
-    for l in clen:
-        vprint(clen[l],"sequences of length",l)
+def checkseqlengths(seqlist,args):
+    #assert isinstance(seqlist,list)
+    clen = Counter([len(s.seq) for s in seqlist])
+    if args.verbose:
+        for l in clen:
+            print(clen[l],"sequences of length",l,file=sys.stderr)
     if len(clen)>1:
         warnings.warn("Not all sequences are the same length")
+    
 
+def read_seqfile(args,**kwargs):
+    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
     return seqs
 
+def get_first_item(seqs):
+    '''get first item in iterable, and and put it back'''
+    if isinstance(seqs,list):
+        first = seqs[0]
+    else:
+        first = next(seqs)
+        seqs = itertools.chain([first],seqs)
+    return first,seqs
+        
 def fix_seqs(seqs,args):
-    firstseq = seqs[0].seq
-    if "-" in firstseq and not args.keepdashcols:
+
+    firstseq,seqs = get_first_item(seqs)
+
+    if "-" in firstseq.seq and not args.keepdashcols:
         warnings.warn("Stripping sites with dashes in first sequence")
-        sequtil.stripdashcols(firstseq,seqs)
-        firstseq = seqs[0].seq
+        sequtil.stripdashcols(firstseq.seq,seqs)
 
     if args.fixsiteseventy:
-        fixes = fixsiteseventy(seqs,args)
-        if fixes>0:
-            print("Fixed sites 68-70 for",fixes,"sequences")
+        seqs = fixsiteseventy_gen(seqs,args)
 
-    if not args.keeplastchar and firstseq[-1]=="$":
-        for s in seqlist:
-            s.seq = s.seq[:-1]
+    if not args.keeplastchar and firstseq.seq and firstseq.seq[-1] in "$X":
+        seqs = striplastchar(seqs)
 
     return seqs
-    
+
+def striplastchar(seqs):
+    for s in seqs:
+        s.seq = s.seq[:-1]
+        yield s
 
 def filter_seqs(seqs,args):
     seqs = filter_seqs_by_date(seqs,args)
     seqs = filter_seqs_by_pattern(seqs,args)
     seqs = fix_seqs(seqs,args)
-
     return seqs
 
 def filter_seqs_by_date(seqs,args):
@@ -236,6 +248,7 @@ def filter_seqs_by_date(seqs,args):
         return seqs
 
     if args.days:
+        seqs = list(seqs)
         lastdate = sequtil.range_of_dates(seqs)[1]
         t = sequtil.date_fromiso(lastdate) ## not: datetime.date.today()
         f = t - datetime.timedelta(days=args.days)
@@ -247,35 +260,32 @@ def filter_seqs_by_date(seqs,args):
     return seqs
 
 def filter_seqs_by_pattern(seqs,args):
+    '''input is iterable seqs; output is generator seqs'''
 
-    def vprint(*p,**kw):
-        if args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    keepers = []
+    xcludes = []
     if args.filterbyname:
-        allseqs = seqs[:1] ## do keep the first sequence
         for name in args.filterbyname:
-            patt,wo,xpatt = name.partition("-w/o-")
-            if name == "Global":
-                fseqs = seqs[1:]
-            else:
-                ## nb, the r"\."+ means names have to be preceeded by a dot
-                fseqs = sequtil.filter_by_pattern(seqs[1:],r"\."+patt,keepfirst=False)
-            vprint(len(fseqs),"sequences fit pattern:",patt)
-            if xpatt:
-                fseqs = sequtil.filter_by_pattern_exclude(fseqs,r"\."+xpatt,keepfirst=False)
-                vprint(len(fseqs),"sequences after removing x-pattern:",xpatt)
-            allseq_names = set(s.name for s in allseqs)
-            allseqs.extend(s for s in fseqs if s.name not in allseq_names)
-        seqs = allseqs
-        vprint(len(seqs)-1,"sequences fit pattern:","+".join(args.filterbyname)) ## does not include refseq
-            
-
+            patt,wo,xpat = name.partition("-w/o-")
+            if patt != "Global":
+                keepers.append(patt)
+            if xpat:
+                xcludes.append(xpat)
     if args.xfilterbyname:
         for name in args.xfilterbyname:
-            seqs = sequtil.filter_by_pattern_exclude(seqs,r"\."+name,keepfirst=True)
-            vprint(len(seqs),"sequences after removing x-pattern:",name)
+            xcludes.append(name)
 
+    ## Use r"\."+ to ensure that names have to be preceeded by a dot
+    keepers = [r"\."+patt for patt in keepers]
+    xcludes = [r"\."+xpat for xpat in xcludes]
+
+    if keepers:
+          seqs = sequtil.filter_by_patternlist(seqs,keepers,
+                                               keepfirst=True)
+    if xcludes:
+          seqs = sequtil.filter_by_patternlist_exclude(seqs,xcludes,
+                                                       keepfirst=True)
+            
     return seqs
 
 
