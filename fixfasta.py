@@ -48,29 +48,31 @@ def getisls(file):
 
 def main(args):
 
-    seqlist = covid.read_seqfile(args)
-    seqlist = covid.filter_seqs(seqlist,args)
-    vprint(len(seqlist),"sequences after filtering")
+    seqs = covid.read_seqfile(args)
+    seqs = covid.filter_seqs(seqs,args)
+    if args.verbose:
+        seqs = list(seqs)
+        vprint(len(seqs),"sequences after filtering")
 
     if args.badisls:
         bads = getisls(args.badisls)
-        seqlist = [s for s in seqlist
+        seqs = [s for s in seqs
                    if not any( b in s.name for b in bads )]
-        vprint(len(seqlist),"sequences after removing bad ISLs")
+        vprint(len(seqs),"sequences after removing bad ISLs")
 
 
     if args.random:
-        seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
+        seqs = list(seqs)
+        seqs = seqs[:1] + random.sample(seqs[1:],k=len(seqs[1:]))
 
-    firstseq = seqlist[0].seq
-    
     if args.N:
-        seqlist = seqlist[:args.N]
-        vprint(len(seqlist),"sequences after truncation")
+        seqs = list(seqs)
+        seqs = seqs[:args.N]
+        vprint(len(seqs),"sequences after truncation")
 
 
     if args.output:
-        readseq.write_seqfile(args.output,seqlist)
+        readseq.write_seqfile(args.output,seqs)
     
 
 
