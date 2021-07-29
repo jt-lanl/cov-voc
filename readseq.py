@@ -32,6 +32,13 @@ def xopen(filename,rw,gz=False,binaryfile=False):
         return gzip_open(filename,rwstr)
     else:
         return open(filename,rwstr)
+
+def rd_names(fp):
+    '''only names, no sequences'''
+    re_seqname_prefix = re.compile('^>\s*')
+    for line in fp:
+        line = re_seqname_prefix.sub('',line)
+        yield SequenceSample(line.strip(),"")
     
 def rd_pickle(fp):
     '''pickled file contains sequence list as a single object'''
@@ -133,6 +140,7 @@ FILEFUNCS = {
     "seq"   : rd_rawseq,
     "pkl"   : rd_pickle,
     "ipkl"  : rd_incr_pickle,
+    "nm"    : rd_names,
 }
 FILETYPES = list(FILEFUNCS)
 
@@ -263,7 +271,8 @@ def read_seqfile(filename,filetype="auto",**kw):
     '''
     seqs = rd_seqfile(filename,filetype=filetype)
     seqs = filter_seqs(seqs,**kw)
-    return list(seqs)
+    return seqs
+    #return list(seqs)
     
 def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=None):
     '''
@@ -357,6 +366,12 @@ def write_incr_pickle(filename,seq_samples,gz=False):
         for s in seq_samples:
             pickle.dump(s,fout)
 
+def write_names(filename,seq_samples,gz=False):
+    with xopen(filename,'w',gz=gz,binaryfile=False) as fout:
+        for s in seq_samples:
+            fout.write("%s\n" % s.name)
+
+
 W_FILEFUNCS = {
     #"mase"  : write_mase,
     "fasta" : write_fasta,
@@ -370,6 +385,7 @@ W_FILEFUNCS = {
     "seq"   : write_rawseq,
     "pkl"   : write_pickle,
     "ipkl"  : write_incr_pickle,
+    "nm"    : write_names,
 }
             
             
