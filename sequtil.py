@@ -102,15 +102,15 @@ def range_of_dates(seqlist):
     dates = [d for d in dates if d is not None]
     return min(dates).isoformat(),max(dates).isoformat()
 
-def filter_by_date(seqlist,fromdate,todate,keepfirst=False):
+def filter_by_date(seqs,fromdate,todate,keepfirst=False):
+    '''input is iterable (list or iterator); output is generator'''
 
     f_date = date_fromiso(fromdate)
     t_date = date_fromiso(todate)
 
-    filtered_seqlist = []
-    for n,s in enumerate(seqlist):
+    for n,s in enumerate(seqs):
         if keepfirst and n == 0:
-            filtered_seqlist.append(s)
+            yield s
             continue
         d = date_from_seqname(s)
         if not d:
@@ -119,33 +119,53 @@ def filter_by_date(seqlist,fromdate,todate,keepfirst=False):
             continue
         if t_date and t_date < d:
             continue
-        filtered_seqlist.append(s)
+        yield s
 
-    return filtered_seqlist
+def filter_by_pattern(seqs,pattern,keepfirst=False,ignorecase=True):
 
-def filter_by_pattern(seqlist,pattern,keepfirst=False,ignorecase=True):
-    filtered_seqlist = []
-    flags = re.I if ignorecase else 0        
-    for n,s in enumerate(seqlist):
-        if keepfirst and n == 0:
-            filtered_seqlist.append(s)
-            continue
-        if pattern=="Global" or re.search(pattern,s.name,flags):
-            filtered_seqlist.append(s)
-
-    return filtered_seqlist
+    if "Global" == pattern: ## should test in calling routine
+        return seqs
     
-def filter_by_pattern_exclude(seqlist,pattern,keepfirst=False):
-    filtered_seqlist = []
-    for n,s in enumerate(seqlist):
+    flags = re.I if ignorecase else 0        
+    for n,s in enumerate(seqs):
         if keepfirst and n == 0:
-            filtered_seqlist.append(s)
+            yield s
+            continue
+        if re.search(pattern,s.name,flags):
+            yield s
+
+
+def filter_by_patternlist(seqs,patternlist,
+                          keepfirst=False,ignorecase=True):
+
+    if "Global" in patternlist: ## should test in calling routine
+        return seqs
+    
+    flags = re.I if ignorecase else 0        
+    for n,s in enumerate(seqs):
+        if keepfirst and n == 0:
+            yield s
+            continue
+        if any(re.search(pattern,s.name) for pattern in patternlist):
+            yield s
+
+    
+def filter_by_pattern_exclude(seqs,pattern,keepfirst=False):
+    for n,s in enumerate(seqs):
+        if keepfirst and n == 0:
+            yield s
             continue
         if not re.search(pattern,s.name):
-            filtered_seqlist.append(s)
+            yield s
 
-    return filtered_seqlist
-
+def filter_by_patternlist_exclude(seqs,patternlist,keepfirst=False):
+    for n,s in enumerate(seqs):
+        if keepfirst and n == 0:
+            yield s
+            continue
+        if not any(re.search(pattern,s.name) for pattern in patternlist):
+            yield s
+            
 def mutantlist(reference,variant,returnstring=False,badchar=None):
     '''return a list of mutations, of the form "AnB", where ref[n-1]=A and var[n-1]=B and n is site number'''
     assert( len(reference) == len(variant) )
@@ -184,13 +204,16 @@ if __name__ == "__main__":
 
     if args.input:
         seqlist = readseq.read_seqfile(args.input)
+        print("seqlist:",type(seqlist))
+        seqlist = list(seqlist)
+        print("seqlist:",type(seqlist))
         print("Sequences:",len(seqlist))
 
         print("Bad dates:",count_bad_dates(seqlist))
 
         if args.range:
-            ## ":1 and 1: are to avoid filtering reference sequence
-            seqlist = filter_by_date(seqlist,args.range[0],args.range[1],keepfirst=True)
+            seqlist = filter_by_date(seqlist,args.range[0],args.range[1],
+                                     keepfirst=True)
             print("Sequences:",len(seqlist)-1,"in date range:",args.range)
 
             
