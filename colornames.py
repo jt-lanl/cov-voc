@@ -151,6 +151,7 @@ for hn in COLORNAMES.splitlines():
     try:
         hexname,commonname = hn.strip().split()
         ColorTable[commonname.lower()] = hexname
+        ColorTable[hexname] = hexname
     except:
         continue
 
