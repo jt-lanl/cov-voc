@@ -7,6 +7,7 @@ DESCRIPTION='''
 import sys
 import re
 from pathlib import Path
+import itertools as it
 import random
 import argparse
 
@@ -16,6 +17,7 @@ import readseq
 import sequtil
 import intlist
 import mutant
+import wrapgen
 import covid
 
 def getargs():
@@ -48,28 +50,30 @@ def getisls(file):
 
 def main(args):
 
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
+
     seqs = covid.read_seqfile(args)
+    seqs = vcount(seqs,"Total sequences read:")
     seqs = covid.filter_seqs(seqs,args)
-    if args.verbose:
-        seqs = list(seqs)
-        vprint(len(seqs),"sequences after filtering")
+    seqs = vcount(seqs,"Sequences after filtering:")
 
     if args.badisls:
         bads = getisls(args.badisls)
-        seqs = [s for s in seqs
-                   if not any( b in s.name for b in bads )]
-        vprint(len(seqs),"sequences after removing bad ISLs")
-
+        seqs = (s for s in seqs
+                   if not any( b in s.name for b in bads ))
+        seqs = vcount(seqs,"Sequences after removing bad ISLs:")
 
     if args.random:
         seqs = list(seqs)
         seqs = seqs[:1] + random.sample(seqs[1:],k=len(seqs[1:]))
 
     if args.N:
-        seqs = list(seqs)
-        seqs = seqs[:args.N]
-        vprint(len(seqs),"sequences after truncation")
-
+        seqs = it.islice(seqs,args.N)
+        seqs = vcount(seqs,"Sequences after truncation:")
 
     if args.output:
         readseq.write_seqfile(args.output,seqs)
