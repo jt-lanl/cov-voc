@@ -16,6 +16,9 @@ import sequtil
 import intlist
 import covid
 import mutant
+import wrapgen
+
+
 
 def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
@@ -69,13 +72,14 @@ def consensus(seqlist):
 
 def main(args):
 
-    seqlist = covid.read_seqfile(args)
-    vprint(len(seqlist),"sequences read")
-    seqlist = covid.filter_seqs(seqlist,args)
-    vprint(len(seqlist),"sequences after filtering")
+    seqs = covid.read_seqfile(args)
+    seqs = vcount(seqs,"Sequences read:")
+    seqs = covid.filter_seqs(seqs,args)
+    seqs = vcount(seqs,"Sequences after filtering:")
     if not args.keepx:
-        seqlist = [s for s in seqlist if "X" not in s.seq[:-1]]
-        vprint(len(seqlist),"sequences after removing X's")
+        seqs = (s for s in seqs if "X" not in s.seq[:-1])
+        seqs = vcount(seqs,"Sequences after removing X's:")
+    seqlist = list(seqs)
 
     print("COMMON FORMS OF SPIKE WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
@@ -139,7 +143,12 @@ if __name__ == "__main__":
         if args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
+        
     main(args)
     
 
