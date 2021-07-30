@@ -124,7 +124,7 @@ def filter_by_date(seqs,fromdate,todate,keepfirst=False):
 def filter_by_pattern(seqs,pattern,keepfirst=False,ignorecase=True):
 
     if "Global" == pattern: ## should test in calling routine
-        return seqs
+        yield from seqs
     
     flags = re.I if ignorecase else 0        
     for n,s in enumerate(seqs):
@@ -139,7 +139,7 @@ def filter_by_patternlist(seqs,patternlist,
                           keepfirst=False,ignorecase=True):
 
     if "Global" in patternlist: ## should test in calling routine
-        return seqs
+        yield from seqs
     
     flags = re.I if ignorecase else 0        
     for n,s in enumerate(seqs):
