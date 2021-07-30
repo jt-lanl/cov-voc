@@ -190,7 +190,7 @@ def get_title(args):
         title = title + " w/o " + "+".join(args.xfilterbyname)
     return title
 
-def checkseqlengths(seqlist,args):
+def summarizeseqlengths(seqlist,args):
     #assert isinstance(seqlist,list)
     clen = Counter([len(s.seq) for s in seqlist])
     if args.verbose:
@@ -199,10 +199,6 @@ def checkseqlengths(seqlist,args):
     if len(clen)>1:
         warnings.warn("Not all sequences are the same length")
     
-
-def read_seqfile(args,**kwargs):
-    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-    return seqs
 
 def get_first_item(seqs):
     '''get first item in iterable, and and put it back'''
@@ -213,6 +209,18 @@ def get_first_item(seqs):
         seqs = itertools.chain([first],seqs)
     return first,seqs
         
+def checkseqlengths(seqs):
+    first,seqs = get_first_item(seqs)
+    seqlen = len(first.seq)
+    for s in seqs:
+        if len(s.seq) != seqlen:
+            raise RuntimeError(f"Sequence {s.name} has inconsistent length: {len(s.seq)} vs {seqlen}")
+        yield s
+
+def read_seqfile(args,**kwargs):
+    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
+    return seqs
+
 def fix_seqs(seqs,args):
 
     firstseq,seqs = get_first_item(seqs)

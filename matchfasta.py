@@ -7,6 +7,7 @@ import sys
 import re
 from pathlib import Path
 import random
+import itertools
 import argparse
 
 import warnings
@@ -16,6 +17,7 @@ import sequtil
 import intlist
 import covid
 import mutant
+import wrapgen
 
 def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
@@ -44,20 +46,28 @@ def getargs():
 
 def main(args):
 
-    seqlist = covid.read_seqfile(args)
-    vprint(len(seqlist),"sequences read")
+    maxseqs = max(intlist.string_to_intlist(args.nlist))+1 \
+        if args.nlist else None
+        
+    seqs = covid.read_seqfile(args,maxseqs=maxseqs)
+    seqs = wrapgen.keepcount(seqs,"Total sequences:")
     if args.nlist:
-        seqlist = seqlist[:1] + [seqlist[n]
-                                 for n in intlist.string_to_intlist(args.nlist)]
-        vprint(len(seqlist),"sequences in:",args.nlist)
-    seqlist = covid.filter_seqs(seqlist,args)
-    vprint(len(seqlist),"sequences after filtering")
+        nlist = [0] + intlist.string_to_intlist(args.nlist)
+        seqs = (s for n,s in enumerate(seqs) if n in nlist)
+        seqs = wrapgen.keepcount(seqs,"nlist sequences:")
+        
+    seqs = covid.filter_seqs(seqs,args)
+    seqs = wrapgen.keepcount(seqs,"Filtered sequences:")
 
+    covid.checkseqlengths(seqs)
     if args.random:
-        seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
+        seqlist = list(seqs)
+        seqls = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
 
-    firstseq = seqlist[0].seq
-
+    seqs = iter(seqs)
+    first = next(seqs)
+    firstseq = first.seq
+    
     matchpatt=None
     
     if args.mutant:
@@ -83,24 +93,29 @@ def main(args):
 
     if matchpatt:
         rematchpatt = re.compile(matchpatt)
-        seqlist = seqlist[:1] + [s for s in seqlist[1:]
-                                 if rematchpatt.match(s.seq)]
-    
-    vprint("Sequences:",len(seqlist)-1,"match seqpattern:",matchpatt)
-    print("Matches: ",len(seqlist)-1)
+        seqs = (s for s in seqs if rematchpatt.match(s.seq))
+        wrapgen.keepcount(seqs,"Matches:")
+        
+    #seqlist = list(seqs)
+    #vprint("Sequences:",len(seqlist)-1,"match seqpattern:",matchpatt)
+    #print("Matches: ",len(seqlist)-1)
 
     if args.N:
-        seqlist = seqlist[:args.N+1]
-        vprint(len(seqlist)-1,"sequences after truncation")
+        seqs = itertools.islice(seqs,args.N+1)
+        #vprint(len(seqlist)-1,"sequences after truncation")
 
     if args.output:
-        readseq.write_seqfile(args.output,seqlist)
+        readseq.write_seqfile(args.output,seqs)
     else:
-        for line in intlist.write_numbers_vertically(sites):
-            print(line)
-        for s in seqlist:
-            print("".join(s.seq[n-1] for n in sites),s.name)
-            ## consider also printing: mutant.mkmutname(seqlist[0].seq,s.seq))
+        if matchpatt:
+            for line in intlist.write_numbers_vertically(sites):
+                print(line)
+            for s in seqs:
+                print("".join(s.seq[n-1] for n in sites),s.name)
+                ## consider also printing: mutant.mkmutname(seqlist[0].seq,s.seq))
+        else:
+            for s in seqs:
+                print(s.name)
 
 def mainwrapper(args):
     ''' avoids the bulky BrokenPipeError that arises if, eg,
