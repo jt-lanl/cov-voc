@@ -111,8 +111,8 @@ def main(args):
             for line in intlist.write_numbers_vertically(sites):
                 print(line)
             for s in seqs:
-                print("".join(s.seq[n-1] for n in sites),s.name)
-                ## consider also printing: mutant.mkmutname(seqlist[0].seq,s.seq))
+                print("".join(s.seq[n-1] for n in sites),s.name,end=" ")
+                print(mutant.Mutation((firstseq,s.seq)))
         else:
             for s in seqs:
                 print(s.name)

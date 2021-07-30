@@ -92,6 +92,7 @@ import readseq
 import sequtil
 import intlist
 import mutant
+import wrapgen
 import covid
 
 
@@ -136,11 +137,20 @@ def main(args):
     if TGM not in "TGM":
         raise RuntimeError(f"Strategy [{args.strategy}] should be one of T,G,M")
 
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
+
     allfullseqs = covid.read_seqfile(args)
+    allfullseqs = vcount(allfullseqs,"Total sequences:")
     allfullseqs = covid.filter_seqs_by_date(allfullseqs,args)
     allfullseqs = covid.fix_seqs(allfullseqs,args)
+    allfullseqs = list(allfullseqs)
     vprint("Read",len(allfullseqs),"sequences")
     fullseqs = covid.filter_seqs_by_pattern(allfullseqs,args)
+    allfullseqs = list(allfullseqs)
     vprint("Read",len(fullseqs),"sequences after filtering")
     firstseq = fullseqs[0].seq
 

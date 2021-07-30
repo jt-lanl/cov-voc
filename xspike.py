@@ -17,6 +17,7 @@ import readseq
 from hamming import hamming
 import sequtil
 import intlist
+import wrapgen
 import covid
 
 from xspikeplots import circleplot,heatmap
@@ -196,17 +197,25 @@ def main(args):
 
     ## Get title for plots and tables
     title = get_title(args)
+    print("Running xspike",title,file=sys.stderr,flush=True)
 
-    print("Running",title,file=sys.stderr,flush=True)
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
+
 
     allseqs = covid.read_seqfile(args)
-    vprint("Read",len(allseqs),"sequences, date range:",sequtil.range_of_dates(allseqs))
+    allseqs = vcount(allseqs,"All sequences:")
     allseqs = covid.filter_seqs_by_date(allseqs,args)
-    vprint("Date-filtered",len(allseqs),"sequences, date range:",sequtil.range_of_dates(allseqs))
+    allseqs = vcount(allseqs,"All sequences in date range:")
     allseqs = covid.fix_seqs(allseqs,args)
+    allseqs = list(allseqs)
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
-    vprint("Pattern-filtered",len(seqs),"sequences, date range:",sequtil.range_of_dates(seqs))
+    seqs = vcount(seqs,"Sequences after filtering by pattern:")
 
+    seqs = list(seqs)
     firstseq = seqs[0].seq
     seqs = seqs[1:]
     
@@ -301,7 +310,7 @@ def main(args):
 
     #### Get counts for the various continents
     #### Use all the sequences, not just those that fit pattern
-    allseqs = allseqs[1:] ## don't keep the reference sequence
+    allseqs = list(allseqs)[1:] ## don't keep the reference sequence
 
     cont_cnt = dict() ## cnt's for the various continents
     cont_sum = dict()
@@ -310,6 +319,10 @@ def main(args):
         cseqs = sequtil.filter_by_pattern(allseqs,c)
         if x:
             cseqs = sequtil.filter_by_pattern_exclude(cseqs,x)
+        cseqs = list(cseqs)
+        if c == "Global":
+            print("Global cseqs=",len(cseqs))
+
         cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,esites,keepx=args.keepx))
         cont_sum[c] = len(cseqs)
         vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
