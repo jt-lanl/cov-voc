@@ -1,7 +1,9 @@
 import sys
 import re
+import itertools as it
 import argparse
 
+import wrapgen
 import covid
 import colornames
 
@@ -18,18 +20,9 @@ def getargs():
     args = ap.parse_args()
     return args
 
-def main(args):
 
-    seqlist = covid.read_seqfile(args)
-    vprint(len(seqlist),"sequences read")
-    seqlist = covid.filter_seqs(seqlist,args)
-    vprint(len(seqlist),"sequences after filtering")
-
-    firstseq = seqlist[0].seq
-
-    lineages = covid.init_lineages(args.colormut,firstseq)
-    Table = []
-    for s in seqlist[1:]:
+def mktable(seqs,lineages):
+    for s in it.islice(seqs,1,None):
         n,c = covid.match_lineage_name_color(lineages,s.seq)
         if args.usehex:
             try:
@@ -38,8 +31,22 @@ def main(args):
                 pass
             if n == "other":
                 c = "#DDDDDD"
-        Table.append((s.name,n,c))
+        yield (s.name,n,c)
+    
 
+def main(args):
+
+    seqs = covid.read_seqfile(args)
+    seqs = wrapgen.keepcount(seqs,"Sequences read:")
+    seqs = covid.filter_seqs(seqs,args)
+    seqs = wrapgen.keepcount(seqs,"Sequences after filtering:")
+
+    first,seqs = covid.get_first_item(seqs)
+    firstseq = first.seq
+
+    lineages = covid.init_lineages(args.colormut,firstseq)
+    Table = mktable(seqs,lineages)
+    
     for seqname,n,c in Table:
         print(seqname,n,c)
         
