@@ -39,6 +39,8 @@ def getargs():
         help="output fasta file")
     paa("--fullmatch",action="store_true",
         help="require all non-listed sites to match reference sequence")
+    paa("--showmutants",action="store_true",
+        help="show mutant string after sequence name")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -81,8 +83,9 @@ def main(args):
         sites = [mut.site for mut in muts]
         
     if args.sites:
-        assert(args.seqpattern)
         sites = intlist.string_to_intlist(args.sites)
+        if not args.seqpattern:
+            args.seqpattern = "." * len(sites)
             
     if args.seqpattern:
         assert(args.sites)
@@ -113,8 +116,10 @@ def main(args):
             for line in intlist.write_numbers_vertically(sites):
                 print(line)
             for s in seqs:
-                print("".join(s.seq[n-1] for n in sites),s.name,end=" ")
-                print(mutant.Mutation((firstseq,s.seq)))
+                print("".join(s.seq[n-1] for n in sites),s.name,end="")
+                if args.showmutants:
+                    print("",mutant.Mutation((firstseq,s.seq)),end="")
+                print()
         else:
             for s in seqs:
                 print(s.name)
