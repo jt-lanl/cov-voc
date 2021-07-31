@@ -9,6 +9,7 @@ from collections import Counter,namedtuple
 import pickle
 import warnings
 
+import wrapgen
 import readseq
 import sequtil
 import intlist
@@ -36,6 +37,8 @@ def corona_args(ap):
         help="Consider date range of DAYS days ending on the last sampled date")
     paa("--fixsiteseventy",action="store_true",
         help="Sites 68-70 should be I--, not -I- or --I")
+    paa("--keepx",action="store_true",
+        help="Keep sequences that include bad characters, denoted X")
 
     return
 
@@ -200,13 +203,16 @@ def summarizeseqlengths(seqlist,args):
         warnings.warn("Not all sequences are the same length")
     
 
-def get_first_item(seqs):
+def get_first_item(seqs,putitemback=True):
     '''get first item in iterable, and and put it back'''
     if isinstance(seqs,list):
         first = seqs[0]
+        if not putitemback:
+            seqs = seqs[1:]
     else:
         first = next(seqs)
-        seqs = itertools.chain([first],seqs)
+        if putitemback:
+            seqs = itertools.chain([first],seqs)
     return first,seqs
         
 def checkseqlengths(seqs):
@@ -217,8 +223,15 @@ def checkseqlengths(seqs):
             raise RuntimeError(f"Sequence {s.name} has inconsistent length: {len(s.seq)} vs {seqlen}")
         yield s
 
+def read_filter_seqfile(args,**kwargs):
+    seqs = read_seqfile(args,**kwargs)
+    seqs = filter_seqs(seqs,args)
+    return seqs    
+        
 def read_seqfile(args,**kwargs):
     seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences read:")
     return seqs
 
 def fix_seqs(seqs,args):
@@ -235,6 +248,9 @@ def fix_seqs(seqs,args):
     if not args.keeplastchar and firstseq.seq and firstseq.seq[-1] in "$X":
         seqs = striplastchar(seqs)
 
+    if not args.keepx:
+        seqs = (s for s in seqs if "X" not in s.seq)
+
     return seqs
 
 def striplastchar(seqs):
@@ -246,14 +262,17 @@ def filter_seqs(seqs,args):
     seqs = filter_seqs_by_date(seqs,args)
     seqs = filter_seqs_by_pattern(seqs,args)
     seqs = fix_seqs(seqs,args)
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
+
     return seqs
 
 def filter_seqs_by_date(seqs,args):
 
-    if args.days and args.dates:
-        raise RuntimeError("Cannot specify both --days AND --dates")
     if not args.days and not args.dates:
         return seqs
+    if args.days and args.dates:
+        raise RuntimeError("Cannot specify both --days AND --dates")
 
     if args.days:
         seqs = list(seqs)
@@ -264,7 +283,7 @@ def filter_seqs_by_date(seqs,args):
 
     if args.dates:
         seqs = sequtil.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
-
+        
     return seqs
 
 def filter_seqs_by_pattern(seqs,args):
