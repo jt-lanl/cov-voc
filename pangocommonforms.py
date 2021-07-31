@@ -24,8 +24,6 @@ def getargs():
     ap = argparse.ArgumentParser(description=DESCRIPTION)
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--keepx",action="store_true",
-        help="include sequences with X in them")
     paa("--mostcommon","-m",type=int,default=5,
         help="How many of the most common patterns per lineage")
     paa("--verbose","-v",action="count",default=0,
