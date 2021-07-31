@@ -72,13 +72,7 @@ def consensus(seqlist):
 
 def main(args):
 
-    seqs = covid.read_seqfile(args)
-    seqs = vcount(seqs,"Sequences read:")
-    seqs = covid.filter_seqs(seqs,args)
-    seqs = vcount(seqs,"Sequences after filtering:")
-    if not args.keepx:
-        seqs = (s for s in seqs if "X" not in s.seq[:-1])
-        seqs = vcount(seqs,"Sequences after removing X's:")
+    seqs = covid.read_filter_seqfile(args)
     seqlist = list(seqs)
 
     print("COMMON FORMS OF SPIKE WITH A GIVEN PANGO LINEAGE DESIGNATION")

@@ -25,8 +25,6 @@ def getargs():
                                  conflict_handler='resolve')
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--keepx",action="store_true",
-        help="Keep sequences with X in the pattern")
     #paa("--fraction",action="store_true",
     #    help="Plot fractional instead of numerical values")
     paa("--weekly",action="store_true",
@@ -228,8 +226,10 @@ def main(args):
     ## at this point, we have mutants, patterns, mcolors, mnames, mrelpatt, sitelist
 
     vprint("ok, reading sequences now...",end="")
-    seqlist = covid.read_seqfile(args)
-    seqlist = covid.filter_seqs(seqlist,args)
+    args_keepx = args.keepx
+    args.keepx = False
+    seqlist = covid.read_filter_seqfile(args)
+    args.keepx = args_keepx
     seqlist = list(seqlist)
     svar.checkmaster(seqlist[0].seq) ## ensure master agrees with first seqlist
     for s in seqlist:

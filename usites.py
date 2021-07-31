@@ -23,8 +23,6 @@ def getargs():
     covid.corona_args(ap)
     paa("--sites",type=int,default=30,
         help="Number of highest-entropy sites to use")
-    paa("--keepx",action="store_true",
-        help="Keep sequences that have X's in them")
     paa("--restrictsites",
         help="Consider only these sites (RBD, NTD, NTD+RBD, or comma-separated list)")
     paa("--verbose","-v",action="count",default=0,
@@ -50,8 +48,8 @@ def stripxs(alist,blist,badchar='X'):
 
 def main(args):
 
-    allseqs = covid.read_seqfile(args)
-    allseqs = covid.filter_seqs(allseqs,args)
+    allseqs = covid.read_filter_seqfile(args)
+    allseqs = list(allseqs)
 
     firstseq = allseqs[0].seq
 

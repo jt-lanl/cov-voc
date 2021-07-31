@@ -50,16 +50,18 @@ def main(args):
         if args.nlist else None
         
     seqs = covid.read_seqfile(args,maxseqs=maxseqs)
-    seqs = wrapgen.keepcount(seqs,"Total sequences:")
     if args.nlist:
         nlist = [0] + intlist.string_to_intlist(args.nlist)
         seqs = (s for n,s in enumerate(seqs) if n in nlist)
-        seqs = wrapgen.keepcount(seqs,"nlist sequences:")
+        seqs = vcount(seqs,"Sequences in nlist:")
+        
+    if not args.keepx:
+        seqs = (s for s in seqs if "X" not in s.seq)
+        seqs = vcount(seqs,"Sequences w/o X:")
         
     seqs = covid.filter_seqs(seqs,args)
-    seqs = wrapgen.keepcount(seqs,"Filtered sequences:")
 
-    covid.checkseqlengths(seqs)
+    seqs = covid.checkseqlengths(seqs)
     if args.random:
         seqlist = list(seqs)
         seqls = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
@@ -147,7 +149,12 @@ if __name__ == "__main__":
     def vvprint(*p,**kw):
         if args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
-
+            
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
 
     mainwrapper(args)
     

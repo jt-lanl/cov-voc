@@ -34,8 +34,6 @@ def getargs():
         help="prepend this (comma-separated) list of sites to those being observed")
     paa("--sites",type=int,default=50,
         help="Number of highest-entropy sites to use")
-    paa("--keepx",action="store_true",
-        help="Keep sequences that have X's in them")
     paa("--thresh",type=int,default=2,
         help="Only include patterns that appear at least this many times")
     paa("--cvthresh",type=int,default=3, ## should maybe just be hardcoded

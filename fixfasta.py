@@ -50,16 +50,7 @@ def getisls(file):
 
 def main(args):
 
-    def vcount(seqs,*p,**kw):
-        if args.verbose:
-            return wrapgen.keepcount(seqs,*p,**kw)
-        else:
-            return seqs
-
-    seqs = covid.read_seqfile(args)
-    seqs = vcount(seqs,"Total sequences read:")
-    seqs = covid.filter_seqs(seqs,args)
-    seqs = vcount(seqs,"Sequences after filtering:")
+    seqs = covid.read_filter_seqfile(args)
 
     if args.badisls:
         bads = getisls(args.badisls)
@@ -77,7 +68,6 @@ def main(args):
 
     if args.output:
         readseq.write_seqfile(args.output,seqs)
-    
 
 
 if __name__ == "__main__":
@@ -89,6 +79,12 @@ if __name__ == "__main__":
     def vvprint(*p,**kw):
         if args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
+
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
 
     main(args)
     

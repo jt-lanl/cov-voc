@@ -34,8 +34,6 @@ def getargs():
         help="show at most this many variants")
     paa("--nlist",
         help="list of sequences; eg. 1-100, or 3-6")
-    paa("--keepx",action="store_true",
-        help="include sequences with X in them")
     paa("--xrepair",action="store_true",
         help="repair sequences with X in them")
     paa("--mincount",type=int,default=0,
@@ -64,22 +62,20 @@ def xrepair(seqlist,X='X'):
 
 def main(args):
 
-    seqlist = covid.read_seqfile(args)
-    seqlist = covid.filter_seqs(seqlist,args)
-    seqlist = list(seqlist)
-    vprint(len(seqlist),"sequences after filtering")
+    args_keepx = args.keepx
+    args.keepx = True
 
+    seqlist = covid.read_filter_seqfile(args)
+    seqlist = list(seqlist)
+
+    args.keepx = args_keepx
+    
     if args.xrepair:
         args.keepx = True
         seqlist = xrepair(seqlist)
 
     if args.random:
         seqlist = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
-
-    ## lop off that damn ending '$'
-    bottomdollar = re.compile("\$$")
-    for s in seqlist:
-        s.seq = bottomdollar.sub("",s.seq)
 
     firstseq = seqlist[0].seq
     seqpattern = None
@@ -121,7 +117,7 @@ def main(args):
     ## Don't count sequences with X's in them
     ## But don't censor sequence if X is last char
     if not args.keepx:
-        xlist = [s for s in cnt if "X" in s[:-1]]
+        xlist = [seq for seq in cnt if "X" in seq]
         for x in xlist:
             del cnt[x]
         vprint(f"w/o X's {len(cnt):5d} distinct, {sum(cnt.values()):7d} total")

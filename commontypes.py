@@ -4,7 +4,6 @@ find the most common sequences, and express them in terms of a mutation string
 '''
 import sys
 import re
-from pathlib import Path
 from collections import Counter
 import argparse
 
@@ -14,30 +13,22 @@ import readseq
 import sequtil
 import intlist
 import mutant
+import covid
 
 def getargs():
     ap = argparse.ArgumentParser()
     paa = ap.add_argument
-    paa("--input","-i",type=Path,
-        help="input fasta file with all spike sequences")
+    covid.corona_args(ap)
     paa("--mutants","-m",
         help="mutant string, such as '[W152R,N439K,D614G,P681R]'")
     paa("--sites","-s",
         help="restrict attention to just these sites")
-    paa("--filtername","-f",
-        help="pattern for filtering by name")
-    paa("--keepx",action="store_true",
-        help="keep sequences with bad characters")
-    paa("--dates",nargs=2,
-        help="range of dates (two dates, yyyy-mm-dd format)")
     paa("-N",type=int,default=10,
         help="Maximum number of sequence patterns")
     paa("-C",type=int,default=3,
         help="Maximum number of countries per pattern")
     paa("--level","-l",type=int,default=2,
-        help="Region Level: 1=Continent, 2=Country, 3=State, 4=City")
-    paa("--stripdashcols",action="store_true",
-        help="Strip dash columns")
+        help="Region Level: 1=Continent, 2=Country, 3=State_City, 4=Date")
     paa("--output","-o",
         help="Write ouptut to fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -59,47 +50,9 @@ def get_region(level,fullname):
     else:
         return None
     
-
-
-def filterseqs(args,seqlist):
-    ''' pull out a sublist of the sequence list, based on 
-    various options in the args structure '''
-
-    firstseq = seqlist[0].seq
-
-    if args.dates:
-        seqlist = sequtil.filter_by_date(seqlist,
-                                         args.dates[0],args.dates[1],
-                                         keepfirst=True)
-        vprint(len(seqlist),"sequences in date range:",args.dates)
-
-    if args.filtername:
-        seqlist = seqlist[:1] + [s for s in seqlist[1:]
-                                 if args.filtername in s.name]
-        vprint(len(seqlist),"sequences filtered by:",args.filtername)
-
-    if args.stripdashcols and "-" in firstseq:
-        vprint("Stripping sites with dashes in first sequence...",end="")
-        sequtil.stripdashcols(firstseq,seqlist)
-        vprint("ok")
-        if "-" in seqlist[0].seq:
-            raise RuntimeError("strip dash failed!")
-
-    firstseq = seqlist[0].seq
-    
-    if "-" in firstseq:
-        warnings.warn("dashes in reference sequence")
-
-    if not args.keepx:
-        seqlist = seqlist[:1] + [s for s in seqlist[1:]
-                                 if "X" not in s.seq]
-        vprint(len(seqlist),"sequences without X")
-
-    return seqlist
-
 def filtermutants(seqlist,mutstring):
     firstseq = seqlist[0].seq
-    mutlist = mutant.parse_mutline(mutstring)
+    mutlist = mutant.Mutation(mutstring)
     for mut in mutlist:
         if mut.ref != firstseq[mut.site-1]:
             vprint("Warning: at site",mut.site,":",
@@ -119,11 +72,8 @@ def filtermutants(seqlist,mutstring):
 
 def main(args):
 
-    seqlist = readseq.read_seqfile(args.input)
-    vprint(len(seqlist),"sequences read")
-
-    seqlist = filterseqs(args,seqlist)
-    vprint(len(seqlist),"sequences after filtering")
+    seqs = covid.read_filter_seqfile(args)
+    seqlist = list(seqs)
 
     if args.mutants:
         seqlist = filtermutants(seqlist,args.mutants)

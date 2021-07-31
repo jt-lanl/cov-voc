@@ -137,12 +137,6 @@ def main(args):
     if TGM not in "TGM":
         raise RuntimeError(f"Strategy [{args.strategy}] should be one of T,G,M")
 
-    def vcount(seqs,*p,**kw):
-        if args.verbose:
-            return wrapgen.keepcount(seqs,*p,**kw)
-        else:
-            return seqs
-
     allfullseqs = covid.read_seqfile(args)
     allfullseqs = vcount(allfullseqs,"Total sequences:")
     allfullseqs = covid.filter_seqs_by_date(allfullseqs,args)
@@ -495,6 +489,12 @@ if __name__ == "__main__":
     def vvprint(*p,**kw):
         if args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
+
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw)
+        else:
+            return seqs
 
     main(args)
     
