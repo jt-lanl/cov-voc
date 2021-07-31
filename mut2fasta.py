@@ -17,7 +17,7 @@ def getargs():
     paa = ap.add_argument
     paa("--input","-i",
         help="input fasta file with reference sequence first")
-    paa("--skiperef",action="store_true",
+    paa("--skipref",action="store_true",
         help="do not include reference sequence in fasta output file")
     paa("--mutstrings","-m",nargs='+',
         help="one or more strings of the form '[L5F,...,Q957R]'")
@@ -58,7 +58,8 @@ def main(args):
         raise RuntimeError("Must specify mutants with either --mutfile for --mutstirngs or -m")
 
     ## Grab the first sequence from a reference file
-    seqs = readseq.read_seqfile(args.reference,maxseqs=1)
+    seqs = readseq.read_seqfile(args.input,maxseqs=1)
+    seqs = list(seqs)
     wuhan = seqs[0].seq
 
     if "-" in wuhan:
@@ -67,7 +68,7 @@ def main(args):
         seqs[0].seq = wuhan
 
     mutseqs = []
-    if args.includeref:
+    if not args.skipref:
         mutseqs.append(seqs[0])
     for mut in mutants:
         refseq = list(wuhan)
