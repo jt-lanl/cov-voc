@@ -73,6 +73,11 @@ dash (`-`) and to strip these columns from all the sequences.  The
 reason for this is so that the `n`'th character in each sequence
 corresponds to site number `n`.
 
+## MATCHFASTA
+
+identifies sequences from a fasta file that matches a given pattern; with no pattern specified,
+it provides a conveinent way to view fasta files (eg, subsets of sequences and/or subsets of sites)
+
 ## MUT2FASTA
 
 `mut2fasta` takes one or more mutant strings (either from a file or from the
@@ -80,14 +85,6 @@ command line), each of which looks something like "`[A222V,A262S,S494P,D614G]`",
 and produces a fasta file, each sequence of which corresponds to a mutant
 specified by the string, relative to the reference sequence, which is the
 first sequence in the specified reference fasta file.
-
-## VFASTA
-
-for viewing fasta files; you can just look at subsets of sequences and/or subsets of sites
-
-## MATCHFASTA
-
-identifies sequences from a fasta file that matches a given pattern.
 
 ## COMMONTYPES
 
