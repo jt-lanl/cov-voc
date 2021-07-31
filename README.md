@@ -124,8 +124,17 @@ the routine `readseq.read_seqfile(...)` will determine the format of the file ba
 
 * Output files are also written according to their name, with output to `*.gz` files also implemented.
 
-* A recent addition is the 'pkl' and 'ipkl' filetypes -- this is a python pickle (and incremental pickle) file; the 'pkl' is a direct serialization of
+* A recent addition is the 'pkl' and 'ipkl' filetypes -- this is a python pickle (and incremental pickle)
+file; the 'pkl' is a direct serialization of
 the `SequenceSample` array as one object; the 'ipkl' serializes each sample separately.
+
+* More recent addition is 'nm' filetype -- this is a list of the sequence names only, no actual sequences.
+Since sequences names have a lot of meta-information, you can often do analysis using only the names.
+
+* The sequences are read into a list of `SequenceSample` data types (containing a name and a sequence), but
+if oyu want a literal list be sure to use a command like `seqs=list(seqs)` because by default the reading
+and filtering routines return generators, which [depending on the usage scenario] can be much more
+memory efficient.
 
 ### mutants/spikevariants 
 
@@ -163,7 +172,8 @@ table is a list of variants, with one variant per line.
           <ssm> is a single site mutation of form <rchar><site><mchar>, where
                 <rchar> = character in reference sequence
                 <site> = integer site number
-                <mchar> = character in mutated sequence ('.' indicates any, '*' indicates any except <rchar>)
+                <mchar> = character in mutated sequence
+		          ('.' indicates any, '*' indicates any except <rchar>, '_' indicates <rchar>)
           '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
               mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
               site is among the union of all the sites in all the mutation strings
@@ -197,10 +207,13 @@ if you type
 
 then you'll get something like the following:
     
-    usage: shiver.py [-h] [--input INPUT] [--filterbyname FILTERBYNAME]
-                     [--xfilterbyname XFILTERBYNAME] [--keepdashcols]
-                     [--dates DATES DATES] [--daysago DAYSAGO] [--output OUTPUT]
-                     [-n N] [--strategy STRATEGY] [--region REGION] [--verbose]
+    usage: shiver.py [-h] [--input INPUT]
+                     [--filterbyname FILTERBYNAME [FILTERBYNAME ...]]
+                     [--xfilterbyname XFILTERBYNAME [XFILTERBYNAME ...]]
+                     [--keepdashcols] [--keeplastchar] [--dates DATES DATES]
+                     [--days DAYS] [--fixsiteseventy] [--keepx] [--output OUTPUT]
+                     [-n N] [--strategy STRATEGY] [--region REGION]
+                     [--colormut COLORMUT] [--verbose]
     
     SHIVER: SARS CoV-2 Historically Identified Variants in Epitope Regions
     
@@ -209,14 +222,18 @@ then you'll get something like the following:
       --input INPUT, -i INPUT
                             input fasta file with aligned sequences (first is
                             master)
-      --filterbyname FILTERBYNAME, -f FILTERBYNAME
+      --filterbyname FILTERBYNAME [FILTERBYNAME ...], -f FILTERBYNAME [FILTERBYNAME ...]
                             Only use sequences whose name matches this pattern
-      --xfilterbyname XFILTERBYNAME, -x XFILTERBYNAME
+      --xfilterbyname XFILTERBYNAME [XFILTERBYNAME ...], -x XFILTERBYNAME [XFILTERBYNAME ...]
                             Do not use sequences whose name matches this pattern
       --keepdashcols        Do not strip columns with dash in ref sequence
+      --keeplastchar        Do not strip final stop codon from end of sequences
       --dates DATES DATES, -d DATES DATES
                             range of dates (two dates, yyyy-mm-dd format)
-      --daysago DAYSAGO     Consider date range from DAYSAGO days ago until today
+      --days DAYS           Consider date range of DAYS days ending on the last
+                            sampled date
+      --fixsiteseventy      Sites 68-70 should be I--, not -I- or --I
+      --keepx               Keep sequences that include bad characters, denoted X
       --output OUTPUT, -o OUTPUT
                             output fasta file with variant sequences
       -n N                  number of components in cocktail
@@ -225,7 +242,10 @@ then you'll get something like the following:
                             (G)lobalonly
       --region REGION       region of spike sequence over which patterns are
                             defined
+      --colormut COLORMUT   name of color mutation file
+                            (mutation_string,lineage_name) are 2nd,3rd columns
       --verbose, -v         verbose
+      
 
 
 # COPYRIGHT (for SHIVER and XSPIKE)
