@@ -58,7 +58,9 @@ def main(args):
         seqs = vcount(seqs,"Sequences in nlist:")
         
     if not args.keepx:
-        seqs = (s for s in seqs if "X" not in s.seq)
+        ## neeed [:-1] here because haven't 'fixed' data yet
+        ## via the covid.filter_seqs() call
+        seqs = (s for s in seqs if "X" not in s.seq[:-1])
         seqs = vcount(seqs,"Sequences w/o X:")
         
     seqs = covid.filter_seqs(seqs,args)
@@ -109,6 +111,7 @@ def main(args):
         seqs = itertools.islice(seqs,args.N+1)
         #vprint(len(seqlist)-1,"sequences after truncation")
 
+    seqs = itertools.chain([first],seqs)
     if args.output:
         readseq.write_seqfile(args.output,seqs)
     else:
