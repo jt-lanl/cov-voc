@@ -144,7 +144,7 @@ def main(args):
     allfullseqs = list(allfullseqs)
     vprint("Read",len(allfullseqs),"sequences")
     fullseqs = covid.filter_seqs_by_pattern(allfullseqs,args)
-    allfullseqs = list(allfullseqs)
+    fullseqs = list(fullseqs)
     vprint("Read",len(fullseqs),"sequences after filtering")
     firstseq = fullseqs[0].seq
 
