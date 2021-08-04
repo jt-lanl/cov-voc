@@ -22,8 +22,8 @@ class SingleSiteMutation():
         self.site = int(m[2])
         self.mut = m[3]
 
-        if self.mut == self.ref:
-            print(self,self.mut,"==",self.ref,file=sys.stderr)
+        #if self.mut == self.ref:
+        #    print(self,self.mut,"==",self.ref,file=sys.stderr)
         
         if self.mut == "_":
             self.mut = self.ref
