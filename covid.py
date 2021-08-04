@@ -239,7 +239,7 @@ def fix_seqs(seqs,args):
     firstseq,seqs = get_first_item(seqs)
 
     if "-" in firstseq.seq and not args.keepdashcols:
-        warnings.warn("Stripping sites with dashes in first sequence")
+        #warnings.warn("Stripping sites with dashes in first sequence")
         seqs = sequtil.stripdashcols(firstseq.seq,seqs)
 
     if args.fixsiteseventy:
