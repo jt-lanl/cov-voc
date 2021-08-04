@@ -128,6 +128,14 @@ def mutinfo(table):
 
 #############################################################
 
+def filename_prepend(pre,file):
+    ## prepend a string to a file name; eg
+    ## "pre","file" -> "prefile", but also
+    ## "pre","dir/file" -> "dir/prefile"
+    if not file:
+        return file
+    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
+
 def get_title(args,title=None):
     if not title:
         title = covid.get_title(args)
@@ -174,7 +182,7 @@ def pairwise(args,esites,charsatsite,mutname,title=None):
             plt.title(sname + ": " + title)
             plt.tight_layout()
             if args.writeplot:
-                plt.savefig("-".join([pname,sname,args.writeplot]))
+                plt.savefig(filename_prepend(pname + "-" + sname + "_", args.writeplot))
 
     #### Make table of correlated pairs
     print("\nMost highly correlated site-pairs for:",title)
@@ -265,7 +273,7 @@ def main(args):
             plt.plot([e,e],[0,E[e-1]],'r-')
         
         if args.writeplot:
-            plt.savefig("entrpy-" + args.writeplot)
+            plt.savefig(filename_prepend("entrpy-",args.writeplot))
 
     ## get lists of characters for each site, and name of mutation
     charsatsite=dict()
