@@ -71,6 +71,7 @@ def stripdashcols(master,seqs,dashchar="-"):
     keep = [n for n in range(len(master)) if n not in ndx]
     for s in seqs:
         s.seq = "".join(s.seq[n] for n in keep)
+        yield s
 
 ## date-based utilities
 

@@ -203,17 +203,17 @@ def summarizeseqlengths(seqlist,args):
         warnings.warn("Not all sequences are the same length")
     
 
-def get_first_item(seqs,putitemback=True):
+def get_first_item(items,putitemback=True):
     '''get first item in iterable, and and put it back'''
-    if isinstance(seqs,list):
-        first = seqs[0]
+    if isinstance(items,list):
+        first = items[0]
         if not putitemback:
-            seqs = seqs[1:]
+            items = items[1:]
     else:
-        first = next(seqs)
+        first = next(items)
         if putitemback:
-            seqs = itertools.chain([first],seqs)
-    return first,seqs
+            items = itertools.chain([first],items)
+    return first,items
         
 def checkseqlengths(seqs):
     first,seqs = get_first_item(seqs)
@@ -240,7 +240,7 @@ def fix_seqs(seqs,args):
 
     if "-" in firstseq.seq and not args.keepdashcols:
         warnings.warn("Stripping sites with dashes in first sequence")
-        sequtil.stripdashcols(firstseq.seq,seqs)
+        seqs = sequtil.stripdashcols(firstseq.seq,seqs)
 
     if args.fixsiteseventy:
         seqs = fixsiteseventy_gen(seqs,args)
