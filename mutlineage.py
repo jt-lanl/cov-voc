@@ -62,7 +62,7 @@ def format_counter(cnt):
 
 def main(args):
 
-    mutantfilepatt = re.compile(r".*(\[.*\])\s+(\(.*\))")
+    mutantfilepatt = re.compile(r".*(\[.*\])\s+(\(.*\)?)")
     mutlist=[]
     linlist=[]
     with open(args.mutant) as f:
