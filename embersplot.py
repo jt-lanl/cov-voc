@@ -22,7 +22,7 @@ def embersplot(counts,
                ordmin,
                ordplotrange=None,
                title=None,legendtitle=None,legend=0,onsets=False,
-               fraction=False,linePlot=False,show=False):
+               fraction=False,lineplot=False,show=False):
     '''
     embersplot is an embers-style (stacked bar or line) plot of counts vs date for multiple variants
     counts: dictionary of arrays; each array is counts vs date; keys of dictionary correspond to different variants
@@ -46,10 +46,10 @@ def embersplot(counts,
     if legend == 0:
         plt.figure(figsize=(6,3))
     elif legend == 1:
-        F = 4.7 if linePlot else 5.0
+        F = 4.7 if lineplot else 5.0
         plt.figure(figsize=(12,1+len(patterns)/F))
     elif legend == 2:
-        F = 4.7 if linePlot else 4.5
+        F = 4.7 if lineplot else 4.5
         plt.figure(figsize=(12,1+len(patterns)/F))
         #plt.figure(figsize=(12,0.5+0.5*len(patterns)/F))
     else:
@@ -67,7 +67,7 @@ def embersplot(counts,
 
     ## at this point counts_total is array (vs date) of total counts over all patterns
 
-    if legendtitle and legend>1 and not linePlot:
+    if legendtitle and legend>1 and not lineplot:
         plt.bar(range(Ndays),[0]*Ndays,width=1,
                 label=legendtitle,color="white")
 
@@ -79,7 +79,7 @@ def embersplot(counts,
         #    name += " " + mrelpatt[m] 
         name = " " + name ## hack! leading underscore doesn't make it to legend??
 
-        if linePlot:
+        if lineplot:
             kwargs = dict(color=mcolors[m],label=name)
         else:
             ## For bar plot, repeated name,color tuples only appear once in legend
@@ -96,7 +96,7 @@ def embersplot(counts,
             fm = counts[m]
             bm = counts_bottom[m]
 
-        if linePlot:
+        if lineplot:
             dy = np.array(range(Ndays))
             fm = np.array(fm)
             dy = dy[fm>0]
@@ -105,7 +105,7 @@ def embersplot(counts,
         else:
             plt.bar(range(Ndays),fm,bottom=bm,width=1,**kwargs)
 
-    if fraction and not linePlot:
+    if fraction and not lineplot:
         plt.ylim([0,1.05])
 
     if legend:
@@ -147,7 +147,7 @@ def embersplot(counts,
                 kwargs['zorder']=0
             plt.plot([x,x],[ylo,yhi],**kwargs)
 
-    if linePlot:
+    if lineplot:
         if legend==0:
             plt.subplots_adjust(bottom=0.15,right=0.95) ## hardcoded hack!
         else:
