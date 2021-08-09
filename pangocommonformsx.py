@@ -80,7 +80,12 @@ def main(args):
           "[Note that if a lineage contains several divergent forms of Spike, "
           "the consensus form might not be found among these common forms.] "
           "Also shown is the Hamming distance (HD) between each form "
-          "and the most common form in that lineage."
+          "and the most common form in that lineage. Deletions relative to "
+          "the ancestral reference strain are indicated with a dash "
+          "(e.g. the two amino acid deletion in Delta variant are indicated as: "
+          "'E156-,F157-'), and insertions are denoted by a plus sign "
+          "(e.g. B.1.621 usually has an extra T at position 143, "
+          "it is written '+143T')."
           "")
     print()
 
