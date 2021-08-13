@@ -19,6 +19,8 @@ def getargs():
         help="output inconsistent sequences")
     paa("--fix",
         help="fix sequences and write output to this fasta file")
+    paa("--siterange",nargs=2,
+        help="only check these sites in this range")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -43,9 +45,7 @@ def mutant_diffs(mref,mseq):
 
     mutref = mutant.Mutation(list(msetref-msetseq)).sort()
     mutseq = mutant.Mutation(list(msetseq-msetref)).sort()
-    summary = ("<"+",".join(str(ssm) for ssm in mutref)+">",
-               "<"+",".join(str(ssm) for ssm in mutseq)+">")
-    return summary
+    return (mutref,mutseq)
 
 def choose_alignment(MM,seqs):
     '''
@@ -65,19 +65,32 @@ def choose_alignment(MM,seqs):
     [(cseq,_)] = cnt.most_common(1)
     return cseq
 
-def write_summary(mismatches,diffs):
+def write_summary(mismatches,diffs,site_offset=None):
     '''summarize inconsistent sequences'''
     ## mismatches, diffs both Counter()'s
+
+    def siteadjust(mstring):
+        if not site_offset:
+            return mstring
+        mut = mutant.Mutation(mstring)
+        for ssm in mut:
+            ssm.adjust_site(site_offset)
+        return str(mut)
+
 
     print("Long summary of differences:")
     for (g,b),count in mismatches.most_common():
         asterisk = " *" if g==b else "" ## indicates equivalent sequences
+        g = siteadjust(g)
+        b = siteadjust(b)
         print("%6d %s\n       %s%s" % (count,g,b,asterisk))
     print()
     print("Short summary of differences:")
-    gmaxlen = max(len(g) for g,b in diffs)
+    gmaxlen = max(len(siteadjust(g)) for g,b in diffs)
     gfmt = "%%6d %%%ds vs %%s" % (gmaxlen,)
     for (g,b),count in diffs.most_common():
+        g = siteadjust(g)
+        b = siteadjust(b)
         print(gfmt % (count,g,b))
 
 def write_output(outputfile,first,fix_table,shareshortseq,inconsistent_shortseqs):
@@ -106,6 +119,20 @@ def main(args):
     first,seqs = covid.get_first_item(seqs)
 
     seqs=list(seqs)
+
+    ndxrange=None
+    site_lo=None
+    if args.siterange:
+        T = mutant.SiteIndexTranslator(first.seq)
+        (lo,hi) = args.siterange
+        site_lo = lo = 1                           if lo=="." else int(lo)
+        hi = T.site_from_index(len(first.seq)-1)-1 if hi=="." else int(hi)
+        ndxlo = min(T.indices_from_site(lo))
+        ndxhi = max(T.indices_from_site(hi))
+        ndxrange = range(ndxlo,ndxhi)
+        for s in seqs:
+            s.fullseq = s.seq
+            s.seq = s.seq[ndxlo:ndxhi]
 
     ## sharedshortseq[key] is a list of seqs whose de-gapped seqstring = key
     shareshortseq = defaultdict(list)
@@ -138,23 +165,28 @@ def main(args):
             badmut = MM.get_mutation(badseq)
             summarize_mismatches[(str(goodmut),str(badmut))] += badcntr[badseq]
             gdif,bdif = mutant_diffs(goodmut,badmut)
-            summarize_diffs[(gdif,bdif)] += badcntr[badseq]
+            summarize_diffs[(str(gdif),str(bdif))] += badcntr[badseq]
 
     print(f"Found {countbad} inconsistent sequences")
     print(f"Found {len(inconsistent_shortseqs)} cases of inconsistency")
     if countbad>0:
         print()
-        write_summary(summarize_mismatches,summarize_diffs)
+        write_summary(summarize_mismatches,summarize_diffs,site_offset=site_lo-1)
         write_output(args.output,first,fix_table,shareshortseq,inconsistent_shortseqs)
 
     ## Note: number of cases in output, and number of differences in summary
     ## might not agree, since multiple badseq's for a single goodseq
     ## distinct cases = distinct goodseq's
     ## distinct diffs = distinct goodseq,badseq tuples >= distinct cases
-    
+
     if args.fix:
         for s in seqs:
             s.seq = fix_table.get(s.seq,s.seq)
+        if ndxrange:
+            lo,hi = ndxrange.start,ndxrange.stop
+            for s in seqs:
+                s.seq = s.fullseq[:lo] + s.seq + s.fullseq[hi:]
+                s.fullseq = None
         readseq.write_seqfile(args.fix,seqs)
 
 if __name__ == "__main__":
