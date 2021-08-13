@@ -29,6 +29,8 @@ and [A222*,D614G] is not prescriptive, but is descriptive
 import sys
 import re
 import itertools as it
+from collections import defaultdict
+from functools import lru_cache
 import warnings
 
 class SiteIndexTranslator():
@@ -58,7 +60,7 @@ class SiteIndexTranslator():
         return range(self.ndx[site],self.ndx[site+1]) ## but what if site is the last site?
 
     def indices_from_sitelist(self,sitelist):
-        '''return list indices from list of sites'''
+        '''return list of indices from list of sites'''
         ndxlist = []
         for site in sitelist:
             ndxlist.extend( self.indices_from_site(site) )
@@ -66,9 +68,21 @@ class SiteIndexTranslator():
 
 class SingleSiteMutation():
     ''' eg, D614G is a single site mutation '''
-    def __init__(self,mstring):
+    def __init__(self,mstring=None):
+        if isinstance(mstring,str):
+            self.init_from_mstring(mstring)
+        elif isinstance(mstring,tuple):
+            self.init_from_ref_site_mut(*mstring)
+
+    def init_from_ref_site_mut(self,ref,site,mut):
+        self.ref = ref
+        self.site = site
+        self.mut = mut
+        self.mstring = None
+        
+    def init_from_mstring(self,mstring):
         mstring = mstring.strip()
-        m = re.match(r"(.)(\d+)(.[A-Z-_]*)",mstring)
+        m = re.match(r"(.)(\d+)(.[A-Z-_]*)",mstring)  ## what's that second '.' doing?
         if not m:
             raise RuntimeError(f"Mutation string /{mstring}/ invalid")
         self.mstring = mstring
@@ -85,13 +99,19 @@ class SingleSiteMutation():
     def __eq__(self,other):
         return self.ref == other.ref and self.site == other.site and self.mut == other.mut
 
+    def __lt__(self,other):
+        return self.site < other.site
+
     def __hash__(self):
         ''' enables the making of sets of SSM's '''
         return hash(tuple((self.ref,self.site,self.mut)))
 
     def __str__(self):
-        return self.mstring
+        return self.mstring or self.ref+str(self.site)+self.mut
 
+
+
+                            
 class Mutation(list):
     ''' Mutation is a list of SingleSiteMutations '''
 
@@ -323,7 +343,40 @@ class Mutation(list):
         return mutseq
 
     def __str__(self):
-        return "[" + ",".join(str(ssm) for ssm in self) + "]" + ("!" if self.exact else "")
+        return "[" + ",".join(str(ssm) for ssm in self) + "]" #+ ("!" if self.exact else "")
+
+class MutationMaker():
+    ''' Keeps track of a single refseq and SiteIndexTranslator for multiple mutations '''
+    def __init__(self,refseq):
+        self.refseq = refseq
+        self.T = SiteIndexTranslator(refseq)
+
+    def site_from_index(self,ndx):
+        return self.T.site_from_index(ndx)
+
+    def index_from_site(self,site):
+        return self.T.index_from_site(site)
+
+    @lru_cache(maxsize=None)
+    def get_mutation(self,seq):
+        '''convert sequence into a mutation list'''
+
+        ## Scan mutations and put into dict of lists so that
+        ## dict is indexed by tuple (ssm.ref,ssm.site) so that 
+        ## items like [-67A,-67B,-67C] end up on the same list
+        mutdict = defaultdict(list)
+        for n,(r,c) in enumerate(zip(self.refseq,seq)):
+            if c != r:
+                site = self.site_from_index(n)
+                mutdict[(r,site)].append(c)
+
+        mutlist = []
+        for (r,site),clist in mutdict.items():
+            mstr = "".join(clist)
+            rr = "+" if r == "-" else r
+            mutlist.append(SingleSiteMutation((rr,site,mstr)))
+
+        return Mutation(mutlist).sort()
 
 if __name__ == "__main__":
 
@@ -337,15 +390,24 @@ if __name__ == "__main__":
     print("C:",mc.sort())
 
     RefSeq = "ABC-D--EFG"
-    for newseq in ["ABC-E--EFG",
-                   "ABCWD--EFH",
-                   "BBC-E--EFF",
-                   "BBC-E-WEFF",
-                   "BBC-EW-EFF",
-                   "ABCWEXYEFG",
-                   "ABCWDXYEFG",
-    ]:
+    NewSeqList = [
+        "ABC-E--EFG",
+        "ABCWD--EFH",
+        "BBC-E--EFF",
+        "BBC-E-WEFF",
+        "BBC-EW-EFF",
+        "ABCWEXYEFG",
+        "ABCWDXYEFG",
+    ]
+    for newseq in NewSeqList:
         mu = Mutation().init_from_sequences(RefSeq,newseq)
         rpatt = mu.regex_pattern(RefSeq)
         rpattx = mu.regex_pattern(RefSeq,exact=True)
         print(RefSeq,newseq,rpatt,rpattx,mu)
+
+    print()
+    MM = MutationMaker(RefSeq)
+    for newseq in NewSeqList:
+        mu = MM.get_mutation(newseq)
+        print(RefSeq,newseq,mu)
+        
