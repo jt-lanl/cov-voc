@@ -96,6 +96,11 @@ class SingleSiteMutation():
         if "_" in self.mut:
             self.mut = re.sub("_",self.ref,self.mut)
 
+    def adjust_site(self,offset):
+        self.site += offset
+        self.mstring = self.ref+str(self.site)+self.mut
+        return self
+
     def __eq__(self,other):
         return self.ref == other.ref and self.site == other.site and self.mut == other.mut
 
