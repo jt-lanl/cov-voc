@@ -142,9 +142,10 @@ def main(args):
 
     print(f"Found {countbad} inconsistent sequences")
     print(f"Found {len(inconsistent_shortseqs)} cases of inconsistency")
-    print()
-    write_summary(summarize_mismatches,summarize_diffs)
-    write_output(args.output,first,fix_table,shareshortseq,inconsistent_shortseqs)
+    if countbad>0:
+        print()
+        write_summary(summarize_mismatches,summarize_diffs)
+        write_output(args.output,first,fix_table,shareshortseq,inconsistent_shortseqs)
 
     ## Note: number of cases in output, and number of differences in summary
     ## might not agree, since multiple badseq's for a single goodseq
