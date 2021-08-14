@@ -65,7 +65,11 @@ def choose_alignment(MM,seqs):
     [(cseq,_)] = cnt.most_common(1)
     return cseq
 
-def write_summary(mismatches,diffs,site_offset=None):
+def take_names(cseq,seqs):
+    '''return list of names among seqs for which seq matches cseq'''
+    return [s.name for s in seqs if s.seq==cseq]
+
+def write_summary(mismatches,diffs,site_offset=0):
     '''summarize inconsistent sequences'''
     ## mismatches, diffs both Counter()'s
 
@@ -93,7 +97,7 @@ def write_summary(mismatches,diffs,site_offset=None):
         b = siteadjust(b)
         print(gfmt % (count,g,b))
 
-def write_output(outputfile,first,fix_table,shareshortseq,inconsistent_shortseqs):
+def write_output(outputfile,first,fix_table,shareshortseq,inconsistent_shortseqs,good_names):
     '''ouput fasta file showing all the inconsistent sequences'''
     if outputfile:
         iseqs = [first]
@@ -102,7 +106,7 @@ def write_output(outputfile,first,fix_table,shareshortseq,inconsistent_shortseqs
             goodseq = fix_table.get(fullseqs[0].seq,fullseqs[0].seq)
             iseqs.append(SequenceSample(f"Case_{n}",
                                         "-"*len(goodseq)))
-            iseqs.append(SequenceSample(f"BaseSequence_{n}",
+            iseqs.append(SequenceSample(good_names[goodseq],
                                         goodseq))
             for s in fullseqs:
                 if s.seq != goodseq:
@@ -121,7 +125,7 @@ def main(args):
     seqs=list(seqs)
 
     ndxrange=None
-    site_lo=None
+    site_lo=1
     if args.siterange:
         T = mutant.SiteIndexTranslator(first.seq)
         (lo,hi) = args.siterange
@@ -149,6 +153,7 @@ def main(args):
             inconsistent_shortseqs.add(sseq)
 
     fix_table = dict()
+    good_names = dict()
     summarize_mismatches = Counter()
     summarize_diffs = Counter()
     MM = mutant.MutationMaker(first.seq)
@@ -156,6 +161,7 @@ def main(args):
     for sseq in inconsistent_shortseqs:
         fullseqs = shareshortseq[sseq]
         goodseq = choose_alignment(MM,fullseqs)
+        good_names[goodseq] = take_names(goodseq,fullseqs)[0]
         goodmut = MM.get_mutation(goodseq)
         badseqs = [s for s in fullseqs if s.seq != goodseq]
         countbad += len(badseqs)
@@ -172,7 +178,7 @@ def main(args):
     if countbad>0:
         print()
         write_summary(summarize_mismatches,summarize_diffs,site_offset=site_lo-1)
-        write_output(args.output,first,fix_table,shareshortseq,inconsistent_shortseqs)
+        write_output(args.output,first,fix_table,shareshortseq,inconsistent_shortseqs,good_names)
 
     ## Note: number of cases in output, and number of differences in summary
     ## might not agree, since multiple badseq's for a single goodseq
