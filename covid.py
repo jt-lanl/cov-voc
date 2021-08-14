@@ -15,7 +15,7 @@ import sequtil
 import intlist
 import mutant
 
-DEFAULTFASTA="Data/RX-REG_COMP.SPIKE.protein.Human.20210728.ipkl.gz"
+DEFAULTFASTA="Data/RX-Latest.ipkl.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -242,7 +242,7 @@ def fix_seqs(seqs,args):
         #warnings.warn("Stripping sites with dashes in first sequence")
         seqs = sequtil.stripdashcols(firstseq.seq,seqs)
 
-    if args.fixsiteseventy:
+    if args.fixsiteseventy and not args.keepdashcols:
         seqs = fixsiteseventy_gen(seqs,args)
 
     if not args.keeplastchar and firstseq.seq and firstseq.seq[-1] in "$X":
