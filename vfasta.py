@@ -1,5 +1,6 @@
 '''
 view a segment of a sequence file
+OBSOLETE: use matchfasta.py instead
 '''
 import sys
 import re
