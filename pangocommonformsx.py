@@ -124,6 +124,8 @@ def main(args):
 
         if lin == "None":
             continue
+        if not lin:
+            continue
         
         seqlin = seqlist_by_lineage[lin]
 
