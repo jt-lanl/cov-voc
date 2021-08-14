@@ -30,6 +30,8 @@ def getargs():
         help="keep at most this many sequences")
     paa("--badisls",
         help="File with list of EPI_ISL numbers to exclude")
+    paa("--translate",action="store_true",
+        help="Translate from nucleotides to amino acids")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -37,6 +39,36 @@ def getargs():
     args = ap.parse_args()
     return args
 
+codon_to_aa_table = { 
+    'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 
+    'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T', 
+    'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K', 
+    'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',                  
+    'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L', 
+    'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P', 
+    'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q', 
+    'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R', 
+    'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V', 
+    'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A', 
+    'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E', 
+    'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G', 
+    'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S', 
+    'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L', 
+    'TAC':'Y', 'TAT':'Y', 'TAA':'X', 'TAG':'X', 
+    'TGC':'C', 'TGT':'C', 'TGA':'X', 'TGG':'W',
+    '---':'-',
+} 
+
+def translate_to_aa(seqs):
+    ''' for a sequence nucleotides, returns a list of three sequences of amino acids '''
+    for s in seqs:
+        aalist = []
+        for j in range(0,len(s.seq)-2,3):
+            codon = s.seq[j:j+3]
+            aa = codon_to_aa_table.get(codon,"X")
+            aalist.append( aa )
+        s.seq = "".join(aalist)
+        yield s
 
 def getisls(file):
     '''read list of ISL numbers from text file'''
@@ -66,9 +98,12 @@ def main(args):
         seqs = it.islice(seqs,args.N)
         seqs = vcount(seqs,"Sequences after truncation:")
 
+    if args.translate:
+        seqs = translate_to_aa(seqs)
+        seqs = vcount(seqs,"Sequences translated")
+
     if args.output:
         readseq.write_seqfile(args.output,seqs)
-
 
 if __name__ == "__main__":
 
