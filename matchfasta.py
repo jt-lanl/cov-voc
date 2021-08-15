@@ -101,7 +101,7 @@ def main(args):
     if matchpatt:
         rematchpatt = re.compile(matchpatt)
         seqs = (s for s in seqs if rematchpatt.match(s.seq))
-        wrapgen.keepcount(seqs,"Matches:")
+        seqs = wrapgen.keepcount(seqs,"Matches:")
         
     #seqlist = list(seqs)
     #vprint("Sequences:",len(seqlist)-1,"match seqpattern:",matchpatt)
