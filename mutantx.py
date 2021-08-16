@@ -57,7 +57,11 @@ class SiteIndexTranslator():
 
     def indices_from_site(self,site):
         ''' return range of indices for a single site '''
-        return range(self.ndx[site],self.ndx[site+1]) ## but what if site is the last site?
+        try:
+            return range(self.ndx[site],self.ndx[site+1]) ## but what if site is the last site?
+        except IndexError:
+            print("Cannot find index for sites: ",site,site+1)
+            return []
 
     def indices_from_sitelist(self,sitelist):
         '''return list of indices from list of sites'''
@@ -65,6 +69,9 @@ class SiteIndexTranslator():
         for site in sitelist:
             ndxlist.extend( self.indices_from_site(site) )
         return ndxlist
+
+    def topsite(self):
+        return max(self.site)
 
 class SingleSiteMutation():
     ''' eg, D614G is a single site mutation '''
@@ -100,6 +107,11 @@ class SingleSiteMutation():
         self.site += offset
         self.mstring = self.ref+str(self.site)+self.mut
         return self
+
+    def __eq__(self,other):
+        '''returns boolean: is self == other?'''
+        return set(other) == set(self)
+
 
     def __eq__(self,other):
         return self.ref == other.ref and self.site == other.site and self.mut == other.mut
@@ -250,6 +262,16 @@ class Mutation(list):
                 check=False
         return check
 
+    def contains(self,other):
+        '''returns boolean: does self contain other?'''
+        return set(other) <= set(self)
+
+    def contained_in(self,other):
+        '''returns boolean: is self contained in other?'''
+        return set(self) <= set(other)
+
+
+
     def pattern(self,refseq,exact=False):
         '''sort of a regex-pattern, but lite'''
         if exact is not False:
@@ -361,6 +383,10 @@ class MutationMaker():
 
     def index_from_site(self,site):
         return self.T.index_from_site(site)
+
+    def get_hamming(self,seq):
+        '''return hamming distance from refseq to seq'''
+        return sum(bool(r!=c) for r,c in zip(self.refseq,seq))
 
     @lru_cache(maxsize=None)
     def get_mutation(self,seq):
