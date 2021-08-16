@@ -42,10 +42,13 @@ class SiteIndexTranslator():
     def __init__(self,refseq):
         # self.refseq = refseq ## needed?
         self.site = list(it.accumulate(int(b!='-') for b in refseq))
-        self.ndx = [None]*(1+max(self.site))
+        self.ndx = [None]*(2+max(self.site))
         for n,p in enumerate(self.site):
             if self.ndx[p] is None:
                 self.ndx[p] = n
+        ## final index is len(refseq)=len(self.site)
+        self.ndx[-1] = len(refseq)
+        self.topsite = max(self.site) 
 
     def site_from_index(self,n):
         '''return site number associated with index'''
@@ -53,15 +56,11 @@ class SiteIndexTranslator():
 
     def index_from_site(self,site):
         '''return index associated with site number'''
-        return self.ndx[site]
+        return self.ndx[site] if site <= self.topsite else self.ndx[-1]
 
     def indices_from_site(self,site):
         ''' return range of indices for a single site '''
-        try:
-            return range(self.ndx[site],self.ndx[site+1]) ## but what if site is the last site?
-        except IndexError:
-            print("Cannot find index for sites: ",site,site+1)
-            return []
+        return range(self.ndx[site],self.ndx[site+1])
 
     def indices_from_sitelist(self,sitelist):
         '''return list of indices from list of sites'''
@@ -70,8 +69,6 @@ class SiteIndexTranslator():
             ndxlist.extend( self.indices_from_site(site) )
         return ndxlist
 
-    def topsite(self):
-        return max(self.site)
 
 class SingleSiteMutation():
     ''' eg, D614G is a single site mutation '''

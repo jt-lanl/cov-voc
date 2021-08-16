@@ -44,7 +44,7 @@ def choose_alignment(MM,gseqs):
     dseqs = [de_gap(seq) for seq in gseqs]
     assert all(dseq == dseqs[0] for dseq in dseqs[1:])
     ## find forms with smallest mutation length
-    if 1:
+    if 0:
         ## makes sense for amino acids, maybe not so much for nucleotides
         mutlen = {gseq: len(MM.get_mutation(gseq)) for gseq in gseqs}
         #mutlen = {gseq: MM.get_hamming(gseq) for gseq in gseqs}
@@ -69,6 +69,9 @@ def siteadjust(mstring,site_offset=0):
 def align_subsequences(subseqs,site_offset=0):
     '''return a list of subsequences that are aligned'''
 
+    for ss in subseqs:
+        print(ss)
+    
     first,subseqs = subseqs[0],subseqs[1:]
     MM = mutant.MutationMaker(first)
 
@@ -84,11 +87,13 @@ def align_subsequences(subseqs,site_offset=0):
                              for dseq,gseqs in gseqs_with_dseq.items()
                              if any(seq != gseqs[0] for seq in gseqs[1:]))
 
+    print("incon:",inconsistent_dseqs,gseqs_with_dseq)
     countbad = 0
     fix_table = dict()
+    dfirst = de_gap(first)
     for dseq in inconsistent_dseqs:   ## check if dseq == de_gap(first), then goodmut = first
         gseqs = gseqs_with_dseq[dseq]
-        goodseq = choose_alignment(MM,gseqs)
+        goodseq = first if dseq==dfirst else choose_alignment(MM,gseqs)
         goodmut = MM.get_mutation(goodseq)
         badseqs = [seq for seq in gseqs if seq != goodseq]
         countbad += len(badseqs)
@@ -120,6 +125,8 @@ def _main(args):
     changed_sequences=[]
 
     ## note, should check that sitepartition is always increasing, and check early
+    if not args.sitepartition:
+        asgs.sitepartition = [".",".","."]
 
     T = mutant.SiteIndexTranslator(first.seq)
     for lo,hi in zip(args.sitepartition[:-2],
@@ -128,34 +135,28 @@ def _main(args):
         if lo == 'x' or hi == 'x':
             continue
 
-        site_lo = lo = 1                           if lo=="." else int(lo)
-        hi = T.site_from_index(len(first.seq)-1)-1 if hi=="." else int(hi)
+        site_lo = lo = 1 if lo=="." else int(lo)
+        hi = T.topsite   if hi=="." else int(hi)
 
         if lo > hi:
             vprint("Out of order site range:",lo,hi)
             continue
 
-        if lo == hi:
-            vprint("Empty site range:",lo,hi)
-            continue
-
-        if lo >= T.topsite():
-            vprint(f"lo = {lo} is larger than size of sequence")
+        if lo >= T.topsite:
+            # we're done here
             break
 
-        if hi >= T.topsite():
-            hi = T.topsite()-1
-
         ndxlo = min(T.indices_from_site(lo))
-        ndxhi = max(T.indices_from_site(hi))
+        ndxhi = max(T.indices_from_site(hi))+1
 
-        vvprint(f"sites {lo}:{hi}, indices {ndxlo}:{ndxhi}")
+        vvprint(f"sites {lo}:{hi+1}, indices {ndxlo}:{ndxhi}")
 
         seqs=list(seqs)
 
         subseqs = [s.seq[ndxlo:ndxhi] for s in seqs]
         subseqs = align_subsequences(subseqs,site_offset=site_lo-1)
 
+        assert len(seqs) == len(subseqs)
         for s,subseq in zip(seqs,subseqs):
             if s.seq[ndxlo:ndxhi] != subseq:
                 if len(s.seq[ndxlo:ndxhi]) != len(subseq):
