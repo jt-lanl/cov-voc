@@ -99,7 +99,10 @@ def main(args):
               'B.1.617.2' : 'BlueViolet', #Delta
               'AY.1'      : 'Orchid',
               'AY.2'      : 'LightPink',
-              'AY.3'      : 'Red',
+              'B.1.619'   : 'Indigo',
+              'B.1.620'   : 'CadetBlue',
+              'B.1.621'   : 'LightCyan',
+#              'AY.3'      : 'Red',
     }
     patterns = list(colors)
     for p in patterns:
@@ -170,7 +173,7 @@ def main(args):
     for f in (False,True):
         embersplot.embersplot(DG_cum,None,colors,ordmin,
                               ordplotrange = (ordplotmin,ordplotmax),
-                              title = covid.get_title(args),
+                              title = covid.get_title(args) + ": %d sequences" % (nmatches,),
                               legend=1,fraction=f,lineplot=args.lineplot)
 
         plt.ylabel("Fraction" if f else "Counts")
