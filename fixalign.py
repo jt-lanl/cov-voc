@@ -41,10 +41,9 @@ def choose_alignment(MM,gseqs):
     2/ most common form
     '''
     ## first, make sure that de-gapped sequences are identical
-    dseqs = [de_gap(seq) for seq in gseqs]
-    assert all(dseq == dseqs[0] for dseq in dseqs[1:])
+    assert len(set(de_gap(seq) for seq in gseqs)) == 1
     ## find forms with smallest mutation length
-    if 0:
+    if 1:
         ## makes sense for amino acids, maybe not so much for nucleotides
         mutlen = {gseq: len(MM.get_mutation(gseq)) for gseq in gseqs}
         #mutlen = {gseq: MM.get_hamming(gseq) for gseq in gseqs}
@@ -69,9 +68,6 @@ def siteadjust(mstring,site_offset=0):
 def align_subsequences(subseqs,site_offset=0):
     '''return a list of subsequences that are aligned'''
 
-    for ss in subseqs:
-        print(ss)
-    
     first,subseqs = subseqs[0],subseqs[1:]
     MM = mutant.MutationMaker(first)
 
@@ -82,21 +78,16 @@ def align_subsequences(subseqs,site_offset=0):
     for gseq in subseqs:
         gseqs_with_dseq[de_gap(gseq)].append(gseq)
 
-    ## find the short dseqs with inconsistent long gseqs
-    inconsistent_dseqs = set(dseq
-                             for dseq,gseqs in gseqs_with_dseq.items()
-                             if any(seq != gseqs[0] for seq in gseqs[1:]))
-
-    print("incon:",inconsistent_dseqs,gseqs_with_dseq)
-    countbad = 0
     fix_table = dict()
     dfirst = de_gap(first)
-    for dseq in inconsistent_dseqs:   ## check if dseq == de_gap(first), then goodmut = first
-        gseqs = gseqs_with_dseq[dseq]
+    for dseq,gseqs in gseqs_with_dseq.items():
+        #if all(seq == gseqs[0] for seq in gseqs):  ## much slower!
+        if len(set(gseqs))==1:
+            ## only look for inconsistent dseqs
+            continue
         goodseq = first if dseq==dfirst else choose_alignment(MM,gseqs)
         goodmut = MM.get_mutation(goodseq)
         badseqs = [seq for seq in gseqs if seq != goodseq]
-        countbad += len(badseqs)
         badcntr = Counter(seq for seq in badseqs)
         vprint(f"{first} ref")
         vprint(f"{goodseq} good {siteadjust(goodmut,site_offset)} "
@@ -106,13 +97,7 @@ def align_subsequences(subseqs,site_offset=0):
                    f"count={badcntr[badseq]}")
             fix_table[badseq] = goodseq
 
-    if countbad:
-        vprint("Inconsistent sequences:",countbad,
-               "at range start site:",site_offset+1)
-
     return [first] + [fix_table.get(gseq,gseq) for gseq in subseqs]
-
-
 
 def _main(args):
     '''fixalignment main'''
@@ -126,7 +111,7 @@ def _main(args):
 
     ## note, should check that sitepartition is always increasing, and check early
     if not args.sitepartition:
-        asgs.sitepartition = [".",".","."]
+        args.sitepartition = [".",".","."]
 
     T = mutant.SiteIndexTranslator(first.seq)
     for lo,hi in zip(args.sitepartition[:-2],
@@ -135,8 +120,8 @@ def _main(args):
         if lo == 'x' or hi == 'x':
             continue
 
-        site_lo = lo = 1 if lo=="." else int(lo)
-        hi = T.topsite   if hi=="." else int(hi)
+        lo = 1         if lo=="." else int(lo)
+        hi = T.topsite if hi=="." else int(hi)
 
         if lo > hi:
             vprint("Out of order site range:",lo,hi)
@@ -146,6 +131,9 @@ def _main(args):
             # we're done here
             break
 
+        if hi > T.topsite:
+            hi = T.topsite
+
         ndxlo = min(T.indices_from_site(lo))
         ndxhi = max(T.indices_from_site(hi))+1
 
@@ -154,19 +142,22 @@ def _main(args):
         seqs=list(seqs)
 
         subseqs = [s.seq[ndxlo:ndxhi] for s in seqs]
-        subseqs = align_subsequences(subseqs,site_offset=site_lo-1)
+        subseqs = align_subsequences(subseqs,site_offset=lo-1)
 
         assert len(seqs) == len(subseqs)
+        countbad=0
         for s,subseq in zip(seqs,subseqs):
             if s.seq[ndxlo:ndxhi] != subseq:
-                if len(s.seq[ndxlo:ndxhi]) != len(subseq):
-                    raise RuntimeError(f"lengths disagree! "
-                                       f"{len(s.seq[ndxlo:ndxhi])} != {len(subseq)}")
+                countbad += 1
+                assert len(s.seq[ndxlo:ndxhi]) == len(subseq)
                 s.seq = s.seq[:ndxlo] + subseq + s.seq[ndxhi:]
                 changed_sequences.append(s)
 
-    print("changed:",
-          len(changed_sequences),"total changes in",
+        if countbad or args.verbose>1:
+            vprint("Changed",countbad,"inconsistent sequences in range:",lo,hi)
+
+    print("Total:",
+          len(changed_sequences),"changes in",
           len(set(changed_sequences)),"distict sequences")
 
     if args.output:
