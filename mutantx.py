@@ -60,7 +60,8 @@ class SiteIndexTranslator():
 
     def indices_from_site(self,site):
         ''' return range of indices for a single site '''
-        return range(self.ndx[site],self.ndx[site+1])
+        return range(self.index_from_site(site),
+                     self.index_from_site(site+1))
 
     def indices_from_sitelist(self,sitelist):
         '''return list of indices from list of sites'''
