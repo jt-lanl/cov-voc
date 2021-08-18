@@ -105,9 +105,6 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False):
     for gseq in subseqs:
         gseqs_with_dseq[de_gap(gseq)].append(gseq)
 
-    vvprint(f"sub {site_offset}: {len(gseqs_with_dseq)} dseqs:",
-            [len(gseqs) for gseqs in gseqs_with_dseq.values()])
-
     fix_table = dict()
     dfirstseq = de_gap(firstseq)
     for dseq,gseqs in gseqs_with_dseq.items():
@@ -146,7 +143,7 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False):
     return [firstseq] + [fix_table.get(gseq,gseq) for gseq in subseqs]
 
 def _main(args):
-    '''fixalignment main'''
+    '''fixalign main'''
 
     ## Read full sequences
     args.keepdashcols = True
@@ -167,8 +164,8 @@ def _main(args):
         if lo == 'x' or hi == 'x':
             continue
 
-        lo = 1         if lo=="." else int(lo)
-        hi = T.topsite if hi=="." else int(hi)
+        lo = 1           if lo=="." else int(lo)
+        hi = T.topsite+1 if hi=="." else int(hi)
 
         if lo > hi:
             vprint("Out of order site range:",lo,hi)
@@ -179,12 +176,12 @@ def _main(args):
             break
 
         if hi > T.topsite:
-            hi = T.topsite
+            hi = T.topsite+1
 
         ndxlo = min(T.indices_from_site(lo))
-        ndxhi = max(T.indices_from_site(hi))+1
+        ndxhi = max(T.indices_from_site(hi-1))+1
 
-        vvprint(f"sites {lo}:{hi+1}, indices {ndxlo}:{ndxhi}")
+        vvprint(f"sites {lo}:{hi}, indices {ndxlo}:{ndxhi}")
 
         seqs=list(seqs)
 
@@ -201,7 +198,7 @@ def _main(args):
                 changed_sequences.append(s)
 
         if countbad or args.verbose>1:
-            vprint("Changed",countbad,"inconsistent sequences in range:",lo,hi)
+            vprint("Changed",countbad,"inconsistent sequences in range:",lo,hi-1)
 
     vprint("Total:",
           len(changed_sequences),"changes in",
