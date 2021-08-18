@@ -20,6 +20,8 @@ def _getargs():
         help="fix sequences and write output to this fasta file")
     paa("--sitepartition","-s",nargs='+',
         help="partition full sequence into subsequences")
+    paa("--na",action="store_true",
+        help="set for nucleotide alignment (default is amino acid alignment)")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -33,17 +35,24 @@ def de_gap(seq):
     '''remove '-'s from sequence'''
     return dedash.sub("",seq)
 
-def choose_alignment(MM,gseqs):
+def choose_alignment(MM,gseqs,nuc_align=False):
     '''
     given a batch of gseqs whose de-gapped dseqs are identical;
     choose the gseqs with
     1/ smallest mutation length
     2/ most common form
     '''
+
+    ## take care of special case right away
+    if len(set(gseqs))==1:
+        return gseqs[0]
+
     ## first, make sure that de-gapped sequences are identical
     assert len(set(de_gap(seq) for seq in gseqs)) == 1
     ## find forms with smallest mutation length
-    if 1:
+
+
+    if not nuc_align:
         ## makes sense for amino acids, maybe not so much for nucleotides
         mutlen = {gseq: len(MM.get_mutation(gseq)) for gseq in gseqs}
         #mutlen = {gseq: MM.get_hamming(gseq) for gseq in gseqs}
@@ -65,11 +74,29 @@ def siteadjust(mstring,site_offset=0):
         ssm.adjust_site(site_offset)
     return str(mut)
 
-def align_subsequences(subseqs,site_offset=0):
+def deletion_only_solution(refseq,dseq):
+    '''
+    return a string that matches refseq using dseq characters (in order) and dashes
+    return None if not all of dseq characters are used
+    '''
+    ## "A--BC--D--E--FG-H","BCDEG" --> '---BC--D--E------'
+    ## "A--BC--D--E--FG-H","BDCEG" --> None
+    dseq = iter(dseq)
+    nextd = next(dseq)
+    dos = ""
+    for r in refseq:
+        if r == nextd:
+            dos += nextd
+            nextd = next(dseq,None)
+        else:
+            dos += "-"
+    return None if nextd else dos
+
+def align_subsequences(subseqs,site_offset=0,nuc_align=False):
     '''return a list of subsequences that are aligned'''
 
-    first,subseqs = subseqs[0],subseqs[1:]
-    MM = mutant.MutationMaker(first)
+    firstseq,subseqs = subseqs[0],subseqs[1:]
+    MM = mutant.MutationMaker(firstseq)
 
     ## two forms of every sequence: gseq (gapped), dseq (de-gapped)
 
@@ -78,26 +105,45 @@ def align_subsequences(subseqs,site_offset=0):
     for gseq in subseqs:
         gseqs_with_dseq[de_gap(gseq)].append(gseq)
 
+    vvprint(f"sub {site_offset}: {len(gseqs_with_dseq)} dseqs:",
+            [len(gseqs) for gseqs in gseqs_with_dseq.values()])
+
     fix_table = dict()
-    dfirst = de_gap(first)
+    dfirstseq = de_gap(firstseq)
     for dseq,gseqs in gseqs_with_dseq.items():
-        #if all(seq == gseqs[0] for seq in gseqs):  ## much slower!
-        if len(set(gseqs))==1:
-            ## only look for inconsistent dseqs
+        if nuc_align and len(set(gseqs))==1:
+            ## skip fixing of consistently bad alignments
+            ## but don't trust dos for nucleotides
+            ## (for nuc_align, might prefer something that preserved triplets)
             continue
-        goodseq = first if dseq==dfirst else choose_alignment(MM,gseqs)
+
+        goodseq = firstseq if dseq==dfirstseq \
+            else choose_alignment(MM,gseqs,nuc_align=nuc_align)
         goodmut = MM.get_mutation(goodseq)
+
+        ## check for a special case; doesn't happen very often
+        if not nuc_align and any(ssm.mut != '-' for ssm in goodmut):
+            ## if not already a deletion-only solution,
+            ## then see if one exists
+            dos = deletion_only_solution(firstseq,dseq)
+            if dos:
+                ## if so, then use it instead
+                goodseq = dos
+                goodmut = MM.get_mutation(goodseq)
+
         badseqs = [seq for seq in gseqs if seq != goodseq]
-        badcntr = Counter(seq for seq in badseqs)
-        vprint(f"{first} ref")
+        if not badseqs:
+            continue
+        badseqs_counter = Counter(seq for seq in badseqs)
+        vprint(f"{firstseq} ref")
         vprint(f"{goodseq} good {siteadjust(goodmut,site_offset)} "
                f"count={len(gseqs)-len(badseqs)}")
-        for badseq in badcntr:
+        for badseq in badseqs_counter:
             vprint(f"{badseq} bad  {siteadjust(MM.get_mutation(badseq),site_offset)} "
-                   f"count={badcntr[badseq]}")
+                   f"count={badseqs_counter[badseq]}")
             fix_table[badseq] = goodseq
 
-    return [first] + [fix_table.get(gseq,gseq) for gseq in subseqs]
+    return [firstseq] + [fix_table.get(gseq,gseq) for gseq in subseqs]
 
 def _main(args):
     '''fixalignment main'''
@@ -109,13 +155,14 @@ def _main(args):
 
     changed_sequences=[]
 
-    ## note, should check that sitepartition is always increasing, and check early
-    if not args.sitepartition:
-        args.sitepartition = [".",".","."]
+    ## partition seq into overlapping windows of width 2*stepsize
+    stepsize = 30 if args.na else 10
+    sitepartition = args.sitepartition if args.sitepartition \
+        else range(1,len(first.seq),stepsize)
 
     T = mutant.SiteIndexTranslator(first.seq)
-    for lo,hi in zip(args.sitepartition[:-2],
-                     args.sitepartition[2:]):
+    for lo,hi in zip(sitepartition[:-2],
+                     sitepartition[2:]):
 
         if lo == 'x' or hi == 'x':
             continue
@@ -142,7 +189,7 @@ def _main(args):
         seqs=list(seqs)
 
         subseqs = [s.seq[ndxlo:ndxhi] for s in seqs]
-        subseqs = align_subsequences(subseqs,site_offset=lo-1)
+        subseqs = align_subsequences(subseqs,site_offset=lo-1,nuc_align=args.na)
 
         assert len(seqs) == len(subseqs)
         countbad=0
@@ -156,6 +203,9 @@ def _main(args):
         if countbad or args.verbose>1:
             vprint("Changed",countbad,"inconsistent sequences in range:",lo,hi)
 
+    vprint("Total:",
+          len(changed_sequences),"changes in",
+          len(set(changed_sequences)),"distict sequences")
     print("Total:",
           len(changed_sequences),"changes in",
           len(set(changed_sequences)),"distict sequences")
