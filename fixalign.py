@@ -16,6 +16,8 @@ def _getargs():
     covid.corona_args(argparser)
     paa("--output","-o",
         help="output inconsistent sequences")
+    paa("--mstringpairs",
+        help="write file of mstring pairs")
     paa("--fix",
         help="fix sequences and write output to this fasta file")
     paa("--sitepartition","-s",nargs='+',
@@ -92,7 +94,7 @@ def deletion_only_solution(refseq,dseq):
             dos += "-"
     return None if nextd else dos
 
-def align_subsequences(subseqs,site_offset=0,nuc_align=False):
+def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
     '''return a list of subsequences that are aligned'''
 
     firstseq,subseqs = subseqs[0],subseqs[1:]
@@ -139,6 +141,10 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False):
             vprint(f"{badseq} bad  {siteadjust(MM.get_mutation(badseq),site_offset)} "
                    f"count={badseqs_counter[badseq]}")
             fix_table[badseq] = goodseq
+            if badgoodmuts is not None:
+                badmut = MM.get_mutation(badseq)
+                badgoodmuts.append( (str(siteadjust(badmut,site_offset)),
+                                     str(siteadjust(goodmut,site_offset))) )
 
     return [firstseq] + [fix_table.get(gseq,gseq) for gseq in subseqs]
 
@@ -151,6 +157,7 @@ def _main(args):
     first,seqs = covid.get_first_item(seqs)
 
     changed_sequences=[]
+    bad_good_mstrings=[]
 
     ## partition seq into overlapping windows of width 2*stepsize
     stepsize = 30 if args.na else 10
@@ -186,7 +193,7 @@ def _main(args):
         seqs=list(seqs)
 
         subseqs = [s.seq[ndxlo:ndxhi] for s in seqs]
-        subseqs = align_subsequences(subseqs,site_offset=lo-1,nuc_align=args.na)
+        subseqs = align_subsequences(subseqs,site_offset=lo-1,nuc_align=args.na,badgoodmuts=bad_good_mstrings)
 
         assert len(seqs) == len(subseqs)
         countbad=0
@@ -206,6 +213,11 @@ def _main(args):
     print("Total:",
           len(changed_sequences),"changes in",
           len(set(changed_sequences)),"distict sequences")
+
+    if args.mstringpairs:
+        with open(args.mstringpairs,"w") as fileptr:
+            for b,g in bad_good_mstrings:
+                fileptr.write(f"{b} {g}\n")
 
     if args.output:
         changed_set = set(changed_sequences)
