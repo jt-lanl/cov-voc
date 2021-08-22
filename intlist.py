@@ -112,6 +112,9 @@ def write_numbers_vertically(nlist,plusone=0,leadingzero=' '):
     8971
     0655
     '''
+
+    if nlist is None or len(nlist)==0:
+        return []
     
     lines = []
     rlist = []
