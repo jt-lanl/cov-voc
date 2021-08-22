@@ -22,6 +22,8 @@ def _getargs():
         help="fix sequences and write output to this fasta file")
     paa("--sitepartition","-s",nargs='+',
         help="partition full sequence into subsequences")
+    paa("--windowsize","-w",type=int,default=0,
+        help="subsequence window size")
     paa("--na",action="store_true",
         help="set for nucleotide alignment (default is amino acid alignment)")
     paa("--verbose","-v",action="count",default=0,
@@ -149,6 +151,15 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
 
     return [firstseq] + [fix_table.get(gseq,gseq) for gseq in subseqs]
 
+def mk_subseq_ranges(top,window):
+    ''' return a list of site lo,hi pairs '''
+    pairs = []
+    for offset in [1,1-window//2]:
+        r = range(offset,top+window,window)
+        for lo,hi in zip(r[:-1],r[1:]):
+            pairs.append( (max([1,lo]),min([top,hi])) )
+    return pairs
+
 def _main(args):
     '''fixalign main'''
 
@@ -157,17 +168,27 @@ def _main(args):
     seqs = covid.read_filter_seqfile(args)
     first,seqs = covid.get_first_item(seqs)
 
+    T = mutant.SiteIndexTranslator(first.seq)
+
+
     changed_sequences=[]
     bad_good_mstrings=[]
 
     ## partition seq into overlapping windows of width 2*stepsize
-    stepsize = 30 if args.na else 10
-    sitepartition = args.sitepartition if args.sitepartition \
-        else range(1,len(first.seq),stepsize)
+    winsize = 60 if args.na else 20
+    if args.windowsize:
+        assert not args.sitepartition
+        winsize = args.windowsize
+        if args.na:
+            winsize = 3*(winsize//3)
 
-    T = mutant.SiteIndexTranslator(first.seq)
-    for lo,hi in zip(sitepartition[:-2],
-                     sitepartition[2:]):
+    subseq_ranges = mk_subseq_ranges(T.topsite+1,winsize)
+
+    if args.sitepartition:
+        subseq_ranges = zip(args.sitepartition[:-2],
+                            sitepartition[2:])
+            
+    for lo,hi in subseq_ranges:
 
         if lo == 'x' or hi == 'x':
             continue
@@ -178,6 +199,9 @@ def _main(args):
         if lo > hi:
             vprint("Out of order site range:",lo,hi)
             continue
+
+        if lo < 1:
+            lo = 1
 
         if lo >= T.topsite:
             # we're done here
