@@ -79,7 +79,7 @@ def _main(args):
     seqs = covid.read_filter_seqfile(args)
     first,seqs = covid.get_first_item(seqs,putitemback=False)
 
-    MM = mutant.MutationMaker(first.seq)
+    MM = mutant.MutationManager(first.seq)
 
     ## Get bad and good mutations
     ndx_seqs_tuples = []

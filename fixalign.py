@@ -1,4 +1,4 @@
-'''fix alignemnt by enforcing consistency over verious subregions'''
+'''fix alignemnt by enforcing consistency over various subregions'''
 import sys
 import re
 from functools import lru_cache
@@ -6,7 +6,7 @@ from collections import defaultdict,Counter
 import argparse
 
 import readseq
-import mutantx as mutant
+import mutanty as mutant
 import covid
 
 def _getargs():
@@ -73,7 +73,8 @@ def siteadjust(mstring,site_offset=0):
         return mstring
     mut = mutant.Mutation(str(mstring))
     for ssm in mut:
-        ssm.adjust_site(site_offset)
+        ssm.site += site_offset
+        #ssm.adjust_site(site_offset)
     return str(mut)
 
 def deletion_only_solution(refseq,dseq):
@@ -98,7 +99,7 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
     '''return a list of subsequences that are aligned'''
 
     firstseq,subseqs = subseqs[0],subseqs[1:]
-    MM = mutant.MutationMaker(firstseq)
+    MM = mutant.MutationManager(firstseq)
 
     ## two forms of every sequence: gseq (gapped), dseq (de-gapped)
 
