@@ -10,7 +10,7 @@ import argparse
 
 import sequtil
 import covid
-import mutantx as mutant
+import mutanty as mutant
 import wrapgen
 from hamming import hamming
 
@@ -120,6 +120,8 @@ def main(args):
     print(fmt % "Pango","Lineage   Form   Form")
     print(fmt % "Lineage","  Count  Count    Pct  HD [Spike form as mutation string]")
 
+    mut_manager = mutant.MutationManager(firstseq)
+
     for lin in lineages:
 
         if lin == "None":
@@ -132,7 +134,7 @@ def main(args):
         ## First get consensus form
         cons = consensus(seqlin)
         cntcons = sum(1 for s in seqlin if s.seq == cons)
-        mcons = mutant.Mutation((firstseq,cons))
+        mcons = mut_manager.get_mutation(cons) #mutant.Mutation((firstseq,cons))
 
         ## Now get most common forms
         cntr = Counter(s.seq for s in seqlin)
@@ -148,7 +150,7 @@ def main(args):
             if comm == cons:
                 cflag = True
                 cons_string = "(consensus)"
-            m = mutant.Mutation((firstseq,comm))
+            m = mut_manager.get_mutation(comm) #ant.Mutation((firstseq,comm))
             if n == 0:
                 top_comm = comm
                 h = 0
