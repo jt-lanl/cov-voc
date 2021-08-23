@@ -7,7 +7,7 @@ from functools import lru_cache
 
 from seqsample import SequenceSample
 import readseq
-import mutantx as mutant
+import mutanty as mutant
 import covid
 
 def getargs():
@@ -78,9 +78,8 @@ def write_summary(mismatches,diffs,site_offset=0):
             return mstring
         mut = mutant.Mutation(mstring)
         for ssm in mut:
-            ssm.adjust_site(site_offset)
+            ssm.site += site_offset
         return str(mut)
-
 
     print("Long summary of differences:")
     for (g,b),count in mismatches.most_common():
@@ -156,7 +155,7 @@ def main(args):
     good_names = dict()
     summarize_mismatches = Counter()
     summarize_diffs = Counter()
-    MM = mutant.MutationMaker(first.seq)
+    MM = mutant.MutationManager(first.seq)
     countbad = 0
     for sseq in inconsistent_shortseqs:
         fullseqs = shareshortseq[sseq]
