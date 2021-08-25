@@ -103,18 +103,6 @@ def nuseq_realign_filter(seqs,aaseqs,aanotfound=None,upfront=True):
                 aanotfound.append(s.name)
         yield s
 
-def nuseq_realign_filter2(seqs,aaseqs,aanotfound=None):
-    ''' realign the nuseqs to match the aaseqs '''
-    ## use 'seqdict' which is like dict, but reads as necessary
-    aadict = seqdict(aaseqs)  # {aa.name: aa.seq for aa in aaseqs}
-    for s in seqs:
-        if s.name in aadict:
-            s.seq = nuseq_realign(s.seq,aadict[s.name])
-        else:
-            if aanotfound is not None:
-                aanotfound.append(s.name)
-        yield s
-
 def _main(args):
     '''main'''
     vprint(args)
