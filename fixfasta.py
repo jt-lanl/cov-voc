@@ -28,6 +28,8 @@ def getargs():
         help="File with list of EPI_ISL numbers to exclude")
     paa("--translate",action="store_true",
         help="Translate from nucleotides to amino acids")
+    paa("--codonalign",action="store_true",
+        help="Add dashes to keep seqeunces aligned in triples")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -84,6 +86,45 @@ def translate_to_aa_alt(seqs):
         s.seq = "".join(aalist[:-1])  ## don't keep the stop codon == X
         yield s
 
+def codon_align_indices(refseq):
+    '''return indices that require appending a dash'''
+    ## assume refseq contains triples of non-dash characters (eg, TAA, CGT, etc)
+    ## interspersed with dashes
+    ## if refseq constains strings like "-TA-", this violates assumption
+    ## return list of indices for which adding a dash will lead to triples of dashes as well
+    ndxlist = []
+    ndx = 0
+    while ndx < len(refseq):
+        if refseq[ndx] != '-':
+            ## we are assuming refseq[ndx+1] != '-'
+            ##             and refseq[ndx+2] != '-'
+            ndx += 3
+        elif refseq[ndx:ndx+3] == '---':
+            ndx += 3
+        elif refseq[ndx:ndx+2] == '--':
+            ndxlist.append(ndx)
+            ndx += 2
+        else:
+            ## if single dash at this site, then
+            ## append two copies of ndx, so two dashes will be appended
+            ndxlist.append(ndx)
+            ndxlist.append(ndx)
+            ndx += 1
+    print('ndxlist:',ndxlist)
+    return ndxlist
+
+def codon_align_seqs(seqs,ndxlist=None):
+    '''replace sequences with codon-aligned sequences'''
+    if ndxlist is None:
+        first,seqs = covid.get_first_item(seqs)
+        ndxlist = codon_align_indices(first.seq)
+    for s in seqs:
+        slist = list(s.seq)
+        for ndx in ndxlist:
+            slist[ndx] += "-"
+        s.seq = "".join(slist)
+        yield s
+
 def getisls(file):
     '''read list of ISL numbers from text file'''
     isls=[]
@@ -111,6 +152,10 @@ def main(args):
     if args.N:
         seqs = it.islice(seqs,args.N)
         seqs = vcount(seqs,"Sequences after truncation:")
+
+    if args.codonalign:
+        seqs = codon_align_seqs(seqs)
+        seqs = vcount(seqs,"Sequences codon aligned")
 
     if args.translate:
         seqs = translate_to_aa_alt(seqs)
