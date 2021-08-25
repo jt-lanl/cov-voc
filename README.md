@@ -14,6 +14,8 @@ first sequence is taken as the *reference* sequence, typically `NC_045512_spike_
 
 CAVEAT: Virtually all of the analysis in this software neglects insertions.  Only the sites at which the reference strain has an amino acid are considered.
 
+UN-CAVEAT: The next generation of this software (coming soon!) *does* handle insertions.
+
 # MAIN ANALYSIS PROGRAMS
 
 ## SHIVER
@@ -67,15 +69,23 @@ itself does not even appear in the database.
 
 `fixfasta` is a preprocessor routine that takes an input sequence file
 (usually fasta, but can be tbl or fasta.gz or several other formats) and
-applies various filters to clean up the file.  An important one is to
+applies various filters to clean up the file.
+
+One fix is to
 identify all the columns for which the reference sequence exhibits a
 dash (`-`) and to strip these columns from all the sequences.  The
 reason for this is so that the `n`'th character in each sequence
-corresponds to site number `n`.
+corresponds to site number `n`. [Note that in the next generation of
+analysis tools, we will be able to handle insertions, and will not
+assume that sequence string index matches site number.]
+
+`fixfasta` also has options for codon-aligning DNA sequences and
+for translating DNA sequences in to amino-acid sequences.
 
 ## MATCHFASTA
 
-identifies sequences from a fasta file that matches a given pattern; with no pattern specified,
+identifies sequences from a fasta file that matches a given pattern (sequence pattern and/or
+geographical region and/or pango lineage). with no pattern specified,
 it provides a conveinent way to view fasta files (eg, subsets of sequences and/or subsets of sites)
 
 ## MUT2FASTA
@@ -84,12 +94,16 @@ it provides a conveinent way to view fasta files (eg, subsets of sequences and/o
 command line), each of which looks something like "`[A222V,A262S,S494P,D614G]`",
 and produces a fasta file, each sequence of which corresponds to a mutant
 specified by the string, relative to the reference sequence, which is the
-first sequence in the specified reference fasta file.
+first sequence in the specified reference fasta file.  Note that there is no
+checking that such sequences exist in nature; for that, you'll want to use `matchfasta`.
 
 ## COMMONTYPES
 
 given an input fasta file, the first of which is a reference sequence,
-find the most common sequences, and express them in terms of mutation strings
+find the most common sequences, and express them in terms of mutation strings.
+One can also list the geographical regions where those strains are most
+commonly seen, and one can request a few ISL numbers for each strain, so
+you can find examples in the GISAID database.
 
 ## USITES
 
@@ -106,7 +120,27 @@ counts how many variants of a variant appear in an input set of sequences
 ## SHIVER-BARPLOT
 
 takes output of `shiver` and produces a bar plot showing coverages for different continents
-and different number of components. 
+and different number of components.
+
+## FIXALIGN, TWEAKALIGN, and COALIGN
+
+`fixalign` takes an alignment of either DNA or amino acid sequences and identifies inconsistencies
+among the sequences.  Two subsequences are inconsistent if their dash-removed strings are
+identical, but their dash-included strings differ.  For amino-acid sequences it also invokes some
+heuristics to improve manifestly poor sub-alignments.  The `fixalign` code and provide a list of
+tweaks that can by used (by `tweakalign` to actually fix the sequences; or it can just go ahead
+and apply those tweaks directly.
+
+*Note that `fixalign` does not make alignments from unaligned sequences, and poorly aligned
+sequences (especially if the poor alignments are consistent) will not be improved.*
+
+`tweakalign` reads alignment tweaks either from the command line or from a file and applies them
+to the input sequences.  You can use the tweaks suggested by fixalign, but you can also edit
+those tweaks to taste and/or add some of your own.
+
+`coalign` takes a set of amino-acid sequenes that are assumed to be well-aligned, and a set of
+codon-aligned DNA sequences from which the amino-acid sequences were derived, and it then re-aligns
+the DNA sequences to be consistent with their newly-aligned amino-acid sequence counterpargs.
 
 # SOME USEFUL LIBRARIES
 
@@ -129,8 +163,8 @@ the `SequenceSample` array as one object; the 'ipkl' serializes each sample sepa
 Since sequences names have a lot of meta-information, you can often do analysis using only the names.
 
 * The sequences are read into a list of `SequenceSample` data types (containing a name and a sequence), but
-if oyu want a literal list be sure to use a command like `seqs=list(seqs)` because by default the reading
-and filtering routines return generators, which [depending on the usage scenario] can be much more
+if you want a literal list be sure to use a command like `seqs=list(seqs)` because by default the reading
+and filtering routines return python *iterators*, which [depending on the usage scenario] can be much more
 memory efficient.
 
 ### mutants/spikevariants 
@@ -140,7 +174,8 @@ manipulates single-site and multiple-site mutations and parses mutation strings 
 
 ### covid
 
-contains a lot of hard-coded covid-specific routines and constants (eg, definition of where RBD and NTD regions are)
+contains a lot of hard-coded covid-specific routines and constants (eg, definition of where RBD and NTD regions are).
+also contains a lot of miscellaneous routines that happen to be used by multiple tools.
 
 ### colornames
 simple module for translating common color names into hash-hexcodes
