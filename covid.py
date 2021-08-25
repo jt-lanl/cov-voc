@@ -15,7 +15,7 @@ import sequtil
 import intlist
 import mutant
 
-DEFAULTFASTA="Data/RX-Latest.ipkl.gz"
+DEFAULTFASTA="Latest.ipkl.gz"
 
 def corona_args(ap):
     ''' call this in the getargs() function, and these options will be added in '''
@@ -141,6 +141,7 @@ site_specifications = {
     "NTD+6970+RBD"    : "13-20,69,70,140-158,242-264,330-521",
     "NTDISH"    : "13,18,20,69,70,141,142,143,144,152,153,157,242,243,244,253,254,255,256,257,262",
     "RBDISH"    : "367,417,439,440,452,453,477,478,484,490,494,501,520,614",
+    "NTD-18+RBDPLUS" : "13-17,19,20,140-158,242-264,330-521,655,675,679,681",
 }
 def spike_sites(sitespec,remove=None):
     '''return a list of site numbers based on spec'''
@@ -315,8 +316,8 @@ def filter_seqs_by_pattern(seqs,args):
             
     return seqs
 
-
 def init_lineages(filename,firstseq):
+    ## used by non-insertion code
     NamedPattern = namedtuple('NamedPattern',['name','pattern','color'])
     lineages = []
     if not filename:
@@ -339,7 +340,9 @@ def init_lineages(filename,firstseq):
 def match_lineages(lineages,fullseq):
     lineage_name=""
     for lineage in lineages:
-        if re.match(lineage.pattern,fullseq):
+        ## this is a hack!  won't work if '.' is meant to represent '-' in some cases
+        if re.match(re.sub("-","",lineage.pattern),
+                    re.sub("-","",fullseq)):
             lineage_name = lineage.name
             break ## match first available
     return lineage_name #,lineage_color
