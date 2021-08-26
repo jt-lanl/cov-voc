@@ -63,10 +63,13 @@ def _main(args):
         svar.key_print(args.view,seqs=seqs)
     else:
         keylines = svar.key_view(args.view,seqs=seqs)
-        colors_and_names = [line.split(None,1) for line in keylines]
-        colors = [cn[0] for cn in colors_and_names]
-        names  = [cn[1] for cn in colors_and_names]
-        mk_key_figure(colors,names,args.pdf)
+        colors_and_labels = [line.split(None,1) for line in keylines]
+        colors = [cn[0] for cn in colors_and_labels]
+        labels = [cn[1] for cn in colors_and_labels]
+        maxlabellen = max(len(label) for label in labels)
+        labelfmt = "%%%ds"  % (maxlabellen)
+        labels = [labelfmt % label for label in labels]
+        mk_key_figure(colors,labels,args.pdf)
         
 
 if __name__ == "__main__":
