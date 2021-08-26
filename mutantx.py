@@ -370,7 +370,7 @@ class Mutation(list):
     def __str__(self):
         return "[" + ",".join(str(ssm) for ssm in self) + "]" #+ ("!" if self.exact else "")
 
-class MutationMaker():
+class MutationManager():
     ''' Keeps track of a single refseq and SiteIndexTranslator for multiple mutations '''
     def __init__(self,refseq):
         self.refseq = refseq
@@ -435,7 +435,7 @@ if __name__ == "__main__":
         print(RefSeq,newseq,rpatt,rpattx,mu)
 
     print()
-    MM = MutationMaker(RefSeq)
+    MM = MutationManager(RefSeq)
     for newseq in NewSeqList:
         mu = MM.get_mutation(newseq)
         print(RefSeq,newseq,mu)
