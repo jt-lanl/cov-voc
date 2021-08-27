@@ -1,13 +1,13 @@
-DESCRIPTION='''
+'''
 find sequences in a fasta file that
-match a sequence pattern (or a mutant string) 
+match a mutant string
 '''
 import os
 import sys
 import re
 from pathlib import Path
 import random
-import itertools
+import itertools as it
 import argparse
 
 import warnings
@@ -16,11 +16,12 @@ import readseq
 import sequtil
 import intlist
 import covid
-import mutant
+import mutanty as mutant
+#from mutantdb import MutantDB
 import wrapgen
 
 def getargs():
-    ap = argparse.ArgumentParser(description=DESCRIPTION)
+    ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
     paa("--random",action="store_true",
@@ -53,8 +54,8 @@ def main(args):
         
     seqs = covid.read_seqfile(args,maxseqs=maxseqs)
     if args.nlist:
-        nlist = [0] + intlist.string_to_intlist(args.nlist)
-        seqs = (s for n,s in enumerate(seqs) if n in nlist)
+        nset = set([0] + intlist.string_to_intlist(args.nlist))
+        seqs = (s for n,s in enumerate(seqs) if n in nset)
         seqs = vcount(seqs,"Sequences in nlist:")
         
     if not args.keepx:
@@ -68,76 +69,65 @@ def main(args):
     seqs = covid.checkseqlengths(seqs)
     if args.random:
         seqlist = list(seqs)
-        seqls = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
+        seqs = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
 
-    seqs = iter(seqs)
-    first = next(seqs)
+    first,seqs = covid.get_first_item(seqs)        
     firstseq = first.seq
-    
-    matchpatt=None
+
+    MM = mutant.MutationManager(firstseq)
+
+    muts = None
+    sites = []
     
     if args.mutant:
-        assert(not args.sites)
+        assert(not args.sites) ## maybe this is okay?
         assert(not args.seqpattern)
-        muts = mutant.Mutation().init_from_line(args.mutant)
-        assert( muts.checkref(firstseq,verbose=True) )
-        matchpatt = muts.regex_pattern(firstseq,exact=bool(args.fullmatch))
-        sites = [mut.site for mut in muts]
+        muts = mutant.Mutation.from_mstring(args.mutant)
+        assert muts.checkref(firstseq)
+        sites = sorted(set([mut.site for mut in muts]))
         
     if args.sites:
         sites = intlist.string_to_intlist(args.sites)
-        if not args.seqpattern:
-            args.seqpattern = "." * len(sites)
-            
-    if args.seqpattern:
-        assert(args.sites)
-        seqpattern = args.seqpattern
-        
-        matchpatt = list(firstseq) if args.fullmatch else ["."] * len(firstseq)
-        for c,s in zip(seqpattern,sites):
-            matchpatt[s-1] = c
-        matchpatt = "".join(matchpatt)
+        if args.seqpattern:
+            warnings.warn("--seqpattern is deprecated")
+            ssms=[]
+            for site,mut in zip(sites,args.seqpattern):
+                ssms.append( SingleSiteMutation(".",site,mut) )
+            muts = mutant.Mutation(ssms)
 
-    if matchpatt:
-        rematchpatt = re.compile(matchpatt)
-        seqs = (s for s in seqs if rematchpatt.match(s.seq))
-        seqs = wrapgen.keepcount(seqs,"Matches:")
-        
-    #seqlist = list(seqs)
-    #vprint("Sequences:",len(seqlist)-1,"match seqpattern:",matchpatt)
-    #print("Matches: ",len(seqlist)-1)
+    if muts:
+        def s_filter(s):
+            return MM.seq_fits_pattern(muts,s.seq,exact=args.fullmatch)
+        seqs = filter(s_filter,seqs)
+        if args.verbose:
+            seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
+        seqs = it.chain([first],seqs)
 
     if args.N:
-        seqs = itertools.islice(seqs,args.N+1)
-        #vprint(len(seqlist)-1,"sequences after truncation")
+        seqs = it.islice(seqs,args.N+1)
 
-    seqs = itertools.chain([first],seqs)
     if args.output:
+        seqs = list(seqs)
         readseq.write_seqfile(args.output,seqs)
-    else:
-        if matchpatt:
-            for line in intlist.write_numbers_vertically(sites):
-                print(line)
-            for s in seqs:
-                print("".join(s.seq[n-1] for n in sites),s.name,end="")
-                if args.showmutants:
-                    print("",mutant.Mutation((firstseq,s.seq)),end="")
-                print()
-        else:
-            for s in seqs:
-                print(s.name)
+    #else:
+    if 1:
+        ndxlist = []
+        for site in sites:
+            ndxlist.extend(MM.indices_from_site(site))
+        sitelist = [MM.site_from_index(ndx) for ndx in ndxlist]
+        for line in intlist.write_numbers_vertically(sitelist):
+            print(line)
+        for s in seqs:
+            print( "".join(s.seq[n] for n in ndxlist), s.name, end=" ")
+            if args.showmutants:
+                print(MM.get_mutation(s.seq),end="")
+            print()
 
-def mainwrapper(args):
-    ''' avoids the bulky BrokenPipeError that arises if, eg,
-    output is piped through 'head' '''
-    #Traceback (most recent call last):
-    #  File "matchfasta.py", line 164, in <module>
-    #    main(args)
-    #  File "matchfasta.py", line 149, in main
-    #    print("".join(s.seq[n-1] for n in sites),s.name)
-    #BrokenPipeError: [Errno 32] Broken pipe
-    #Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='UTF-8'>
-    #BrokenPipeError: [Errno 32] Broken pipe
+def _mainwrapper(args):
+    ''' 
+    avoids the bulky BrokenPipeError that arises, eg,
+    if output is piped through 'head' 
+    '''
     try:
         main(args)
     except BrokenPipeError:
@@ -147,7 +137,6 @@ def mainwrapper(args):
         os.dup2(devnull, sys.stdout.fileno())
         sys.exit(1)  # Python exits with error code 1 on EPIPE
             
-
 if __name__ == "__main__":
 
     args = getargs()
@@ -164,6 +153,6 @@ if __name__ == "__main__":
         else:
             return seqs
 
-    mainwrapper(args)
+    _mainwrapper(args)
     
 
