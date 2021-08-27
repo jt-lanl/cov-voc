@@ -30,8 +30,8 @@ def de_gap(seq):
 
 def mstrings_to_ndx_seqs(MM,mstring_a,mstring_b):
 
-    mut_a = mutant.Mutation(mstring_a)
-    mut_b = mutant.Mutation(mstring_b)
+    mut_a = mutant.Mutation.from_mstring(mstring_a)
+    mut_b = mutant.Mutation.from_mstring(mstring_b)
 
     sites = sorted(set(ssm.site for ssm in it.chain(mut_a,mut_b)))
     lo,hi = sites[0],sites[-1]+1
