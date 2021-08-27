@@ -8,7 +8,7 @@ import argparse
 import covid
 import colornames
 #import readseq
-#import sequtil
+import sequtil
 import embersplot
 #from embers import get_daterange,date_from_seqname
 
@@ -39,15 +39,28 @@ def getargs():
 
 
 def date_fromiso(s):
-    if isinstance(s,datetime.date):
+    return sequtil.date_fromiso(s)
+
+def old_date_fromiso(s):
+    if type(s) == datetime.date:
         return s
     try:
         yyyy,mm,dd = s.split("-")
         dt = datetime.date(int(yyyy),int(mm),int(dd))
         return dt
     except ValueError:
-        #print("Invalid date:",s)
-        return None
+        if s == ".":
+            return None
+        try:
+            yyyy,mm = s.split("-")
+            dt = datetime.date(int(yyyy),int(mm),15)
+            #print("s=",s,"dt=",dt)
+            return dt
+        except ValueError:
+            if s == ".":
+                return None
+    return None #raise RuntimeError(f"Invalid Date {s}")
+
 
 def date_from_seqname(sname):
     ## a not-very-robust way to get the date
@@ -96,12 +109,12 @@ def main(args):
               'B.1.351'   : 'Plum', #Beta
               'P.1'       : 'FireBrick', #Gamma
               'C.37'      : 'Green', #Lambda
+              'B.1.621'   : 'Cyan',
               'B.1.617.2' : 'BlueViolet', #Delta
-              'AY.1'      : 'Orchid',
-              'AY.2'      : 'LightPink',
-              'B.1.619'   : 'Indigo',
-              'B.1.620'   : 'CadetBlue',
-              'B.1.621'   : 'LightCyan',
+              'AY.[0-9]+'      : 'Orchid',
+              #'AY.2'      : 'LightPink',
+              #'B.1.619'   : 'Indigo',
+              #'B.1.620'   : 'CadetBlue',
 #              'AY.3'      : 'Red',
     }
     patterns = list(colors)
