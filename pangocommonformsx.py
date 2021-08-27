@@ -3,6 +3,9 @@ From sequence file, obtain all the pango lineages, and for each one,
 find the mutation string that corresponds to the consensus sequence
 for that lineage, and show the most commmon forms.
 '''
+## note, consensus is the most expensive part of the computation
+## use --consensusnever to avoid that computation
+
 import sys
 import re
 from collections import Counter,defaultdict
@@ -25,22 +28,27 @@ def getargs():
         help="Show only patters with at least this many counts")
     paa("--consensusalways","-c",action="store_true",
         help="Always show consensus, even if not common")
+    paa("--consensusnever",action="store_true",
+        help="Do not even compute consensus for each form")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    if args.consensusalways and args.consensusnever:
+        raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
     return args
 
 def get_matches(mutantstring,seqlist,fullmatch=False):
     '''return sequences in seqlist that match the mutantstring'''
 
     firstseq = seqlist[0].seq
-    muts = mutant.Mutation().init_from_line(mutantstring)
-    assert muts.checkref(firstseq,verbose=True)
-    matchpatt = muts.regex_pattern(firstseq,exact=bool(fullmatch))
-    rematchpatt = re.compile(matchpatt)
+    MM = MUtationManager(firstseq)
+    
+    mpatt = mutant.Mutation.from_mstring(mutantstring,exact=fullmatch)
 
+    ## if fullmatch is True, could maybe be faster with direct match of regex ?
+    
     seqmatches = [s for s in seqlist[1:]
-                  if rematchpatt.match(s.seq)]
+                  if MM.seq_fits_pattern(mpatt,s.seq)]
 
     return seqmatches
 
@@ -132,9 +140,12 @@ def main(args):
         seqlin = seqlist_by_lineage[lin]
 
         ## First get consensus form
-        cons = consensus(seqlin)
-        cntcons = sum(1 for s in seqlin if s.seq == cons)
-        mcons = mut_manager.get_mutation(cons) #mutant.Mutation((firstseq,cons))
+        if args.consensusnever:
+            cons = None
+        else:
+            cons = consensus(seqlin)
+            cntcons = sum(1 for s in seqlin if s.seq == cons)
+            mcons = mut_manager.get_mutation(cons)
 
         ## Now get most common forms
         cntr = Counter(s.seq for s in seqlin)
@@ -150,7 +161,7 @@ def main(args):
             if comm == cons:
                 cflag = True
                 cons_string = "(consensus)"
-            m = mut_manager.get_mutation(comm) #ant.Mutation((firstseq,comm))
+            m = mut_manager.get_mutation(comm)
             if n == 0:
                 top_comm = comm
                 h = 0
