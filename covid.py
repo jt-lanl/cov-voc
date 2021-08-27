@@ -260,8 +260,8 @@ def striplastchar(seqs):
         yield s
 
 def filter_seqs(seqs,args):
-    seqs = filter_seqs_by_date(seqs,args)
     seqs = filter_seqs_by_pattern(seqs,args)
+    seqs = filter_seqs_by_date(seqs,args)
     seqs = fix_seqs(seqs,args)
     if args.verbose:
         seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
@@ -277,7 +277,7 @@ def filter_seqs_by_date(seqs,args):
 
     if args.days:
         seqs = list(seqs)
-        lastdate = sequtil.range_of_dates(seqs)[1]
+        _,lastdate = sequtil.range_of_dates(seqs)
         t = sequtil.date_fromiso(lastdate) ## not: datetime.date.today()
         f = t - datetime.timedelta(days=args.days)
         args.dates = f,t
