@@ -2,11 +2,10 @@
 ## should probably combine this and mkkey.py into one routine
 
 import sys
-import matplotlib.pyplot as plt
 import argparse
+import matplotlib.pyplot as plt
 
-#import spikevariantsx as spikevariant
-from spikevariantsx import SpikeVariants
+from spikevariants import SpikeVariants
 import covid
 
 def _getargs():
@@ -30,8 +29,8 @@ def mk_key_figure(colors,names,output_pdf=None):
     maxnamelen = max(len(name) for name in names)
 
     plt.figure(figsize=((7+maxnamelen)/11,len(colors)/4.5))
-    for c,n in zip(colors,names):
-        plt.bar([0],[0],color=c,label=n)
+    for color,name in zip(colors,names):
+        plt.bar([0],[0],color=color,label=name)
         plt.bar([0],[1],bottom=[-1],color='white') #blank it out!
 
     plt.axis('off')
@@ -48,7 +47,7 @@ def mk_key_figure(colors,names,output_pdf=None):
             output_pdf += ".pdf"
         plt.savefig(output_pdf)
     else:
-        plt.show()                
+        plt.show()
 
 def _main(args):
     '''main'''
@@ -57,21 +56,19 @@ def _main(args):
     seqs = covid.read_filter_seqfile(args)
     first,seqs = covid.get_first_item(seqs)
 
-    svar = SpikeVariants().init_from_colormut(args.colormut,refseq=first.seq)
+    if args.colormut:
+        svar = SpikeVariants().init_from_colormut(args.colormut,refseq=first.seq)
+    else:
+        svar = SpikeVariants.default(refseq=first.seq)
 
     if not args.pdf:
         svar.key_print(args.view,seqs=seqs)
     else:
         keylines = svar.key_view(args.view,seqs=seqs)
         colors_and_labels = [line.split(' ',1) for line in keylines]
-        #print(colors_and_labels)
         colors = [cn[0] for cn in colors_and_labels]
         labels = [cn[1] for cn in colors_and_labels]
-        #maxlabellen = max(len(label) for label in labels)
-        #labelfmt = "%%%ds"  % (maxlabellen)
-        #labels = [labelfmt % label for label in labels]
         mk_key_figure(colors,labels,args.pdf)
-        
 
 if __name__ == "__main__":
 
