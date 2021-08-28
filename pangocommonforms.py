@@ -13,7 +13,7 @@ import argparse
 
 import sequtil
 import covid
-import mutanty as mutant
+import mutant
 import wrapgen
 from hamming import hamming
 
@@ -41,12 +41,12 @@ def get_matches(mutantstring,seqlist,fullmatch=False):
     '''return sequences in seqlist that match the mutantstring'''
 
     firstseq = seqlist[0].seq
-    MM = MUtationManager(firstseq)
-    
+    MM = mutant.MutationManager(firstseq)
+
     mpatt = mutant.Mutation.from_mstring(mutantstring,exact=fullmatch)
 
     ## if fullmatch is True, could maybe be faster with direct match of regex ?
-    
+
     seqmatches = [s for s in seqlist[1:]
                   if MM.seq_fits_pattern(mpatt,s.seq)]
 
@@ -80,6 +80,7 @@ def consensus(seqlist):
                    for clist in sequtil.gen_columns_seqlist(seqlist))
 
 def main(args):
+    '''pangocommonforms main'''
 
     print("COMMON FORMS OF SPIKE WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
@@ -98,8 +99,12 @@ def main(args):
     print()
 
     count_forms = f" {args.npatterns}" if args.npatterns else ""
-    min_count = f" that have at least {args.mincount} counts (but we always show the most common form)" if args.mincount else ""
-    consensus_always = f"And we always show the consensus form. " if args.consensusalways else ""
+    min_count = \
+        f" that have at least {args.mincount} counts " \
+        "(but we always show the most common form)" \
+        if args.mincount else ""
+    consensus_always = "And we always show the consensus form. " \
+        if args.consensusalways else ""
     print(f"We show the{count_forms} most common forms{min_count}. {consensus_always}")
 
     seqs = covid.read_filter_seqfile(args)
@@ -136,7 +141,7 @@ def main(args):
             continue
         if not lin:
             continue
-        
+
         seqlin = seqlist_by_lineage[lin]
 
         ## First get consensus form
