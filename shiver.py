@@ -1,8 +1,23 @@
-DESCRIPTION='''
+'''
 SHIVER: SARS CoV-2 Historically Identified Variants in Epitope Regions
 '''
 
-FURTHER=''' 
+import sys
+from collections import Counter
+import argparse
+import numpy as np
+
+
+import readseq
+import sequtil
+import intlist
+import mutant
+from spikevariants import SpikeVariants
+import wrapgen
+import covid
+
+DESCRIPTION=__doc__ + '''
+
 SHIVER identifies sets of variant forms of the SARS CoV-2 virus with a
 focus on just the NTD and RBD neutralizing antibody epitope regions of
 the Spike protein, chosen to maximize coverage globally and/or on
@@ -14,8 +29,8 @@ sequence, and should be the ancestral Wuhan variant to ensure epitope
 regions are chosen appropriately. The epitope regions in Spike that
 are featured as are defined as: The NTD supersite includes Spike
 positions 13-20, 140-158, and 242-264 (note, however, that site 18 is
-not included in the analysis because it is so variable that both the 
-ancestral L18 form and the common variant L18F are very often both 
+not included in the analysis because it is so variable that both the
+ancestral L18 form and the common variant L18F are very often both
 found in significant numbers among Variants of Interest).
 
 The NTD supersite sites selected are for inclusion are based on:
@@ -23,21 +38,21 @@ The NTD supersite sites selected are for inclusion are based on:
 Sites 14-20, 140-158, and 245-264:
 N-terminal domain antigenic mapping reveals a site of vulnerability for SARS-CoV-2
 McCallum, M. et al. bioRxiv
-doi: 10.1101/2021.01.14.426475  
+doi: 10.1101/2021.01.14.426475
 
-Site 13: 
-SARS-CoV-2 immune evasion by variant B.1.427/B.1.429 
+Site 13:
+SARS-CoV-2 immune evasion by variant B.1.427/B.1.429
 McCallum, M. et al. bioRxiv, 2021/04/07
 doi: 10.1101/2021.03.31.437925 PMC8020983
- 
+
 Sites 242-244:
 SARS-CoV-2 501Y.V2 escapes neutralization by South African COVID-19 donor plasma
 Wibmer, C. et al. bioRxiv,
 doi: 10.1101/2021.01.18.427166
- 
+
 Sites 330-521:
-The RBD region includes positions 330-521, based on a synthesis of 
-the literature from early 2020. 
+The RBD region includes positions 330-521, based on a synthesis of
+the literature from early 2020.
 
 All distinct variants found within these boundaries are identified and
 tallied, and the most common variants are selected.  Windows in time
@@ -45,13 +60,13 @@ can be selected to reflect more recently emerging patterns in
 variation in key epitope regions.
 
 [*] Note that the UK is treated as a separate continent because so much
-of the sequencing has been from the UK.  
+of the sequencing has been from the UK.
 '''
 
 T_STRATEGY='''This run uses the T=taketurns strategy for identifying further
 variants.  Each continent, in turn, chooses the next variant, based on
 which is the most common variant in that continent that has not
-already been chosen.  The order of the continents 
+already been chosen.  The order of the continents
 is based on number of samples available in those continents.  '''
 
 G_STRATEGY='''This run uses the G=globalonly strategy for identifying further
@@ -65,39 +80,32 @@ we chose the variant that maximized that fraction.  We choose the
 variant associated with the continent that sees the largest
 improvement in fractional coverage.'''
 
+TGM_STRATEGY = {
+    'T': T_STRATEGY,
+    'G': G_STRATEGY,
+    'M': M_STRATEGY,
+}
+
 ## pattern, motif, design, stencil, prototype? not signature!
 
 TABLE_VARIANTS='''
 
 Table of Variants
 
-In table below, first column is the pattern (ie, sequence within RBD+NTD)
-at sites where differences occur, relative to initial (Wuhan) sequence,
-with site numbers read down vertically).  
+In the table below, the first column is the pattern at sites where differences occur,
+relative to initial (Wuhan) sequence, with site numbers read down vertically).
+
 LPM = Local Pattern Matches = # of seqs in continent that match over RBD+NTD
-GMP = Global Pattern Matches = # of seqs in world that match over RBD+NTD
+GPM = Global Pattern Matches = # of seqs in world that match over RBD+NTD
 GSM = Global Sequence Matches = # of seqs that match over whole Spike protein
 
 '''
 
 
-import sys
-import re
-from collections import Counter
-import numpy as np
-import datetime
-import argparse
 
-import readseq
-import sequtil
-import intlist
-import mutant
-import wrapgen
-import covid
-
-
-def getargs():
-    ap = argparse.ArgumentParser(description=DESCRIPTION)
+def _getargs():
+    '''get arguments from command line'''
+    ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
     paa("--output","-o",
@@ -117,8 +125,8 @@ def getargs():
 
 def print_sequence_counts_by_continent2(Continents,counts):
     '''as a nicely formatted table'''
-    maxlen = max(len(cx) for cx,_,_ in Continents)
-    fmt = "%%-%ds" % maxlen
+    #maxlen = max(len(cx) for cx,_,_ in Continents)
+    #fmt = "%%-%ds" % maxlen
     print("  #Seqs Continent") #fmt % ("Continent",),"#Seqs")
     for cx,_,_ in [("Global","Global","")] + Continents:
         print("%7d %s" % (sum(counts[cx].values()),cx))
@@ -131,8 +139,9 @@ def print_sequence_counts_by_continent(Continents,counts):
     print(".")
 
 def main(args):
+    '''shiverx main()'''
 
-    STRATEGIES = { "T": "Taketurns", "G": "Globalonly", "M": "Mostimproved" }
+    strategy_name = { "T": "Taketurns", "G": "Globalonly", "M": "Mostimproved" }
     TGM = args.strategy.upper()[0] ## = T, G, or M
     if TGM not in "TGM":
         raise RuntimeError(f"Strategy [{args.strategy}] should be one of T,G,M")
@@ -151,17 +160,24 @@ def main(args):
     ## patt seqs is a copy of full seqs,
     ## but with just the sites in restricted region (NTD+RBD)
     sitenums = covid.spike_sites(args.region)
+
+    MM = mutant.MutationManager(firstseq)
+    site_indices = []
+    for site in sitenums:
+        site_indices.extend( MM.indices_from_site(site) )
+
+
     pattseqs = sequtil.copy_seqlist(fullseqs)
     for s in pattseqs:
-        s.seq = "".join(s.seq[n-1] for n in sitenums)
+        s.seq = "".join(s.seq[n] for n in site_indices)
     ## Filter out sequences with X's
     pattseqs = [s for s in pattseqs if "X" not in s.seq]
     vprint("Sequences:",len(pattseqs),
            "w/o X in pattern region:",args.region)
-    
+
     allpattseqs = sequtil.copy_seqlist(allfullseqs)
     for s in allpattseqs:
-        s.seq = "".join(s.seq[n-1] for n in sitenums)
+        s.seq = "".join(s.seq[n] for n in site_indices)
     allpattseqs = [s for s in allpattseqs if "X" not in s.seq]
 
     firstpatt = pattseqs[0].seq
@@ -175,25 +191,22 @@ def main(args):
     all_cont_cnt = dict()
     continent_cnt["Global"] = global_cnt
     all_cont_cnt["Global"] = all_global_cnt
-    
+
     ConExclude = covid.parse_continents()
     for cx,c,x in ConExclude:
-        cseqs = []
-        for s in pattseqs:
-            if x and x in s.name:
-                continue
-            if c in s.name:
-                cseqs.append(s)
+        if x:
+            def keepseq(s):
+                return c in s.name and x not in s.name
+        else:
+            def keepseq(s):
+                return c in s.name
+
+        cseqs = filter(keepseq,pattseqs)
         cnt = Counter(s.seq for s in cseqs)
         continent_cnt[cx] = cnt
         vprint(f"{cx:25s} {sum(cnt.values()):7d}")
-        cseqs = []
-        for s in allpattseqs:
-            if x and x in s.name:
-                continue
-            if c in s.name:
-                cseqs.append(s)
-        cnt = Counter(s.seq for s in cseqs)            
+        cseqs = filter(keepseq,allpattseqs)
+        cnt = Counter(s.seq for s in cseqs)
         all_cont_cnt[cx] = cnt
 
     ## Sort ConExclude by total counts
@@ -223,27 +236,6 @@ def main(args):
         cockcont.append("Global")
 
 
-    if 0:
-        ## Get first items from MohamadsSix file
-        iseqs = readseq.read_seqfile("Data/MohamadsSix.fasta")
-        sequtil.stripdashcols(iseqs[0].seq,iseqs)
-        iseqs = iseqs[-6:]
-        #print(firstseq[:30],"->",firstseq[:30])
-        for s in iseqs:
-            ## TOTALHACK!! to deal with weirdness in first few sites
-            #print(s.seq[:30],"->",end=" ")
-            s.seq = firstseq[:15] + s.seq[15:]
-            #print(s.seq[:30])
-
-        for s in iseqs:
-            s.seq = "".join(s.seq[n-1] for n in sitenums)
-
-        for n,s in enumerate(iseqs,start=1):
-            cocktail.append(s.seq)
-            cockname.append(str(n)+"-Mohamad")
-            cockcont.append("Global")
-
-
     def check_next_variant(cnt):
         vlist = sorted(list(cnt),key=cnt.get,reverse=True)
         for v in vlist:
@@ -258,7 +250,7 @@ def main(args):
         nc = sum(1 for cname in cockname if c in cname)
         cc = "Local" if c=="Global" and args.filterbyname else c
         return "%d-%s-%d" % (n,cc,nc+1)
-    
+
     def alt_get_next_variant():
         candidates = []
         for cx,c,x in ConExclude:
@@ -273,9 +265,8 @@ def main(args):
             cockcont.append(cx)
             cockname.append(make_name(c))
             return v
-        else:
-            return None
-        
+        return None
+
 
     def get_next_variant(cnt,cx,c):
         vlist = sorted(list(cnt),key=cnt.get,reverse=True)
@@ -286,7 +277,7 @@ def main(args):
                 continue
             vvprint("Appending v with cnt=",cnt[v],global_cnt[v])
             cocktail.append(v)
-            cockcont.append(cx) 
+            cockcont.append(cx)
             cockname.append(make_name(c))
             return v
         return None
@@ -309,7 +300,7 @@ def main(args):
             break
 
     vvprint(sitenums)
-    
+
     for line in intlist.write_numbers_vertically(sitenums,plusone=0):
         vvprint("       %s" % (line,))
 
@@ -323,13 +314,18 @@ def main(args):
         altered = np.array([v[n] != vo[n] for n in range(len(v))])
         altered_sites |= altered
 
-    altered_sitenums = [sitenums[n] for n in range(len(vo)) if altered_sites[n]]
+    vprint("altered sites:",altered_sites.shape)
+    vprint("sitenums:",len(sitenums))
+    vprint("vo:",len(vo))
+
+    altered_site_indices = [site_indices[n] for n in range(len(vo)) if altered_sites[n]]
+    altered_sitenums = [MM.site_from_index(n) for n in altered_site_indices]
     vprint("Altered sites:",altered_sitenums)
 
     if not altered_sitenums and args.n > 1:
         ## Should only happen if all sequences are identical in RBD/NTD regions
         raise RuntimeError("No altered sites: must be an error!")
-    
+
 
     rows = []
     srseq = dict()
@@ -358,16 +354,21 @@ def main(args):
     ## spike sequences would be
 
     ## But first lets build a way to map mutation patterns to lineage names
-    lineages = covid.init_lineages(args.colormut,firstseq)
+    lineages = []
+
+    svar = SpikeVariants.from_colormut(args.colormut) if args.colormut \
+        else SpikeVariants.default(refseq=firstseq)
+    lineages = list(svar.vocs)
+    vprint("lineages:",lineages)
 
     variant_table = dict()
     cocktail_fasta = []
     vo = cocktail[0]
     for v,c,name in zip(cocktail,cockcont,cockname):
         ## list of all seqeunces that match the viral pattern
-        vseqnamelist = set([s.name for s in pattseqs if v in s.seq])
-        vseqlist = [s for s in fullseqs if s.name in vseqnamelist]
-        vcnt = Counter(s.seq for s in vseqlist)
+        vnames = set(s.name for s in pattseqs if v in s.seq)
+        vseqs = (s for s in fullseqs if s.name in vnames)
+        vcnt = Counter(s.seq for s in vseqs)
         vcntlist = sorted(list(vcnt),key=vcnt.get,reverse=True)
         vvprint(name,":",[vcnt[vc] for vc in vcntlist[:5]])
         if v==vo:
@@ -377,26 +378,26 @@ def main(args):
             v_fullseq = vcntlist[0]
         else:
             ## There is no global form: just use X's then
-            v_fullseq = "".join("X" for _ in firstseq) 
+            v_fullseq = "".join("X" for _ in firstseq)
 
         ## make full list of mutations
-        mutliststr = sequtil.mutantlist(firstseq,v_fullseq,
-                                        returnstring=True,badchar="X")
+        mutliststr = str( MM.get_mutation(v_fullseq,exact=False) )
         vvprint(v,mutliststr)
 
-        ## convert mutliststr into lineage name if available/appropriate
-        mut_lineage = covid.match_lineages(lineages,v_fullseq)
-        mut_lineage = f"({mut_lineage})" if mut_lineage else ""
+        ## find best lineage name:
+        matched_voc_names = [voc.name for voc in lineages
+                             if MM.seq_fits_pattern(voc,v_fullseq)]
+        mut_lineage = "".join(f"({name})" for name in matched_voc_names)
 
         v_fullseq_name = name
-        
+
         variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %s %s" % (
             srseq[v],
             name,
             continent_cnt[c][v],
             global_cnt[v],
             vcnt[v_fullseq],
-            100*vcnt[v_fullseq]/global_cnt[v],
+            100*vcnt[v_fullseq]/global_cnt[v] if vcnt[v_fullseq]>0 else 0,
             mutliststr,
             mut_lineage,
         )
@@ -404,17 +405,11 @@ def main(args):
             readseq.SequenceSample(v_fullseq_name,
                                    v_fullseq))
 
-
     print(DESCRIPTION)
-    print(FURTHER)
     print()
-
-    if TGM == "T": print(T_STRATEGY)
-    if TGM == "G": print(G_STRATEGY)
-    if TGM == "M": print(M_STRATEGY)
-
+    print(TGM_STRATEGY[TGM])
     print()
-    print("This run uses sequences sampled from %s to %s." \
+    print("This run uses sequences sampled from %s to %s."
           % sequtil.range_of_dates(pattseqs))
     if args.filterbyname:
         print("Filtered by geographic region(s):","+".join(args.filterbyname))
@@ -422,17 +417,18 @@ def main(args):
         print("Excluding geographic region(s):","+".join(args.xfilterbyname))
     print("The number of sequences, broken out by continent is:")
     print_sequence_counts_by_continent(ConExclude,continent_cnt)
-            
+
     print("Note: the focus here is specifically on the epitope region:",args.region)
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
 
-    print(TABLE_VARIANTS)        
-    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations] %s" % ("(Lineage)" if args.colormut else "")
+    print(TABLE_VARIANTS)
+    TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations] %s" \
+        % ("(Lineage)" if args.colormut else "")
     for line in vertlines[:-1]:
         print(line)
     print(vertlines[-1],TabVar_Heading)
-    for v in variant_table:
-        print(variant_table[v])
+    for v in variant_table.values():
+        print(v)
     #if not args.colormut:
     #    print("\n* Note: lineages not available with this run")
 
@@ -449,7 +445,7 @@ def main(args):
         ### Cocktail coverage per continent
         ### (fraction of sequences witht exact match in RBD/NTD regions)
         CocktailName = f"{TGM}-{len(cocktail_array)}"
-        for cx,c,x in [("Global","Global","")] + ConExclude:
+        for cx,_,_ in [("Global","Global","")] + ConExclude:
             cnt = all_cont_cnt[cx]  ## not continent_cnt[cx]
             tot = sum(cnt.values())
             cov = sum(cnt[v] for v in cocktail_array)
@@ -459,15 +455,15 @@ def main(args):
 
     if len(allpattseqs) > len(pattseqs):
         print("\nNote: coverage plot below is based on possibly larger sequence set:")
-        print_sequence_counts_by_continent(ConExclude,all_cont_cnt)                
+        print_sequence_counts_by_continent(ConExclude,all_cont_cnt)
 
     COVERAGETABLE = f'''
 Table of Coverages
 
 In table below, {TGM}-n refers to a batch of the first n variants.
-Coverage is defined as fraction of sequences in the continent with an 
-exact match (over the RBD/NTD regions) to one of the first n variants.
-(Here, '{TGM}' corresponds to the {STRATEGIES[TGM]} strategy.)
+Coverage is defined as fraction of sequences in the continent with an
+exact match (over the region {args.region}) to one of the first n variants.
+(Here, '{TGM}' corresponds to the {strategy_name[TGM]} strategy.)
 The coverage table is based on {len(allpattseqs)} sequences.
 '''
 
@@ -482,20 +478,17 @@ The coverage table is based on {len(allpattseqs)} sequences.
 
 if __name__ == "__main__":
 
-    args = getargs()
+    _args = _getargs()
     def vprint(*p,**kw):
-        if args.verbose:
+        '''verbose print'''
+        if _args.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
     def vvprint(*p,**kw):
-        if args.verbose>1:
+        '''very verbose print'''
+        if _args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
-
     def vcount(seqs,*p,**kw):
-        if args.verbose:
-            return wrapgen.keepcount(seqs,*p,**kw)
-        else:
-            return seqs
+        '''if verbose, count seqs as they go by'''
+        return wrapgen.keepcount(seqs,*p,**kw) if _args.verbose else seqs
 
-    main(args)
-    
-
+    main(_args)
