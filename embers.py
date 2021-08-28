@@ -1,66 +1,56 @@
+'''
+Stacked barplots (also, optionally, line-plots) of variant counts over time
+'''
+
 import sys
+import warnings
+
 import re
 from collections import Counter,defaultdict
 import datetime
 
-import numpy as np
-import matplotlib as mpl
+import argparse
 import matplotlib.pyplot as plt
 
-import warnings
-import argparse
-
-import readseq
 import sequtil
 import intlist
-import spikevariants
+from spikevariants import SpikeVariants
+import embersplot
 import covid
 
-DESCRIPTION='''
-Stacked barplots (also, optionally, line-plots) of variant counts over time
-'''
-
-def getargs():
-    ap = argparse.ArgumentParser(description=DESCRIPTION,
+def _getargs():
+    ''' read command line arguments using argparse package'''
+    ap = argparse.ArgumentParser(description=__doc__,
                                  conflict_handler='resolve')
     paa = ap.add_argument
     covid.corona_args(ap)
-    #paa("--fraction",action="store_true",
-    #    help="Plot fractional instead of numerical values")
     paa("--weekly",action="store_true",
         help="Make weekly average plots instead of cumulative")
-    paa("--daily",action="store_true",
-        help="Make daily plots instead of cumulative")
+    paa("--daily",type=int,default=7,
+        help="daily=1 for daily, daily=7 (default) for weekly, daily=0 for cumulative")
     paa("--lineplot",action="store_true",
         help="Make log-linear line plot instead of linear stacked bar plot")
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
-    #paa("--nolegend",action="store_true",help="avoid putting legend on plot")
     paa("--legend",type=int,default=0,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
-    paa("--colormut",
+    paa("--colormut","-c",
         help="read SpikeVariants structure from color-mut file")
-    paa("--ctable",
+    paa("--ctable","-t",
         help="write a count table to this file")
     paa("--output","-o",help="write plot to file")
     paa("--verbose","-v",action="count",
         help="verbosity")
     args = ap.parse_args()
+
+    if args.weekly:
+        warnings.warn("'--weekly' deprecated: weekly is now default")
     if (args.daily and args.weekly):
-        raise RuntimeError("Pick only one of daily or weekly")
+        raise RuntimeError("'--weekly' deprecated; use '--daily 1' for daily")
     return args
 
-def half_labels(labels,n=2):
-    '''replace list of labels ["one","two","three","four","five"]
-    with ["one", "", "three", "", "five"]
-    '''
-    hlabels=[]
-    for i,label in enumerate(labels):
-        hlabels.append( label if i%n==0 else "" )
-    return hlabels
-
-
 def date_fromiso(s):
+    ''' return datetime.date value based on yyyy-mm-dd string '''
     if isinstance(s,datetime.date):
         return s
     try:
@@ -71,28 +61,11 @@ def date_fromiso(s):
         #print("Invalid date:",s)
         return None
 
-def date_friendly(dt):
-    #return dt.strftime("%b %-d")
-    mmm = dt.strftime("%b")
-    dd = dt.strftime("%-d")
-    return "%3s %2d" % (mmm, int(dd))
-
-def date_from_seqname(sname):
-    ## a not-very-robust way to get the date
-    ## alternative would be to search for /d/d/d/d-/d/d-/d/d
-    tokens = sname.split('.')
-    try:
-        date = date_fromiso(tokens[4])
-    except IndexError:
-        warnings.warn(f"No date found for: {sname}, tokens={tokens}")
-        date = None
-    return date
-
 def get_daterange(datecounter,argsdates):
     ''' find range of dates, in ordinal numbers, based on:
     datecounter[mutant][date] = count of mutants in date, and
     argsdates is basically args.dates '''
-    
+
     all_dateset=set()
     for p in datecounter:
         all_dateset.update(datecounter[p])
@@ -114,34 +87,24 @@ def get_daterange(datecounter,argsdates):
     return ordmin, ordmax, ordplotmin, ordplotmax
 
 def filename_prepend(pre,file):
-    ## prepend a string to a file name; eg
-    ## "pre","file" -> "prefile", but also
-    ## "pre","dir/file" -> "dir/prefile"
+    '''prepend a string to a file name; eg
+       "pre","file" -> "prefile", but also
+       "pre","dir/file" -> "dir/prefile"
+    '''
     if not file:
         return file
     return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
 
-def relativepattern(master,mutant,dittochar='_'):
-    s=""
-    for a,b in zip(master,mutant):
-        s += dittochar if a==b else b
-    return s
+def relativepattern(master,mutant,dittochar='_',noditto='-'):
+    '''ABC,ABD -> __D'''
+    return "".join((dittochar if (a==b and a not in noditto) else b)
+                   for a,b in zip(master,mutant))
 
 def reltoabspattern(master,mutant,dittochar='_'):
-    s=""
-    for a,b in zip(master,mutant):
-        s += a if b==dittochar else b
-    return s
+    '''ABC,__D -> ABD'''
+    return "".join((a if b==dittochar else b)
+                   for a,b in zip(master,mutant))
 
-def get_regex_mutant(master,mutant):
-    raise RuntimeError("dont use this")
-    r=""
-    for a,b in zip(master,mutant):
-        if b == "!":
-            r += "[^"+a+"]"
-        else:
-            r += b
-    return r
 
 def check_dups(xlist):
     '''see if there are any duplicates in the list xlist'''
@@ -153,57 +116,73 @@ def check_dups(xlist):
         xset.add(x)
     return duplist
 
-def lineage_counts(sitelist,master,voclist,cpatt,Nsequences):
+def lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
+    ''' yield print strings for lineage counts '''
     yield from intlist.write_numbers_vertically(sitelist)
     yield f"{master} Counts Percent Lineage"
     for voc in voclist[::-1]:
-        patt = voc.pattern
+        patt = voc.flat_pattern
         rpatt = relativepattern(master,patt)
-        yield "%s %6d %6.2f%% %s" % (rpatt,cpatt[patt],100*cpatt[patt]/Nsequences,voc.name)
+        fpatt = cpatt[patt]/n_sequences if n_sequences else 0
+        yield "%s %6d %6.2f%% %s" % (rpatt,cpatt[patt],100*fpatt,voc.name)
 
-def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,Nsequences):
+def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
     ''' for each of the seq patterns in xpatt, find nearby patterns in voclist '''
     ## routine yields lines that are meant to be printed
+    yield f"Missing: {len(xpatt)} patterns, for a total of {sum(xpatt.values())} sequences"
     yield from intlist.write_numbers_vertically(sitelist)
     yield f"{master} Counts Percent NearbyLineage(s)"
-    for seq in sorted(xpatt,key=xpatt.get,reverse=True)[:50]:
+    for seq in sorted(xpatt,key=xpatt.get,reverse=True)[:50]: #hardcoded 15
         rseq = relativepattern(master,seq)
-        dv = {v: sum(bool(x != y and y != ".")
-                     for x,y in zip(seq,v.pattern))
+        dv = {str(v): sum(bool(x != y and y != ".")
+                          for x,y in zip(seq,v.flat_pattern))
               for v in voclist}
-        vnearby_names = [v.name.strip() for v in dv if dv[v]<2]
-        yield "%s %6d %6.2f%% %s" % (rseq,xpatt[seq],100*xpatt[seq]/Nsequences,
+        vnearby_names = [v.name.strip() for v in voclist if dv[str(v)]<2]
+        fpatt = xpatt[seq]/n_sequences if n_sequences else 0
+        yield "%s %6d %6.2f%% %s" % (rseq,xpatt[seq],100*fpatt,
                              ", ".join(vnearby_names))
 
 def main(args):
+    ''' embers main '''
+    args_keepx = args.keepx
+    args.keepx = False
+    seqs = covid.read_filter_seqfile(args)
+    args.keepx = args_keepx
+    first,seqs = covid.get_first_item(seqs)
 
-    OTHER="other"
-    OTHERCOLOR='#dddddd' 
-
-    svar = spikevariants.SpikeVariants()
     if args.colormut:
-        svar.init_from_colormut(args.colormut)
+        svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
     else:
         warnings.warn("Default color-mutation list may be out of date")
-        svar.init_from_defaults()
+        svar = SpikeVariants.default(refseq=first.seq)
+
+    OTHERNAME  = svar.OTHERNAME
+    OTHERCOLOR = svar.OTHERCOLOR
+
+    ## try this?? makes very little difference!!
+    # svar.less_exact()
 
     master = svar.master
-    sitelist = svar.sites
+    sitelist = svar.ssites()
     voclist = svar.vocs
 
-    mutants = [v.pattern for v in voclist]
-    patterns = mutants + [OTHER]
+    for v in voclist:
+        v.flat_pattern = svar.flatpattern(v)
+        vprint(f"{v} {v.name}: {v.exact} {v.flat_pattern}")
+
+    mutants = [v.flat_pattern for v in voclist]
+    patterns = mutants + [OTHERNAME]
     dups = check_dups(patterns)
     if dups:
         raise RuntimeError(f"Duplicated patterns {dups}")
-    
+
     colors = [v.color for v in voclist] + [OTHERCOLOR]
-    mcolors = {m:c for m,c in zip(patterns,colors)}
+    mcolors = dict(zip(patterns,colors))
     dups = check_dups(colors)
     if dups:
         vprint("Duplicated colors:",dups)
 
-    namelist = [v.name for v in voclist] + [OTHER]
+    namelist = [v.name for v in voclist] + [OTHERNAME]
     maxnamelen = max(len(n) for n in namelist)
     namefmt = "%%-%ds" % maxnamelen
     for v in voclist:
@@ -212,36 +191,37 @@ def main(args):
     dups = check_dups(namelist)
     if dups:
         vprint("Duplicated names:",dups)
-    
+
     def relpattern(mut):
-        if mut == OTHER:
+        if mut == OTHERNAME:
             return "." * len(master)
         return relativepattern(master,mut,dittochar='_')
-    
+
     mrelpatt = {p: relpattern(p) for p in patterns}
 
     for p in patterns:
         vprint(mnames[p],mrelpatt[p],mcolors[p])
 
-    ## at this point, we have mutants, patterns, mcolors, mnames, mrelpatt, sitelist
+    if args.legend == 0:
+        fullnames = None
+        legendtitle = None
+    if args.legend == 1:
+        fullnames = mnames
+        legendtitle = None
+    if args.legend == 2:
+        fullnames = {p: " ".join([mnames[p],mrelpatt[p]]) for p in patterns}
+        legendtitle = " "*(maxnamelen+2) + master
 
-    vprint("ok, reading sequences now...",end="")
-    args_keepx = args.keepx
-    args.keepx = False
-    seqlist = covid.read_filter_seqfile(args)
-    args.keepx = args_keepx
-    seqlist = list(seqlist)
-    svar.checkmaster(seqlist[0].seq) ## ensure master agrees with first seqlist
-    for s in seqlist:
-        s.seq = "".join(s.seq[n-1] for n in sitelist)
+    svar.checkmaster(first.seq) ## ensure master agrees with first seqlist
 
-    Nsequences = len(seqlist)-1  ## -1 not to count the reference sequence
+    seqlist = list(seqs)
+    n_sequences = len(seqlist)-1  ## -1 not to count the reference sequence
 
     if not args.keepx:
         seqlist = [s for s in seqlist if "X" not in s.seq]
-        vprint("Removed",Nsequences+1-len(seqlist),"sequences with X")
-        Nsequences = len(seqlist)-1        
-        
+        vprint("Removed",n_sequences+1-len(seqlist),"sequences with X")
+        n_sequences = len(seqlist)-1
+
     ## How many of each sequence
     c = Counter(s.seq for s in seqlist[1:])
 
@@ -250,53 +230,56 @@ def main(args):
     xpatt = Counter()
     for seq in c:
 
-        vocmatch = [voc for voc in voclist if voc.re_pattern.match(seq)]
+        vocmatch = svar.vocmatch(seq)
+
         for voc in vocmatch:
-            cpatt[voc.pattern] += c[seq]
+            cpatt[voc.flat_pattern] += c[seq]
 
         ## Ideally just one match, if zero or more than one, then...
         if len(vocmatch)==0:
-            xpatt[seq] = c[seq]
+            sseq = svar.shorten(seq)
+            xpatt[sseq] = c[seq]
         elif len(vocmatch)>1:
-            warn_msg = f"\n{seq} (count={c[seq]}) matches\n"
-            warn_msg += " and\n".join(f"{relpattern(v.pattern)}" for v in vocmatch)
+            warn_msg = f"\n{svar.shorten(seq)} matches\n"
+            warn_msg += " and\n".join(f"{relpattern(v.flat_pattern)} {v.name} {v}"
+                                      for v in vocmatch)
+            warn_msg += f"\n{svar.master} Master"
             warnings.warn(warn_msg)
 
-            
     vprint("Unmatched sequences:",sum(xpatt.values()))
 
     ## Write counts table to file
     if args.ctable:
         with open(args.ctable,"w") as fout:
-            for line in lineage_counts(sitelist,master,voclist,cpatt,Nsequences):
+            for line in lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
                 print(line,file=fout)
-                
+
     ## Write x-counts table to file (sequences that don't match patterns)
     ## Include the nearby c-pattern that is closest
     if args.ctable:
         xctable = filename_prepend("x-",args.ctable)
         vprint("Unmatched sequence patterns in file:",xctable)
         with open(xctable,"w") as fout:
-            for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,Nsequences):
+            for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
                 print(line,file=fout)
 
     ## now go through the sequences and tally dates
-    
-    DG_datecounter = {m: Counter() for m in patterns} 
+
+    DG_datecounter = {m: Counter() for m in patterns}
     for s in seqlist[1:]:
         if not args.keepx and "X" in s.seq:
             raise RuntimeError("X's should have already been filtered out")
 
-        seqdate = date_from_seqname(s.name)
+        seqdate = sequtil.date_from_seqname(s)
         if not seqdate:
             continue
 
-        vocmatch = [voc for voc in voclist if voc.re_pattern.match(s.seq)]
+        vocmatch = svar.vocmatch(s.seq)
         for voc in vocmatch:
-            DG_datecounter[voc.pattern][seqdate] += 1
+            DG_datecounter[voc.flat_pattern][seqdate] += 1
         if not vocmatch:
-            DG_datecounter[OTHER][seqdate] += 1
-            
+            DG_datecounter[OTHERNAME][seqdate] += 1
+
     nmatches = sum(sum(DG_datecounter[p].values()) for p in patterns)
     vprint("matched sequences:",nmatches)
     if nmatches==0:
@@ -314,15 +297,15 @@ def main(args):
     ordmin, ordmax, ordplotmin, ordplotmax = get_daterange(DG_datecounter,args.dates)
     Ndays = ordmax+1-ordmin
     vprint("Days:",Ndays,ordmin,ordmax)
-   
+
     DG_cum=defaultdict(list)
-    for ord in range(ordmin,ordmax+1):
-        day = datetime.date.fromordinal(ord)
+    for ordval in range(ordmin,ordmax+1):
+        day = datetime.date.fromordinal(ordval)
         for m in DG_datecounter:
             DG_cum[m].append( sum(DG_datecounter[m][dt] for dt in DG_datecounter[m] if dt <= day ) )
 
-    if args.weekly or args.daily: ## Weekly averages:
-        DAYSPERWEEK=7 if args.weekly else 1
+    if args.daily: ## daily=7 (default) for weekly averages
+        DAYSPERWEEK=args.daily
         DG_weekly=dict()
         for m in DG_cum:
             DG_weekly[m] = DG_cum[m][:]
@@ -342,162 +325,52 @@ def main(args):
         ordmin = ordplotmin
         Ndays = ordplotmax+1-ordmin
 
-    def makeplot(legend=0,fraction=False,linePlot=False):
+    title = covid.get_title(args)
+    title = title + ": %d sequences" % (n_sequences,)
 
-        barPlot = not linePlot
+    def mmakeplot(fraction=False,lineplot=False):
+        embersplot.embersplot(DG_cum,fullnames, mcolors, ordmin,
+                              ordplotrange = (ordplotmin, ordplotmax),
+                              title=title,
+                              legend=args.legend,legendtitle=legendtitle,
+                              fraction=fraction,lineplot=lineplot)
 
-        if legend == 0:
-            plt.figure(figsize=(6,3))
-        elif legend == 1:
-            F = 4.7 if linePlot else 5.0
-            plt.figure(figsize=(12,1+len(patterns)/F))
-        elif legend == 2:
-            F = 4.7 if linePlot else 4.5
-            plt.figure(figsize=(12,1+len(patterns)/F))
-        else:
-            raise RuntimeError(f"legend should be 0, 1, or 2: not {legend}")
-
-        title = covid.get_title(args)
-        title = title + ": %d sequences" % (Nsequences,)
-        plt.title(title,fontsize='x-large')
-            
-        DG_bottom = dict()
-        DG_bottom_current = [0] * len(DG_cum[patterns[0]])
-        for m in DG_cum:
-            DG_bottom[m] = DG_bottom_current
-            DG_bottom_current = [x+y for x,y in zip(DG_bottom_current,DG_cum[m])]
-
-        ## plot a dummy level to get it into the legend as a title
-        if legend > 1 and barPlot:
-            dummylabel = " "*(maxnamelen+2)
-            dummylabel += master
-            plt.bar(range(Ndays),[0]*Ndays,width=1,
-                    label=dummylabel,color="white")
-
-        name_color_sofar = set()
-        for m in  patterns[::-1]:
-            
-            name = mnames[m] ## mnames
-            if legend>1:
-                name += " " + mrelpatt[m] 
-            name = " " + name ## hack! leading underscore doesn't make it to legend??
-
-            if linePlot:
-                kwargs = dict(color=mcolors[m],label=name)
-            else:
-                ## For bar plot, repeated name,color tuples only appear once in legend
-                name_color = (name,mcolors[m])
-                kwargs = dict(color=mcolors[m])
-                if name_color not in name_color_sofar:
-                    name_color_sofar.add(name_color)
-                    kwargs['label']=name            
-            
-            if fraction:
-                fm = [a/(b+0.001) for a,b in zip(DG_cum[m],DG_bottom_current)]
-                bm = [a/(b+0.001) for a,b in zip(DG_bottom[m],DG_bottom_current)]
-            else:
-                fm = DG_cum[m]
-                bm = DG_bottom[m]
-
-            if linePlot:
-                dy = np.array(range(Ndays))
-                fm = np.array(fm)
-                dy = dy[fm>0]
-                fm = fm[fm>0]
-                plt.semilogy(dy,fm,lw=2, **kwargs)
-            else:
-                plt.bar(range(Ndays),fm,bottom=bm,width=1,**kwargs)
-
-        if fraction and not linePlot:
-            plt.ylim([0,1.05])
-
-        if legend:
-            plt.legend(bbox_to_anchor=(1.02, 1),
-                       #handlelength=3,
-                       #markerfirst=False,
-                       frameon=False,
-                       handletextpad=0,
-                       labelspacing=0.45,
-                       loc='upper left', borderaxespad=0.,
-                       prop={'family' : 'monospace'})
-
-        plt.xlim(ordplotmin-ordmin-1,ordplotmax-ordmin+1)
-        xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
-        xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
-        xlabels = [date_friendly(dt) for dt in xlabels]
-        if len(xlabels) > 16:
-            xlabels = half_labels(xlabels)
-        plt.xticks(xticks,xlabels,fontsize='small',
-                   rotation=45,ha='right',position=(0,0.01))
-        #plt.xlabel("Date (2020)")
-
-        if args.onsets:
-            ylo,yhi = plt.gca().get_ylim()
-            for m in patterns:
-                if m not in onset:
-                    continue
-                if m == OTHER:
-                    continue
-                x = onset[m].toordinal() - ordmin
-                kwargs=dict(lw=1,color=mcolors[m])
-                if not fraction:
-                    kwargs['zorder']=0
-                plt.plot([x,x],[ylo,yhi],**kwargs)
-
-        if linePlot:
-            if legend==0:
-                plt.subplots_adjust(bottom=0.15,right=0.95) ## hardcoded hack!
-            else:
-                #plt.subplots_adjust(bottom=0.15,right=0.8) ## still hardcoded!
-                #plt.subplots_adjust(bottom=0.15,right=0.7) ## still hardcoded!
-                pass
-
-            def ytickformat(x,pos):
-                if x>1:
-                    return "" if fraction else "%g" % x
-                else:
-                    return "%.1g" % x
-
-            plt.gca().yaxis.set_major_formatter(mpl.ticker.FuncFormatter(ytickformat))
-
-        
-        plt.tight_layout()
 
     if args.lineplot:
         ## Line plot
-        makeplot(legend=args.legend,fraction=True,linePlot=True)
+        mmakeplot(fraction=True,lineplot=True)
         if args.output:
             plt.savefig(filename_prepend("line-",args.output))
 
     else:
-        ## Stacked bar plots 
+        ## Stacked bar plots
         outfilename = args.output
-        if args.weekly:
+        if args.daily == 7:
             outfilename = filename_prepend("wk-",outfilename)
-        if args.daily:
+        if args.daily == 1:
             outfilename = filename_prepend("dy-",outfilename)
-            
-        makeplot(legend=args.legend,fraction=True)
+
+        mmakeplot(fraction=True)
         if args.output:
             plt.savefig(filename_prepend("f-",outfilename))
 
-        makeplot(legend=args.legend,fraction=False)
+        mmakeplot(fraction=False)
         if args.output:
             plt.savefig(filename_prepend("c-",outfilename))
-        
+
     if not args.output:
         plt.show()
 
 if __name__ == "__main__":
 
-    args = getargs()
+    _args = _getargs()
     def vprint(*p,**kw):
-        if args.verbose:
+        '''verbose print'''
+        if _args.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
     def vvprint(*p,**kw):
-        if args.verbose and args.verbose>1:
+        '''very-verbose print'''
+        if _args.verbose and _args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-    main(args)
-    
-
+    main(_args)
