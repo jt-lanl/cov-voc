@@ -6,7 +6,7 @@ from collections import defaultdict,Counter
 import argparse
 
 import readseq
-import mutanty as mutant
+import mutant
 import covid
 
 def _getargs():

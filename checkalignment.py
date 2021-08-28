@@ -7,7 +7,7 @@ from functools import lru_cache
 
 from seqsample import SequenceSample
 import readseq
-import mutanty as mutant
+import mutant
 import covid
 
 def getargs():

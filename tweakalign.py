@@ -6,7 +6,7 @@ import argparse
 
 import covid
 import readseq
-import mutanty as mutant
+import mutant
 
 def _getargs():
     '''parse options from command line'''
