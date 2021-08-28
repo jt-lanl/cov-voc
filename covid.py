@@ -27,16 +27,14 @@ def corona_args(ap):
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
         help="Do not use sequences whose name matches this pattern")
-    paa("--keepdashcols",action="store_true",
-        help="Do not strip columns with dash in ref sequence")
+    paa("--stripdashcols",action="store_true",
+        help="Strip columns with dash in ref sequence")
     paa("--keeplastchar",action="store_true",
         help="Do not strip final stop codon from end of sequences")
     paa("--dates","-d",nargs=2,
         help="range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
         help="Consider date range of DAYS days ending on the last sampled date")
-    paa("--fixsiteseventy",action="store_true",
-        help="Sites 68-70 should be I--, not -I- or --I")
     paa("--keepx",action="store_true",
         help="Keep sequences that include bad characters, denoted X")
 
@@ -47,85 +45,6 @@ def get_isl(fullname):
     g = epi_patt.search(fullname)
     return g[0] if g else "X"
 
-
-def UKvariant():
-    UK = {  69:   '-',
-            70:   '-',
-            144:  '-',
-            501:  'Y',
-            570:  'D',
-            681:  'H',
-            716:  'I',
-            982:  'A',
-            1118: 'H',
-            }
-    return UK
-
-def ZAvariant():
-    ZA = {   80:  'A',
-            215:  'G',
-            242: '-',
-            243: '-',
-            244: '-',
-            417: 'N',
-            484: 'K',
-            501: 'Y',
-            701: 'V',
-    }
-    return ZA
-
-def BRvariant():
-    BR = {  20: 'N',
-            26: 'S',
-            138: 'Y',
-            417: 'T',
-            484: 'K',
-            501: 'Y',
-            655: 'Y',
-            1027: 'I',
-            1176: 'F',
-            }
-    return BR
-            
-def USvariant():
-    US = { 13: 'I',
-           152: 'C',
-           452: 'R',
-           }
-    return US
-
-def UGvariant():
-    UG = { 157: "L",
-           367: "F",
-           613: "H",
-           614: "D", # G
-           681: "R"
-           }
-    return UG
-
-the_variant = {
-    'UK': UKvariant,
-    'ZA': ZAvariant,
-    'BR': BRvariant,
-    'US': USvariant,
-    'UG': UGvariant,
-    }
-
-def fixsiteseventy_gen(seqs,args):
-    for s in seqs:
-        if s.seq[67:70] == "--I" or s.seq[67:70] == "-I-":
-            s.seq = s.seq[:67] + "I--" + s.seq[70:]
-        yield s
-
-def fixsiteseventy(seqs,args):
-    count=0
-    for s in seqs:
-        if s.seq[67:70] == "--I" or s.seq[67:70] == "-I-":
-            count += 1
-            s.seq = s.seq[:67] + "I--" + s.seq[70:]
-            if args.verbose > 1:
-                print("fix70: ",s.name,file=sys.stderr)
-    return count
 
 site_specifications = {
     "RBD"       : "330-521",
@@ -239,12 +158,8 @@ def fix_seqs(seqs,args):
 
     firstseq,seqs = get_first_item(seqs)
 
-    if "-" in firstseq.seq and not args.keepdashcols:
-        #warnings.warn("Stripping sites with dashes in first sequence")
+    if "-" in firstseq.seq and args.stripdashcols:
         seqs = sequtil.stripdashcols(firstseq.seq,seqs)
-
-    if args.fixsiteseventy and not args.keepdashcols:
-        seqs = fixsiteseventy_gen(seqs,args)
 
     if not args.keeplastchar and firstseq.seq and firstseq.seq[-1] in "$X":
         seqs = striplastchar(seqs)
@@ -318,6 +233,7 @@ def filter_seqs_by_pattern(seqs,args):
 
 def init_lineages(filename,firstseq):
     ## used by non-insertion code
+    warnings.warn("should be implemented via spikevariantst")
     NamedPattern = namedtuple('NamedPattern',['name','pattern','color'])
     lineages = []
     if not filename:

@@ -217,7 +217,6 @@ class Mutation(list):
         if exact is None:
             exact = bool(mat[2])
         self.exact = exact
-        print(mstring,"exact=",exact)
         for m in mat[1].split(","):
             if m.strip():
                 self.append( SingleSiteMutation(m) )
@@ -590,7 +589,6 @@ if __name__ == "__main__":
     print("C:",mc)
     print("C inconsistent:",mc.inconsistent())
     print("C:",mc.check(),mc)
-    print("C:",mc.sort_ssms())
     print("C:",mc)
     print("C:",
           "Note, this is a list of ssms, not a Mutation:",

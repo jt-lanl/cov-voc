@@ -57,7 +57,7 @@ def _main(args):
     first,seqs = covid.get_first_item(seqs)
 
     if args.colormut:
-        svar = SpikeVariants().init_from_colormut(args.colormut,refseq=first.seq)
+        svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
     else:
         svar = SpikeVariants.default(refseq=first.seq)
 
