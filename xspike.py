@@ -12,13 +12,16 @@ import scipy.stats as sst
 import matplotlib.pyplot as plt
 import argparse
 
+import warnings
 
 import readseq
+from spikevariants import SpikeVariants
 from hamming import hamming
 import sequtil
 import intlist
 import wrapgen
 import covid
+import mutant
 
 from xspikeplots import circleplot,heatmap
 
@@ -201,16 +204,12 @@ def pairwise(args,esites,charsatsite,mutname,title=None):
 
 def main(args):
 
+    if not args.stripdashcols:
+        warnings.warn("Use --stripdashcols! Else you'll get funky results")
+
     ## Get title for plots and tables
     title = get_title(args)
     print("Running xspike",title,file=sys.stderr,flush=True)
-
-    def vcount(seqs,*p,**kw):
-        if args.verbose:
-            return wrapgen.keepcount(seqs,*p,**kw)
-        else:
-            return seqs
-
 
     allseqs = covid.read_seqfile(args)
     allseqs = vcount(allseqs,"All sequences:")
@@ -238,22 +237,28 @@ def main(args):
         print("Specified Date Range:",args.dates)
 
     #### SINGLE-SITE ENTROPY
+    ## keepx redundant here? since seqs already filtered by keepx ?
     vprint("Single-site entropy...",end="")
     E = [xentropy(clist,keepx=args.keepx)
          for clist in sequtil.gen_columns_seqlist(seqs)]
     vprint("ok")
 
+    #T = mutant.SiteIndexTranslator(firstseq)
+    T = mutant.MutationManager(firstseq)
 
     ## Determine which sites will be employed
     esites = intlist.string_to_intlist(args.addsites)
     esites = list(dict.fromkeys(esites)) ## removes dups while maintaining order
     if args.sites:
-        etop = [e+1 for e in np.argsort(E)[::-1]]
+        ndxtop = [n for n in np.argsort(E)[::-1]]
         if args.restrictsites:
             rsites = covid.spike_sites(args.restrictsites)
-            etop = [e for e in etop if e in rsites]
+            rindices = T.indices_from_sitelist(rsites)
+            ndxtop = [n for n in ndxtop if n in rindices]
+        ## convert top indices back into top sites
+        etopsites = [T.site_from_index(n) for n in ndxtop]
         ## sites of the largest entropy
-        esites.extend(etop[:args.sites])
+        esites.extend(etopsites[:args.sites])
         esites = list(dict.fromkeys(esites)) ## removes dups while maintaining order
         
     vprint("Observing",len(esites),title)
@@ -264,44 +269,51 @@ def main(args):
     if args.plot or args.writeplot:
         plt.figure()
         ## entropy vs site for all sites ... in default color (blue)
-        plt.plot(range(1,M+1),E)
+        siterange = [T.site_from_index(n) for n in range(M)]
+        plt.plot(siterange,E)
+        #plt.plot(range(1,M+1),E)
         plt.xlabel("Site index")
         plt.ylabel("Entropy")
         plt.title(title)
         ## entropy at specified sites ... in red
         for e in esites:
-            plt.plot([e,e],[0,E[e-1]],'r-')
+            ndx = T.index_from_site(e)
+            plt.plot([e,e],[0,E[ndx]],'r-')
         
         if args.writeplot:
             plt.savefig(filename_prepend("entrpy-",args.writeplot))
 
-    ## get lists of characters for each site, and name of mutation
-    charsatsite=dict()
-    mutname = dict()
-    for e in esites:
-        ## don't strip x's quite yet
-        charsatsite[e] = sequtil.getcolumn(seqs,e,keepx=True)
-        mutname[e] = str(e)
+    if False:
+        ## get lists of characters for each site, and name of mutation
+        charsatsite=dict()
+        mutname = dict()
+        for e in esites:
+            ## don't strip x's quite yet
+            n = T.index_from_site(e)
+            charsatsite[e] = sequtil.getcolumn(seqs,n,keepx=True) 
+            mutname[e] = str(e)
 
     print("Highest entropy sites for:",title)
     print("  Site Entropy")
     for e in esites:
-        print("%6s %7.4f" % (mutname[e],E[e-1]))
+        n = T.index_from_site(e)
+        print("%6d %7.4f" % (e,E[n]),n)
 
     #### PAIRWISE ANALYSIS
     if args.pairs:
+        ## need to compute charsatsite!
         pairwise(args,esites,charsatsite,mutname,title=title)
-
 
     #### COMMON PATTERNS
     print("\nMost common patterns for local area, where Local =",title)
-    esites = np.sort(esites)
+    esites = sorted(esites)
     for lines in intlist.write_numbers_vertically(esites,plusone=0):
         print(lines)
 
     pattseqs = sequtil.copy_seqlist(seqs)
+    ndxsites = [T.index_from_site(e) for e in esites]
     for s in pattseqs:
-        s.seq = "".join(s.seq[n-1] for n in esites)        
+        s.seq = "".join(s.seq[n] for n in ndxsites)
     cnt = Counter([s.seq for s in pattseqs])
     
     if not args.keepx:
@@ -326,14 +338,15 @@ def main(args):
         if x:
             cseqs = sequtil.filter_by_pattern_exclude(cseqs,x)
         cseqs = list(cseqs)
-        if c == "Global":
-            print("Global cseqs=",len(cseqs))
+        #if c == "Global":
+        #    print("Global cseqs=",len(cseqs))
 
-        cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,esites,keepx=args.keepx))
+        cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,ndxsites,
+                                                  keepx=args.keepx))
         cont_sum[c] = len(cseqs)
         vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
     
-    master =  "".join(firstseq[n-1] for n in esites)
+    master =  "".join(firstseq[n] for n in ndxsites)
     print(master," Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
           " Local",
@@ -344,8 +357,14 @@ def main(args):
           " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx]),
           "%6d"% sum(cnt.values()),"<----------- Totals" ) ## Totals
 
-    lineages = covid.init_lineages(args.colormut,firstseq)
-
+    if args.colormut:
+        svar = SpikeVariants.from_colormut(args.colormut,refseq=firstseq)
+    else:
+        svar = SpikeVariants.default(refseq=firstseq)
+    def get_lineage(seq):
+        vocs = svar.vocmatch(seq)
+        return ", ".join(v.name for v in vocs)
+    
     ## dict indexes list of full sequences based on pattseq
     pattseqdict=defaultdict(list)
     for ps,s in zip(pattseqs,seqs):
@@ -366,10 +385,11 @@ def main(args):
         if args.nomutlist:
             print()
         else:
-            pcnt = Counter(s.seq for s in pattseqdict[p]) ## count full seq's consistent with pattern p
-            pcommonseq,npcs = pcnt.most_common(1)[0]
-            mutantstr = sequtil.mutantlist(firstseq,pcommonseq,returnstring=True)
-            lineage_name = covid.match_lineages(lineages,pcommonseq)
+            ## count full seq's consistent with pattern p
+            pcnt = Counter(s.seq for s in pattseqdict[p]) 
+            [(pcommonseq,npcs)] = pcnt.most_common(1)
+            mutantstr = T.get_mutation(pcommonseq)
+            lineage_name = get_lineage(pcommonseq)
             print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr} {lineage_name}")
         
         
@@ -384,6 +404,12 @@ if __name__ == "__main__":
         if args.verbose and args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
+    def vcount(seqs,*p,**kw):
+        if args.verbose:
+            return wrapgen.keepcount(seqs,*p,**kw,file=sys.stderr)
+        else:
+            return seqs
+        
     main(args)
     if args.plot:
         plt.show()

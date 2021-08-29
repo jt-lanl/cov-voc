@@ -48,7 +48,7 @@ def old_date_fromiso(s):
         yyyy,mm,dd = s.split("-")
         dt = datetime.date(int(yyyy),int(mm),int(dd))
         return dt
-    except ValueError:
+    except ValueError: 
         if s == ".":
             return None
         try:

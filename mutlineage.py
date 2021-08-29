@@ -1,53 +1,38 @@
-DESCRIPTION='''
+'''
 read mutant strings and linege assignments from a list
-find sequences in a fasta file that match the mutant string 
+each line format: [MutantString] (Lineage)
+find sequences in a fasta file that match the mutant string
 and tabulate the lineages associated with them
 '''
 import sys
 import re
-from pathlib import Path
 from collections import Counter
+import itertools as it
 import argparse
 
-import warnings
-
-import readseq
-import sequtil
-import intlist
 import covid
 import mutant
 
-def getargs():
-    ap = argparse.ArgumentParser(description=DESCRIPTION)
+def _getargs():
+    '''get arguments from command line'''
+    ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
     paa("--mutant","-m",
         help="file with list of mutant strings and lineages")
-    paa("--output","-o",type=Path,
-        help="output fasta file")
+    paa("-N",type=int,default=0,
+        help="just look at the first N sequences in input file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     return args
 
-def get_matches(mutantstring,seqlist,fullmatch=False):
-
-    firstseq = seqlist[0].seq
-    
-    muts = mutant.Mutation().init_from_line(mutantstring)
-    assert( muts.checkref(firstseq,verbose=True) )
-    matchpatt = muts.regex_pattern(firstseq,exact=bool(fullmatch))
-    rematchpatt = re.compile(matchpatt)
-
-    seqmatches = (s for s in seqlist[1:]
-                  if rematchpatt.match(s.seq))
-
-    return seqmatches
-
 def get_lineage_from_name(name):
-    return re.sub(".*EPI_ISL_\d+\.","",name)
+    '''return lineage (eg, B.1.1.7) from full sequence name'''
+    return re.sub(r".*EPI_ISL_\d+\.","",name)
 
 def count_lineages(seqlist):
+    '''make a counter of all the lineages in the squlist'''
     lineages = (get_lineage_from_name(s.name) for s in seqlist)
     return Counter(lineages)
 
@@ -60,52 +45,66 @@ def format_counter(cnt):
         s += "%6d %5.1f%% %10s; " % (cnt[lin],100*cnt[lin]/total,lin)
     return s
 
-def main(args):
-
+def read_mutantfile(filename):
+    '''read mutant file and return mstring list and lineage list'''
     mutantfilepatt = re.compile(r".*(\[.*\])\s+(\(.*\)?)")
     mutlist=[]
     linlist=[]
-    with open(args.mutant) as f:
-        for line in f:
+    with open(filename) as fptr:
+        for line in fptr:
             line = line.strip()
             m = mutantfilepatt.match(line)
             if m:
                 mstring,lineage = m[1],m[2]
-                vprint(mstring,lineage)
+                vvprint(mstring,lineage)
                 mutlist.append(mstring)
                 linlist.append(lineage)
             else:
                 vprint("Invalid line:",line)
+    return mutlist,linlist
 
+def format_string_mutlin(mutlist,linlist):
+    '''produce format string for neater printing of final table'''
     mutmaxlen = max(len(mut) for mut in mutlist)
     linmaxlen = max(len(lin) for lin in linlist)
     fmt = "%%%ds %%-%ds" % (mutmaxlen,linmaxlen)
+    return fmt
+
+def _main(args):
+    '''mutlineage main'''
+
+    mutlist,linlist = read_mutantfile(args.mutant)
+    fmt = format_string_mutlin(mutlist,linlist)
     for mut,lin in zip(mutlist,linlist):
         vprint(fmt % (mut,lin),)
 
     seqs = covid.read_filter_seqfile(args)
-    seqlist = list(seqs)
+    if args.N:
+        ## just grab the first N (for debugging w/ shorter runs)
+        seqs = it.islice(seqs,args.N+1)
 
-    for fullmatch in [False,True]:
+    seqs = list(seqs)
+    first,seqs = covid.get_first_item(seqs)
+    MM = mutant.MutationManager(first.seq)
+    for fullmatch in [True, False]:
         print("Exact matches:" if fullmatch else "Inclusive matches:")
-    
-        for mut,lin in zip(mutlist,linlist):
-            matches = get_matches(mut,seqlist,fullmatch=fullmatch)
+        for mstring,lin in zip(mutlist,linlist):
+            mpatt = mutant.Mutation.from_mstring(mstring,exact=fullmatch)
+            matches = MM.filter_seqs_by_pattern(mpatt,seqs)
             cnt = count_lineages(matches)
-            print(fmt % (mut,lin),format_counter(cnt))
-        
+            print(fmt % (mstring,lin),format_counter(cnt))
+
 
 if __name__ == "__main__":
 
-    args = getargs()
+    _args = _getargs()
     def vprint(*p,**kw):
-        if args.verbose:
+        '''verbose print'''
+        if _args.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
     def vvprint(*p,**kw):
-        if args.verbose>1:
+        '''very verbose print'''
+        if _args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-
-    main(args)
-    
-
+    _main(_args)

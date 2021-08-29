@@ -29,28 +29,13 @@ def getargs():
     paa("--consensusalways","-c",action="store_true",
         help="Always show consensus, even if not common")
     paa("--consensusnever",action="store_true",
-        help="Do not even compute consensus for each form")
+        help="Do not ever compute consensus for each form")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     if args.consensusalways and args.consensusnever:
         raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
     return args
-
-def get_matches(mutantstring,seqlist,fullmatch=False):
-    '''return sequences in seqlist that match the mutantstring'''
-
-    firstseq = seqlist[0].seq
-    MM = mutant.MutationManager(firstseq)
-
-    mpatt = mutant.Mutation.from_mstring(mutantstring,exact=fullmatch)
-
-    ## if fullmatch is True, could maybe be faster with direct match of regex ?
-
-    seqmatches = [s for s in seqlist[1:]
-                  if MM.seq_fits_pattern(mpatt,s.seq)]
-
-    return seqmatches
 
 def get_lineage_from_name(name):
     return re.sub(r".*EPI_ISL_\d+\.","",name)
@@ -59,15 +44,6 @@ def count_lineages(seqlist):
     '''return a counter with number of sequences for each lineage'''
     lineages = [get_lineage_from_name(s.name) for s in seqlist]
     return Counter(lineages)
-
-def format_counter(cnt):
-    '''make a nicely formatted string summarizing contents of counter'''
-    total = sum(cnt.values())
-    scnt = sorted(cnt,key=cnt.get,reverse=True)
-    s="%6d %3d " % (total,len(cnt))
-    for lin in scnt[:3]:
-        s += "%6d %5.1f%% %10s; " % (cnt[lin],100*cnt[lin]/total,lin)
-    return s
 
 def mostcommonchar(clist):
     '''return the most common item in the list'''
@@ -98,14 +74,17 @@ def main(args):
           "")
     print()
 
-    count_forms = f" {args.npatterns}" if args.npatterns else ""
+    count_forms = f"the {args.npatterns} most common" if args.npatterns \
+        else "all the"
     min_count = \
         f" that have at least {args.mincount} counts " \
         "(but we always show the most common form)" \
         if args.mincount else ""
-    consensus_always = "And we always show the consensus form. " \
+    consensus_always = \
+        "And we always show the consensus form; " \
+        "this form has the most common amino acid at each position. " \
         if args.consensusalways else ""
-    print(f"We show the{count_forms} most common forms{min_count}. {consensus_always}")
+    print(f"We show {count_forms} forms{min_count}. {consensus_always}")
 
     seqs = covid.read_filter_seqfile(args)
     seqlist = list(seqs)
@@ -145,12 +124,7 @@ def main(args):
         seqlin = seqlist_by_lineage[lin]
 
         ## First get consensus form
-        if args.consensusnever:
-            cons = None
-        else:
-            cons = consensus(seqlin)
-            cntcons = sum(1 for s in seqlin if s.seq == cons)
-            mcons = mut_manager.get_mutation(cons)
+        cons = consensus(seqlin) if not args.consensusnever else None
 
         ## Now get most common forms
         cntr = Counter(s.seq for s in seqlin)
@@ -180,9 +154,11 @@ def main(args):
                        h,str(m),cons_string))
         if args.consensusalways and not cflag:
             h = hamming(top_comm,cons)
-            print("%s %7d %6d %5.1f%% %3d %s (consensus)" %
-                  (fmt_lin[lin],cnt_lin[lin],cntcons,100*cntcons/cnt_lin[lin],
-                   h,str(mcons)))
+            m = mut_manager.get_mutation(cons)
+            cnt = cntr[cons]
+            print("%s %7d %6d %5.1f%% %3d %s %s" %
+                  (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
+                   h,str(m),"(consensus)"))
         print()
 
 if __name__ == "__main__":

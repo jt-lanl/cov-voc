@@ -99,7 +99,6 @@ class SpikeVariants():
 
     def init_from_fp(self,fp,refseq=None):
         '''initialize from file pointer'''
-        print('init_from_fp:',refseq)
         return self.init_from_vocs(read_colormut_fp(fp),
                                    refseq=refseq)
 
@@ -235,12 +234,6 @@ class SpikeVariants():
         print("\n".join( intlist.write_numbers_vertically(self.ssites()) ),**kwxtra)
         print(self.master,"Master",**kwxtra)
         for v in self.vocs:
-            if False:
-                r = v.mutate_sequence(self.refseq,prescriptive=False)
-                rr = "".join("_" if (rchar==mchar and mchar!="x") else rchar
-                             for rchar,mchar in zip(r,self.refseq))
-                print(re.sub("x","",rr),v.name,"refseq-with-x-removed",r,rr,**kwxtra)
-
             shortpatt = self.shorten(v.pattern(self.refseq))
             #print(shortpatt,v.name,"shortpatt",**kwxtra)
             newshortpatt = self.relpattern(shortpatt,self.master)

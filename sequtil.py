@@ -20,13 +20,13 @@ def getcolumn(seqs,n,keepx=False):
     ''' return list of aa's at given site number (column) Equiv: multicolumn(seqs,[n],keepx=keepx)'''
     ## note, site number is one + zero-based index; so n-1 is index of s.seq
     if keepx:
-        return [s.seq[n-1] for s in seqs]
+        return [s.seq[n] for s in seqs]
     else:
-        return [s.seq[n-1] for s in seqs if "X" not in s.seq[n]]
+        return [s.seq[n] for s in seqs if "X" not in s.seq[n]]
 
 def multicolumn(seqs,nlist,keepx=False):
     ''' return a list of aa strings, corresponding to the columns indicated by nlist '''
-    aaslist = [ "".join(s.seq[n-1] for n in nlist) for s in seqs ]
+    aaslist = [ "".join(s.seq[n] for n in nlist) for s in seqs ]
     if not keepx:
         aaslist = [aas for aas in aaslist if "X" not in aas]
     return aaslist
@@ -169,6 +169,7 @@ def filter_by_patternlist_exclude(seqs,patternlist,keepfirst=False):
             
 def mutantlist(reference,variant,returnstring=False,badchar=None):
     '''return a list of mutations, of the form "AnB", where ref[n-1]=A and var[n-1]=B and n is site number'''
+    warnings.warn("sequtil.mutantlist() is deprecated use MutationManager.get_mutation()")
     assert( len(reference) == len(variant) )
     mutants = []
     for i,(ref,var) in enumerate(zip(reference,variant),start=1):

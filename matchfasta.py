@@ -16,8 +16,7 @@ import readseq
 import sequtil
 import intlist
 import covid
-import mutanty as mutant
-#from mutantdb import MutantDB
+import mutant
 import wrapgen
 
 def getargs():
@@ -38,7 +37,7 @@ def getargs():
         help="list of sequences (before filtering); eg. 1-100, or 3-6")
     paa("--output","-o",type=Path,
         help="output fasta file")
-    paa("--fullmatch",action="store_true",
+    paa("--exact",action="store_true",
         help="require all non-listed sites to match reference sequence")
     paa("--showmutants",action="store_true",
         help="show mutant string after sequence name")
@@ -76,15 +75,14 @@ def main(args):
 
     MM = mutant.MutationManager(firstseq)
 
-    muts = None
+    mpatt = None
     sites = []
     
     if args.mutant:
         assert(not args.sites) ## maybe this is okay?
         assert(not args.seqpattern)
-        muts = mutant.Mutation.from_mstring(args.mutant)
-        assert muts.checkref(firstseq)
-        sites = sorted(set([mut.site for mut in muts]))
+        mpatt = mutant.Mutation.from_mstring(args.mutant)
+        sites = sorted(set([ssm.site for ssm in mpatt]))
         
     if args.sites:
         sites = intlist.string_to_intlist(args.sites)
@@ -93,12 +91,10 @@ def main(args):
             ssms=[]
             for site,mut in zip(sites,args.seqpattern):
                 ssms.append( SingleSiteMutation(".",site,mut) )
-            muts = mutant.Mutation(ssms)
+            mpatt = mutant.Mutation(ssms)
 
-    if muts:
-        def s_filter(s):
-            return MM.seq_fits_pattern(muts,s.seq,exact=args.fullmatch)
-        seqs = filter(s_filter,seqs)
+    if mpatt:
+        seqs = MM.filter_seqs_by_pattern(mpatt,seqs,exact=args.exact)
         if args.verbose:
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
         seqs = it.chain([first],seqs)

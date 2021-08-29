@@ -13,7 +13,6 @@ import wrapgen
 import readseq
 import sequtil
 import intlist
-import mutant
 
 DEFAULTFASTA="Latest.ipkl.gz"
 
@@ -22,19 +21,19 @@ def corona_args(ap):
     paa = ap.add_argument
     paa("--input","-i",type=Path,
         default=Path(DEFAULTFASTA),
-        help="input fasta file with aligned sequences (first is master)")
+        help="input file with aligned sequences (first is reference)")
     paa("--filterbyname","-f",nargs='+',
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
         help="Do not use sequences whose name matches this pattern")
-    paa("--stripdashcols",action="store_true",
-        help="Strip columns with dash in ref sequence")
-    paa("--keeplastchar",action="store_true",
-        help="Do not strip final stop codon from end of sequences")
     paa("--dates","-d",nargs=2,
-        help="range of dates (two dates, yyyy-mm-dd format)")
+        help="Only use seqs in range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
         help="Consider date range of DAYS days ending on the last sampled date")
+    paa("--stripdashcols",action="store_true",
+        help="Strip columns with dash in reference sequence")
+    paa("--keeplastchar",action="store_true",
+        help="Do not strip final stop codon from end of sequences")
     paa("--keepx",action="store_true",
         help="Keep sequences that include bad characters, denoted X")
 
@@ -183,6 +182,20 @@ def filter_seqs(seqs,args):
 
     return seqs
 
+def xrepair(seqs,X='X'):
+    '''replace all occurrences of X with the ancestral form in first sequence'''
+    ## This seems dangerous!! Use with care ... or not at all.
+    first,seqs = get_first_item(seqs)
+    yield first
+    for s in seqs:
+        if X in s.seq:
+            ss = list(s.seq)
+            for n in range(len(ss)):
+                if ss[n] == X:
+                    ss[n] = ref[n]
+            s.seq = "".join(ss)
+        yield s
+
 def filter_seqs_by_date(seqs,args):
 
     if not args.days and not args.dates:
@@ -230,50 +243,6 @@ def filter_seqs_by_pattern(seqs,args):
                                                        keepfirst=True)
             
     return seqs
-
-def init_lineages(filename,firstseq):
-    ## used by non-insertion code
-    warnings.warn("should be implemented via spikevariantst")
-    NamedPattern = namedtuple('NamedPattern',['name','pattern','color'])
-    lineages = []
-    if not filename:
-        return lineages
-    with open(filename) as f:
-        for line in f:
-            line = re.sub("#.*","",line).strip()
-            if not line:
-                #ignore empty and commented-out lines
-                continue
-            ## Match: Color [Mutation]! Name, with "!" optional and Name optional
-            m = re.match("(\S+)\s+(\[.*\])(!?)\s*(\S*).*",line)
-            if not m:
-                warnings.warn(f"No match: {line}")
-                continue
-            mpattern = mutant.Mutation(m[2]).regex_pattern(firstseq,exact=bool(m[3]))
-            lineages.append( NamedPattern(name=m[4],pattern=mpattern,color=m[1]) )
-    return lineages
-
-def match_lineages(lineages,fullseq):
-    lineage_name=""
-    for lineage in lineages:
-        ## this is a hack!  won't work if '.' is meant to represent '-' in some cases
-        if re.match(re.sub("-","",lineage.pattern),
-                    re.sub("-","",fullseq)):
-            lineage_name = lineage.name
-            break ## match first available
-    return lineage_name #,lineage_color
-
-def match_lineage_name_color(lineages,fullseq):
-    lineage_name="other"
-    lineage_color="Gray"
-    for lineage in lineages:
-        if re.match(lineage.pattern,fullseq):
-            lineage_name = lineage.name
-            lineage_color = lineage.color
-            break ## match first available
-    return lineage_name,lineage_color
-
-
 
 SARS_REGIONS = '''
 SP     1   13

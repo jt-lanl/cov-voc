@@ -156,7 +156,7 @@ for hn in COLORNAMES.splitlines():
         continue
 
 def tohex(commonname):
-    return ColorTable[commonname.lower()]
+    return ColorTable.get(commonname.lower(),None)
     
 def random_hex():
     return random.choice(list(ColorTable.values()))

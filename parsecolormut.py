@@ -1,18 +1,28 @@
+'''
+parse the color mutation table to provide a table for Werner
+that has three columns: sequence name, mutant designation, color
+'''
+
 import sys
-import re
 import itertools as it
 import argparse
 
+import warnings
+
+from spikevariants import SpikeVariants
 import wrapgen
 import covid
 import colornames
 
-def getargs():
-    ap = argparse.ArgumentParser()
+def _getargs():
+    '''get arguments from command line'''
+    ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--colormut",required=True,
-        help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
+    paa("--colormut","-c",required=True,
+        help="name of color mutation file")
+    paa("-N",type=int,default=0,
+        help="show at most this many sequences")
     paa("--usehex",action="store_true",
         help="use six-character hex-codes instead of X11 colornames")
     paa("--verbose","-v",action="count",default=0,
@@ -21,46 +31,57 @@ def getargs():
     return args
 
 
-def mktable(seqs,lineages):
-    for s in it.islice(seqs,1,None):
-        n,c = covid.match_lineage_name_color(lineages,s.seq)
-        if args.usehex:
-            try:
-                c = colornames.tohex(c)
-            except:
-                pass
-            if n == "other":
-                c = "#DDDDDD"
-        yield (s.name,n,c)
-    
+def mk_table(svar,seqs,usehex=False):
+    '''yield lines of the table: seq_name, variant_name, color'''
+    for s in seqs:
+        vocs = svar.vocmatch(s.seq)
+        if len(vocs) == 1:
+            voc_name = vocs[0].name
+            voc_color = vocs[0].color
+        elif len(vocs) == 0:
+            voc_name = "other"
+            voc_name = "Gray"
+        else:
+            print(vocs,s.name,file=sys.stderr)
+            warnings.warn("multiple patterns matched!")
+            voc_name = vocs[0].name
+            voc_color = vocs[0].color
+
+        if usehex:
+            voc_color = colornames.tohex(voc_color) or voc_color
+            if voc_name == "other":
+                voc_color = "#DDDDDD"  #a slightly different shade of Gray
+
+        yield (s.name,voc_name,voc_color)
 
 def main(args):
+    '''main parsecolormut'''
 
     seqs = covid.read_seqfile(args)
     seqs = wrapgen.keepcount(seqs,"Sequences read:")
     seqs = covid.filter_seqs(seqs,args)
     seqs = wrapgen.keepcount(seqs,"Sequences after filtering:")
 
-    first,seqs = covid.get_first_item(seqs)
-    firstseq = first.seq
+    if args.N:
+        seqs = it.islice(seqs,args.N+1)
 
-    lineages = covid.init_lineages(args.colormut,firstseq)
-    Table = mktable(seqs,lineages)
-    
-    for seqname,n,c in Table:
+    first,seqs = covid.get_first_item(seqs)
+
+    svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
+
+    for seqname,n,c in mk_table(svar,seqs,usehex=args.usehex):
         print(seqname,n,c)
-        
 
 if __name__ == "__main__":
 
-    args = getargs()
+    _args = _getargs()
     def vprint(*p,**kw):
-        if args.verbose:
+        '''verbose print'''
+        if _args.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
     def vvprint(*p,**kw):
-        if args.verbose>1:
+        '''very verbose print'''
+        if _args.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-    main(args)
-    
-
+    main(_args)

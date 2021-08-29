@@ -1,5 +1,6 @@
 '''
 MutationManager, Mutation, and SingleSiteMutation classes
+Also, the SiteIndexTranslator class
 
 A Mutation is a list of SingleSiteMutations, with auxiliary information such as an 'exact' flag.
 A SingleSiteMutation has three components:
@@ -297,110 +298,24 @@ class Mutation(list):
         but with substitutions, wildcards, etc noted
         note, it's NOT a regex pattern matcher
         '''
-        warnings.warn("are you sure you want to do this here?")
-        if exact is None:
-            exact = self.exact
-        T = SiteIndexTranslator(refseq)
-        mutseq = list(refseq)
-        if not exact:
-            mutseq = [c if c=="-" else "." for c in refseq]
-        for ssm in self:
-            ndx = T.index_from_site(ssm.site)
-            if ssm.ref == '+':
-                mutseq[ndx] += ssm.mut
-                for n in range(ndx+1,ndx+1+len(ssm.mut)):
-                    if mutseq[n] == '-':
-                        mutseq[n] = ""
-            elif len(ssm.mut) > 1:
-                mutseq[ndx] = "&"  ## indicates multiple choices at this site
-            else:
-                mutseq[ndx] = ssm.mut
-        mutseq = "".join(mutseq)
-        return mutseq
+        raise RuntimeError("Use MutationManager.pattern_from_mutation instead")
+
 
     def regex_pattern(self,refseq,exact=None,nodash=False):
         '''return pattern that can be used as regex to search for mutation'''
         ## exact: needs to match refseq at all sites not in mutation
         ## otherwise: only needs to match at mutation sites
-        warnings.warn("Not using regex's anymore, are we?")
-        if exact is None:
-            exact = self.exact
-        T = SiteIndexTranslator(refseq)
-
-        pattern = list(refseq)
-        if not exact:
-            ## all .'s except -'s where the -'s are in refseq
-            pattern = ['.' if r != '-' else '-' for r in refseq]
-
-        for ssm in self:
-            ndx = T.index_from_site(ssm.site)
-            if ssm.ref == "+":
-                pattern[ndx] += ssm.mut
-                for n in range(ndx+1,ndx+1+len(ssm.mut)):
-                    if exact:
-                        assert pattern[n] == '-'
-                    pattern[n] = ""
-            elif ssm.mut == "*":
-                pattern[ndx] = "[^"+ssm.ref+"]"
-            elif ssm.mut == "_":
-                pattern[ndx] = ssm.ref
-            elif len(ssm.mut) > 1:
-                pattern[ndx] = "[" + ssm.mut + "]"
-            else:
-                try:
-                    pattern[ndx] = ssm.mut
-                except IndexError as exception:
-                    print("pattern=",pattern)
-                    print("ndx=",ndx)
-                    print("ssm:",ssm)
-                    raise IndexError from exception
-
-        pattern = "".join(pattern)
-        if nodash:
-            pattern = re.sub("-","",pattern)
-        return pattern
+        raise RuntimeError("Not using regex's anymore, are we?")
 
     def mutate_sequence(self,refseq,prescriptive=True):
         '''return sequence that is mutated version of refseq'''
-        warnings.warn("Should be called from MutationManager ?")
-        T = SiteIndexTranslator(refseq)
-        mutseq = list(refseq)
-        for ssm in self:
-            ndx = T.index_from_site(ssm.site)
-            if ssm.ref == '+':
-                mutseq[ndx] += ssm.mut
-                for n in range(ndx+1,ndx+1+len(ssm.mut)):
-                    if mutseq[n] == '-':
-                        mutseq[n] = ""
-            elif ssm.mut == ".":
-                if prescriptive:
-                    warnings.warn(f"{ssm} is not prescriptive, using {ssm.ref}")
-                    mutseq[ndx] = ssm.ref
-                else:
-                    mutseq[ndx] = "."
-            elif ssm.mut == "*":
-                if prescriptive:
-                    warnings.warn(f"{ssm} is not prescriptive, using X")
-                    mutseq[ndx] = "X"
-                else:
-                    mutseq[ndx] = "*"
-            elif len(ssm.mut) > 1:
-                if prescriptive:
-                    warnings.warn(f"{ssm} is not prescriptive, using {ssm.mut[0]}")
-                    mutseq[ndx] = ssm.mut[0]
-                else:
-                    mutseq[ndx] = "&"
-            else:
-                mutseq[ndx] = ssm.mut
-        mutseq = "".join(mutseq)
-        return mutseq
+        raise RuntimeError("Use MutationManager.seq_from_mutation")
 
-
-
+    
 class MutationManager(SiteIndexTranslator):
     '''
-    Object that helps manage Mutation() mstrings, because it knows context;
-    Under the hood, it's basically as SiteIndexTranslator with benefits
+    Object that helps manage Mutation() mstrings, 
+    because it knows context; namely refseq
     '''
     def __init__(self,refseq):
         super().__init__(refseq)
@@ -462,7 +377,7 @@ class MutationManager(SiteIndexTranslator):
     def pattern_from_mutation(self,mut,exact=None):
         '''
         returns a string of same length as refseq,
-        but with substitutions, wildcards, etc noted
+        but with substitutions, wildcards, etc
         note, it's NOT a regex pattern matcher
         '''
         ## very similar to seq_from_mutation,
@@ -523,6 +438,7 @@ class MutationManager(SiteIndexTranslator):
 
     ## This is one very intricate function!!! so many special cases!!
     ## any way to offload some of the cognitive budget? not to mention raw compute time
+    ## if mpatt has no wild cards, this could go faster (separate routine for that?)
     def seq_fits_pattern(self,mpatt,seq,exact=None):
         '''return True if the sequence fits the pattern'''
         if exact is None:
@@ -578,6 +494,12 @@ class MutationManager(SiteIndexTranslator):
                 return False
         return True
 
+    def filter_seqs_by_pattern(self,mpatt,seqs,exact=None):
+        '''filter an iterable of seqs that match the pattern'''
+        for s in seqs:
+            if self.seq_fits_pattern(mpatt,s.seq,exact=exact):
+                yield s
+        
 
 if __name__ == "__main__":
 
@@ -608,9 +530,8 @@ if __name__ == "__main__":
     MM = MutationManager(RefSeq)
     for newseq in NewSeqList:
         mu = MM.get_mutation(newseq)
-        rpatt = mu.regex_pattern(RefSeq)
-        rpattx = mu.regex_pattern(RefSeq,exact=True)
-        print(RefSeq,newseq,rpatt,rpattx,mu)
+        fpatt = MM.pattern_from_mutation(mu)
+        print(RefSeq,newseq,fpatt,mu)
 
     print()
     MM = MutationManager(RefSeq)

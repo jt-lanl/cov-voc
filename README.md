@@ -14,7 +14,7 @@ first sequence is taken as the *reference* sequence, typically `NC_045512_spike_
 
 CAVEAT: Virtually all of the analysis in this software neglects insertions.  Only the sites at which the reference strain has an amino acid are considered.
 
-UN-CAVEAT: The next generation of this software (coming soon!) *does* handle insertions.
+UN-CAVEAT: This generation of this software *does* handle insertions.
 
 # MAIN ANALYSIS PROGRAMS
 
@@ -103,7 +103,9 @@ given an input fasta file, the first of which is a reference sequence,
 find the most common sequences, and express them in terms of mutation strings.
 One can also list the geographical regions where those strains are most
 commonly seen, and one can request a few ISL numbers for each strain, so
-you can find examples in the GISAID database.
+you can find examples in the GISAID database.  By specifying a mutation pattern,
+you can restrict consideration to a mutation pattern, and thereby obtain counts
+for "variants of variants"
 
 ## USITES
 
@@ -113,9 +115,10 @@ the union of those lists.  you specify the number of sites you want in the final
 list.  this list of sites is useful as input to `xspike` if you want different runs
 over different geographical regions to all be using a common set of sites.
 
-## COUNTVARIANTS
+## COUNTVARIANTS (OBSOLETE)
 
-counts how many variants of a variant appear in an input set of sequences
+counts how many variants of a variant appear in an input set of sequences.
+OBSOLETE: use COMMONTYPES instead.
 
 ## SHIVER-BARPLOT
 
