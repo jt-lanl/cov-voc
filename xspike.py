@@ -204,9 +204,6 @@ def pairwise(args,esites,charsatsite,mutname,title=None):
 
 def main(args):
 
-    if not args.stripdashcols:
-        warnings.warn("Use --stripdashcols! Else you'll get funky results")
-
     ## Get title for plots and tables
     title = get_title(args)
     print("Running xspike",title,file=sys.stderr,flush=True)
