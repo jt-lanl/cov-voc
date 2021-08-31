@@ -1,4 +1,4 @@
-DESCRIPTION='''
+'''
 XSPIKE: eXplore the SPIKE protein sequence in the SARS CoV-2 virus
 '''
 
@@ -26,7 +26,7 @@ import mutant
 from xspikeplots import circleplot,heatmap
 
 def getargs():
-    ap = argparse.ArgumentParser(description=DESCRIPTION)
+    ap = argparse.ArgumentParser(description=__doc__)
     covid.corona_args(ap)
     paa = ap.add_argument
     paa("--pairs",action="store_true",
@@ -280,8 +280,14 @@ def main(args):
         if args.writeplot:
             plt.savefig(filename_prepend("entrpy-",args.writeplot))
 
-    if False:
-        ## get lists of characters for each site, and name of mutation
+    print("Highest entropy sites for:",title)
+    print("  Site Entropy")
+    for e in esites:
+        n = T.index_from_site(e)
+        print("%6d %7.4f" % (e,E[n]))
+
+    #### PAIRWISE ANALYSIS
+    if args.pairs:
         charsatsite=dict()
         mutname = dict()
         for e in esites:
@@ -289,16 +295,6 @@ def main(args):
             n = T.index_from_site(e)
             charsatsite[e] = sequtil.getcolumn(seqs,n,keepx=True) 
             mutname[e] = str(e)
-
-    print("Highest entropy sites for:",title)
-    print("  Site Entropy")
-    for e in esites:
-        n = T.index_from_site(e)
-        print("%6d %7.4f" % (e,E[n]),n)
-
-    #### PAIRWISE ANALYSIS
-    if args.pairs:
-        ## need to compute charsatsite!
         pairwise(args,esites,charsatsite,mutname,title=title)
 
     #### COMMON PATTERNS
@@ -346,13 +342,13 @@ def main(args):
     master =  "".join(firstseq[n] for n in ndxsites)
     print(master," Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
-          " Local",
+          "  Local",
           " Exact  Pct [Context]" if not args.nomutlist else "")
 
     ## Totals do not include sequences with X at any of the high-entropy sites
     print(" "*len(master),"%7d" % sum(cont_cnt['Global'].values()),
           " ".join(["%6d" % sum(cont_cnt[c].values()) for _,c,_ in Cxcx]),
-          "%6d"% sum(cnt.values()),"<----------- Totals" ) ## Totals
+          "%7d"% sum(cnt.values()),"<----------- Totals" ) ## Totals
 
     if args.colormut:
         svar = SpikeVariants.from_colormut(args.colormut,refseq=firstseq)
@@ -376,7 +372,7 @@ def main(args):
         print("%s %7d " % (sequtil.relativename(master,p),
                                cont_cnt["Global"][p]),end="")
         print(" ".join("%6d"% cont_cnt[c][p] for _,c,_ in Cxcx),end="")
-        print(" %6d" % cnt[p],end="")
+        print(" %7d" % cnt[p],end="")
 
         ## What is the context for this pattern
         if args.nomutlist:
