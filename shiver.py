@@ -354,12 +354,10 @@ def main(args):
     ## spike sequences would be
 
     ## But first lets build a way to map mutation patterns to lineage names
-    lineages = []
-
-    svar = SpikeVariants.from_colormut(args.colormut) if args.colormut \
+    svar = SpikeVariants.from_colormut(args.colormut,refseq=firstseq) \
+        if args.colormut \
         else SpikeVariants.default(refseq=firstseq)
-    lineages = list(svar.vocs)
-    vprint("lineages:",lineages)
+    vprint("lineages:",svar.vocs)
 
     variant_table = dict()
     cocktail_fasta = []
@@ -385,10 +383,10 @@ def main(args):
         vvprint(v,mutliststr)
 
         ## find best lineage name:
-        matched_voc_names = [voc.name for voc in lineages
-                             if MM.seq_fits_pattern(voc,v_fullseq)]
-        mut_lineage = "".join(f"({name})" for name in matched_voc_names)
-
+        mut_lineage = ",".join(voc.name for voc in svar.vocmatch(v_fullseq))
+        if mut_lineage:
+            mut_lineage = f"({mut_lineage})"
+            
         v_fullseq_name = name
 
         variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %s %s" % (
