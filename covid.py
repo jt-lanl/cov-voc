@@ -47,19 +47,20 @@ def get_isl(fullname):
 
 site_specifications = {
     "RBD"       : "330-521",
-    "NTD"       : "13-20,140-158,242-264",
-    "NTD-18"    : "13-17,19,20,140-158,242-264",
-    "NTD-13-18" : "14-17,19,20,140-158,242-264",
-    "NTD-13"    : "14-20,140-158,242-264",
-    "NTD-TRUNC" : "140-158,242-264",
-    "NTD+RBD"   : "13-20,140-158,242-264,330-521",
-    "NTD-13-18+RBD": "14-17,19,20,140-158,242-264,330-521",
-    "NTD-18+RBD": "13-17,19,20,140-158,242-264,330-521",
-    "NTD+6970-18+RBD" : "13-17,19,20,69,70,140-158,242-264,330-521",
-    "NTD+6970+RBD"    : "13-20,69,70,140-158,242-264,330-521",
+    "NTD"       : "14-292",
+    "NTDSS"       : "13-20,140-158,242-264",
+    "NTDSS-18"    : "13-17,19,20,140-158,242-264",
+    "NTDSS-13-18" : "14-17,19,20,140-158,242-264",
+    "NTDSS-13"    : "14-20,140-158,242-264",
+    "NTDSS-TRUNC" : "140-158,242-264",
+    "NTDSS+RBD"   : "13-20,140-158,242-264,330-521",
+    "NTSSD-13-18+RBD": "14-17,19,20,140-158,242-264,330-521",
+    "NTDSS-18+RBD": "13-17,19,20,140-158,242-264,330-521",
+    "NTDSS+6970-18+RBD" : "13-17,19,20,69,70,140-158,242-264,330-521",
+    "NTDSS+6970+RBD"    : "13-20,69,70,140-158,242-264,330-521",
     "NTDISH"    : "13,18,20,69,70,141,142,143,144,152,153,157,242,243,244,253,254,255,256,257,262",
     "RBDISH"    : "367,417,439,440,452,453,477,478,484,490,494,501,520,614",
-    "NTD-18+RBDPLUS" : "13-17,19,20,140-158,242-264,330-521,655,675,679,681",
+    "NTDSS-18+RBDPLUS" : "13-17,19,20,140-158,242-264,330-521,655,675,679,681",
 }
 def spike_sites(sitespec,remove=None):
     '''return a list of site numbers based on spec'''
@@ -174,8 +175,10 @@ def striplastchar(seqs):
         yield s
 
 def filter_seqs(seqs,args):
-    seqs = filter_seqs_by_pattern(seqs,args)
+    ## by date first so multiple runs will have the same date range
+    ## with --days option
     seqs = filter_seqs_by_date(seqs,args)
+    seqs = filter_seqs_by_pattern(seqs,args)
     seqs = fix_seqs(seqs,args)
     if args.verbose:
         seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
