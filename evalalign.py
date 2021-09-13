@@ -1,6 +1,8 @@
 '''Evaluate alignment by computing various summary statistics'''
 import sys
 import itertools as it
+from collections import Counter
+import scipy.stats as sst
 import argparse
 
 import covid
@@ -31,6 +33,12 @@ def count_dashes(seq,dash='-'):
             rcount += 1
     return dcount,rcount
 
+def xentropy(clist,keepx=False):
+    cnt = Counter(clist)
+    if not keepx:
+        cnt.pop('X',None)
+    return sst.entropy(list(cnt.values()))
+
 def _main(args):
     '''main'''
     vprint(args)
@@ -42,7 +50,18 @@ def _main(args):
         seqs = it.islice(seqs,args.N+1)
 
     dcnt,rcnt = count_dashes(first.seq)
-    print("Ref:",dcnt,rcnt)
+    vprint("Ref:",dcnt,rcnt)
+
+    seqs = list(seqs)
+    E = [xentropy(clist,keepx=args.keepx)
+         for clist in sequtil.gen_columns_seqlist(seqs)]
+    
+    sitelist = range(1,1+m_mgr.topsite)
+    ndxsites = [m_mgr.index_from_site(site) for site in sitelist]
+    esites = sum(E[n] for n in ndxsites)
+    eall = sum(E)
+    vprint("Entropy:",esites,eall)
+    
     stripseqs,seqs = it.tee(seqs)
     stripseqs = (s.copy() for s in stripseqs)
     stripseqs = sequtil.stripdashcols(first.seq,stripseqs)
@@ -62,13 +81,14 @@ def _main(args):
         inschr_sum += sum(len(ssm.mut) for ssm in mut if ssm.ref=='+')
         sub_sum += sum(1 for ssm in mut if ssm.mut != '-')
 
-    print("Nseq:",nseq)
-    print("d,r:",dcnt_sum/nseq,rcnt_sum/nseq)
-    print("ssm:",ssm_sum/nseq,ins_sum/nseq,inschr_sum/nseq,sub_sum/nseq)
-    print("d,r:",dcnt_sum,rcnt_sum)
-    print("ssm:",ssm_sum,ins_sum,inschr_sum,sub_sum)
+    vprint("Nseq:",nseq)
+    vprint("d,r:",dcnt_sum/nseq,rcnt_sum/nseq)
+    vprint("ssm:",ssm_sum/nseq,ins_sum/nseq,inschr_sum/nseq,sub_sum/nseq)
+    vprint("d,r:",dcnt_sum,rcnt_sum)
+    vprint("ssm:",ssm_sum,ins_sum,inschr_sum,sub_sum)
 
-    print(dcnt,rcnt,dcnt_sum,rcnt_sum,sub_sum,ins_sum,inschr_sum)
+    print("%d %d %d %d %d %d %d %.4f %.4f" %
+          (dcnt,rcnt,dcnt_sum,rcnt_sum,sub_sum,ins_sum,inschr_sum,esites,eall))
     
 
 if __name__ == "__main__":
