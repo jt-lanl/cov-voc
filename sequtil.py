@@ -1,6 +1,7 @@
 import sys
 import re
 import datetime
+from collections import Counter
 import numpy as np
 
 import readseq
@@ -37,6 +38,17 @@ def numpy_from_seqlist(seqlist):
     ## next line 1byte/character, use chr() to get characters back
     #x = np.asarray(np.vectorize(ord)(x),dtype=np.byte) 
     return x
+
+
+def mostcommonchar(clist):
+    '''return the most common item in the list'''
+    [(c,_)] = Counter(clist).most_common(1)
+    return c
+
+def consensus(seqlist):
+    '''create a consesnsus sequence from the sequence list'''
+    return "".join(mostcommonchar(clist)
+                   for clist in gen_columns_seqlist(seqlist))
 
     
 def relativename(master,mutant,matchchar="."):
