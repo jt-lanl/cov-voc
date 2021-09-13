@@ -46,34 +46,52 @@ def get_isl(fullname):
 
 
 site_specifications = {
-    "RBD"       : "330-521",
-    "NTD"       : "14-292",
-    "NTDSS"       : "13-20,140-158,242-264",
-    "NTDSS-18"    : "13-17,19,20,140-158,242-264",
-    "NTDSS-13-18" : "14-17,19,20,140-158,242-264",
-    "NTDSS-13"    : "14-20,140-158,242-264",
-    "NTDSS-TRUNC" : "140-158,242-264",
-    "NTDSS+RBD"   : "13-20,140-158,242-264,330-521",
-    "NTDSS-13-18+RBD": "14-17,19,20,140-158,242-264,330-521",
-    "NTDSS-18+RBD": "13-17,19,20,140-158,242-264,330-521",
-    "NTDSS+6970-18+RBD" : "13-17,19,20,69,70,140-158,242-264,330-521",
-    "NTDSS+6970+RBD"    : "13-20,69,70,140-158,242-264,330-521",
-    "NTDISH"    : "13,18,20,69,70,141,142,143,144,152,153,157,242,243,244,253,254,255,256,257,262",
-    "RBDISH"    : "367,417,439,440,452,453,477,478,484,490,494,501,520,614",
-    "NTDSS-18+RBDPLUS" : "13-17,19,20,140-158,242-264,330-521,655,675,679,681",
+    "RBD"         : "330-521",
+    "NTD"         : "14-292",
+    "NTDss"       : "13-20,140-158,242-264",
+    "NTDss_trunc" : "140-158,242-264",
+    "NTDish"      : "13,18,20,69,70,141-144,152,153,157,242-244,253-257,262",
+    "RBDish"      : "367,417,439,440,452,453,477,478,484,490,494,501,520,614",
+    "RBDplus"     : "330-521,655,675,679,681",
 }
-def spike_sites(sitespec,remove=None):
-    '''return a list of site numbers based on spec'''
-    sitespec = sitespec.upper()
-    if sitespec in site_specifications:
-        sitenums = intlist.string_to_intlist(site_specifications[sitespec])
-    else:
-        sitenums = intlist.string_to_intlist(sitespec)
-    if remove:
-        for r in remove:
-            sitenums.remove(r)
-            
-    return sitenums
+
+def spike_sites(sitespec):
+    '''return list of integers, site numbers, corresponding to sitespec string'''
+    ## sitespec may be of the form:
+    ##   '13-20,140-158' -- integer list
+    ##   'RBD' -- receptor binding domain 
+    ##   'NTD', 'NTDss' -- N-terminal domain (supersite)
+    ##   Combinations of the above using "+" and "-"
+    ##   'RBD+NTD' -- include sites in either domain
+    ##   'NTD-18' -- all sites in NTD except 18
+    ##   'RBD+18' -- all sites in RBD plus site 18
+    ## Problematic (don't do this, if you can avoid it):
+    ##   Because '-' can indicate a 'remove site' or can indicate a numeric range
+    ##   there are some unfortunate ambiguities
+    ##   'RBD+1-10' -- Ambiguous:
+    ##                 RBD plus 1 minus 10 /or/ RBD plus 1 through 10 ??
+    ##                 You should get RBD plus 1 thru 10, but be careful
+    ##    NTDss+69+70-18+RBD -- worse than ambiguous, will not include 70, will include 18
+    ##                          because "70-18" -> "" since it's an invalid range
+    ##    NTDss-18+69+70+RBD -- will give that right answer
+    ##    69-70+NTDss-18+RBD -- may give right answer, but awkward formulation
+    ##
+    site_specs_internal = {key.upper(): value for key,value in site_specifications.items()}
+    def get_intlist(s):
+        return intlist.string_to_intlist( site_specs_internal.get(s.upper(),s.upper()) )
+    xsite = set() ## set of sites to be excised
+    sites = set() ## set of sites to be included
+    for spec in sitespec.split('+'):
+        if re.match('\d.*',spec):
+            sites.update(get_intlist(spec))
+            continue
+        specx = spec.split('-')
+        sites.update(get_intlist(specx[0]))
+        for sx in specx[1:]:
+            xsite.update( get_intlist(sx) )
+    sites -= xsite
+    return sorted(sites)
+        
 
 CONTINENTS = ["United-Kingdom",
               "Europe-w/o-United-Kingdom",
