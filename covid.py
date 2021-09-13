@@ -78,11 +78,11 @@ def spike_sites(sitespec):
     ##
     site_specs_internal = {key.upper(): value for key,value in site_specifications.items()}
     def get_intlist(s):
-        return intlist.string_to_intlist( site_specs_internal.get(s.upper(),s.upper()) )
+        return intlist.string_to_intlist( site_specs_internal.get(s.upper(),s) )
     xsite = set() ## set of sites to be excised
     sites = set() ## set of sites to be included
     for spec in sitespec.split('+'):
-        if re.match('\d.*',spec):
+        if re.match(r'\d.*',spec):
             sites.update(get_intlist(spec))
             continue
         specx = spec.split('-')
