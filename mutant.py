@@ -61,6 +61,15 @@ class SiteIndexTranslator():
             ndxlist.extend( self.indices_from_site(site) )
         return ndxlist
 
+    def extra_chars_dict(self):
+        '''return a dict with the number of extra characters at a given site'''
+        xtrachars = dict()
+        for site in range(1,1+self.topsite):
+            nchars = self.index_from_site(site+1) - self.index_from_site(site)
+            if nchars > 1:
+                xtrachars[site] = nchars-1
+        return xtrachars
+
 class SingleSiteMutation():
     ''' eg, D614G is a single site mutation, so is +614ABC '''
     def __init__(self,initializer=None):
@@ -89,7 +98,7 @@ class SingleSiteMutation():
         mstring = mstring.strip()
         m = re.match(r"(.)(\d+)(.[A-Z-_]*)",mstring)  ## what's that second '.' doing?
         if not m:
-            raise RuntimeError(f"Mutation string /{mstring}/ invalid")
+            raise RuntimeError(f"SingleSiteMutation string /{mstring}/ invalid")
         self.ref = m[1]
         self.site = int(m[2])
         self.mut = m[3]
@@ -113,7 +122,6 @@ class SingleSiteMutation():
         '''
         equality test for single site mutations;
         '''
-        ## i'm a little worried that this defn is too loose
         if self.as_tuple() == other.as_tuple():
             return True
         return False
@@ -403,6 +411,8 @@ class MutationManager(SiteIndexTranslator):
 
     def seq_from_mutation(self,mut,prescriptive=True):
         '''return sequence that is mutated version of refseq'''
+        ## note: insertions at the head of the sequence will
+        ## trigger an error; eg, [+0ABC]
         mutseq = list(self.refseq)
         for ssm in mut:
             ndx = self.index_from_site(ssm.site)
@@ -432,7 +442,13 @@ class MutationManager(SiteIndexTranslator):
                 else:
                     mutseq[ndx] = "&"
             else:
-                mutseq[ndx] = ssm.mut
+                try:
+                    mutseq[ndx] = ssm.mut
+                except IndexError as e:
+                    print("ssm,site,topsite,ndx,len(mutseq)=",
+                          ssm,ssm.site,self.topsite,
+                          ndx,len(mutseq))
+                    raise IndexError(e)
         mutseq = "".join(mutseq)
         return mutseq
 
