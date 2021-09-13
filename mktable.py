@@ -22,6 +22,8 @@ def _getargs():
         help="mutant mstring; eg, [Q414K,D614G,T716I]")
     paa("--pango","-p",
         help="name of Pango lineage; eg, B.1.1.7")
+    paa("--nopango",action="store_true",
+        help="do no pango lineage computation")
     paa("-N",type=int,default=0,
         help="for debugging purposes, only look at first N sequences in datafile")
     paa("--verbose","-v",action="count",default=0,
@@ -84,9 +86,12 @@ def get_lineage_from_name(name):
 
 def pango_seqs(seqs,pango):
     '''return an iterator of seqs whose names indicate the pango type'''
-    for s in seqs:
-        if pango == get_lineage_from_name(s.name):
-            yield s
+    if not pango:
+        yield from []
+    else:
+        for s in seqs:
+            if pango == get_lineage_from_name(s.name):
+                yield s
 
 def mstring_seqs(seqs,MM,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
@@ -194,6 +199,8 @@ def _main(args):
     if args.pmfile:
         header_yet=False
         for pango,mstring in read_input_file(args.pmfile):
+            if args.nopango:
+                pango=""
             row = get_row(seqs,MM,pango,mstring)
             if not header_yet:
                 print(format_row(row,header=True))
