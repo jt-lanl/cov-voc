@@ -2,6 +2,7 @@ import sys
 import re
 from collections import defaultdict,Counter
 import matplotlib.pyplot as plt
+import random
 import datetime
 import argparse
 
@@ -20,8 +21,8 @@ def getargs():
     covid.corona_args(ap)
     paa("--weekly",action="store_true",
         help="Make weekly average plots instead of cumulative")
-    paa("--daily",action="store_true",
-        help="Make daily plots instead of cumulative")
+    paa("--daily",type=int,default=7,
+        help="daily=1 for daily, daily=7 (default) for weekly, daily=0 for cumulative")
     paa("--lineplot",action="store_true",
         help="Make log-linear line plot instead of linear stacked bar plot")
     paa("--onsets",action="store_true",
@@ -33,15 +34,24 @@ def getargs():
     paa("--verbose","-v",action="count",
         help="verbosity")
     args = ap.parse_args()
+    if args.weekly:
+        warnings.warn("'--weekly' deprecated: weekly is now default")
     if (args.daily and args.weekly):
-        raise RuntimeError("Pick only one of daily or weekly")
+        raise RuntimeError("'--weekly' deprecated; use '--daily 1' for daily, "
+                           "default is '--daily 7' which is weekly")
+    
     return args
 
 
-def date_fromiso(s):
+def xdate_fromiso(s):
     return sequtil.date_fromiso(s)
 
-def old_date_fromiso(s):
+def days_in_month(yyyy,mm):
+    # https://stackoverflow.com/questions/42950/how-to-get-the-last-day-of-the-month
+    next_month = datetime.date(int(yyyy),int(mm),28) + datetime.timedelta(days=4)
+    return (next_month - datetime.timedelta(days=next_month.day)).day
+
+def date_fromiso(s):
     if type(s) == datetime.date:
         return s
     try:
@@ -53,12 +63,11 @@ def old_date_fromiso(s):
             return None
         try:
             yyyy,mm = s.split("-")
-            dt = datetime.date(int(yyyy),int(mm),15)
-            #print("s=",s,"dt=",dt)
+            day = random.randint(1,days_in_month(yyyy,mm))
+            dt = datetime.date(int(yyyy),int(mm),day)
             return dt
-        except ValueError:
-            if s == ".":
-                return None
+        except ValueError as e:
+            return None
     return None #raise RuntimeError(f"Invalid Date {s}")
 
 
@@ -101,26 +110,30 @@ def get_daterange(datecounter,argsdates):
 
 def main(args):
     seqs = covid.read_seqfile(args)
-    seqs = covid.filter_seqs(seqs,args)
+    ## filter by country, but not by date
+    seqs = covid.filter_seqs_by_pattern(seqs,args)
+    seqs = covid.fix_seqs(seqs,args)
     seqs = covid.checkseqlengths(seqs)
 
-    colors = {OTHER       : 'LightGrey',
-              'B.1.1.7'   : 'Orange', #Alpha
-              'B.1.351'   : 'Plum', #Beta
-              'P.1'       : 'FireBrick', #Gamma
-              'C.37'      : 'Green', #Lambda
-              'B.1.621'   : 'Cyan',
-              'B.1.617.2' : 'BlueViolet', #Delta
-              'AY.[0-9]+'      : 'Orchid',
-              #'AY.2'      : 'LightPink',
-              #'B.1.619'   : 'Indigo',
-              #'B.1.620'   : 'CadetBlue',
-#              'AY.3'      : 'Red',
-    }
-    patterns = list(colors)
-    for p in patterns:
-        colors[p] = colornames.tohex(colors[p])
-              
+    table = [
+        ('other',   OTHER,                    'LightGrey'),
+        ('Alpha',  'B.1.1.7',                 'Orange'),
+        ('Beta',   'B.1.351',                 'Plum'),
+        ('Gamma',  'P.1.*',                   'FireBrick'),
+        ('Delta',  '(B.1.617.2)|(AY.[0-9]+)', 'BlueViolet'),
+        ('Lambda', 'C.37',                    'Green'),
+        ('Mu',     'B.1.621(.1)?',            'Black'),
+    ]
+
+    patterns = []
+    colors = dict()
+    fullnames = dict()
+
+    for name,patt,color in table:
+        colors[patt] = colornames.tohex(color)
+        patterns.append(patt)
+        fullnames[patt] = name
+    
     DG_datecounter = {m: Counter() for m in patterns} 
     for s in seqs:
 
@@ -132,7 +145,8 @@ def main(args):
             print("bad seqdate:",seqdate)
             continue
 
-        vocmatch = [voc for voc in patterns[1:] if re.search(r'\.'+voc+'$',s.name)]
+        vocmatch = [voc for voc in patterns[1:]
+                    if re.search(r'\.'+voc+'$',s.name)]
         for voc in vocmatch:
             DG_datecounter[voc][seqdate] += 1
         if not vocmatch:
@@ -156,21 +170,21 @@ def main(args):
     Ndays = ordmax+1-ordmin
     vprint("Days:",Ndays,ordmin,ordmax)
    
-    DG_cum=defaultdict(list)
+    DG_cum={m: list() for m in patterns} #defaultdict(list)
     for ord in range(ordmin,ordmax+1):
         day = datetime.date.fromordinal(ord)
         for m in DG_datecounter:
             DG_cum[m].append( sum(DG_datecounter[m][dt] for dt in DG_datecounter[m] if dt <= day ) )
 
-    if args.weekly or args.daily: ## Weekly averages:
-        DAYSPERWEEK=7 if args.weekly else 1
+    if args.daily: ## daily=7 (default) for weekly averages
+        DAYSPERWEEK=args.daily
         DG_weekly=dict()
         for m in DG_cum:
             DG_weekly[m] = DG_cum[m][:]
             for n in range(DAYSPERWEEK,Ndays):
                 DG_weekly[m][n] = DG_cum[m][n] - DG_cum[m][n-DAYSPERWEEK]
             DG_cum[m] = DG_weekly[m]
-
+            
     ## Only keep data that is within the specified date range
     ## That way, automatic scaling on the y-axis will be based on available data
     if args.dates:
@@ -184,7 +198,7 @@ def main(args):
         Ndays = ordplotmax+1-ordmin
 
     for f in (False,True):
-        embersplot.embersplot(DG_cum,None,colors,ordmin,
+        embersplot.embersplot(DG_cum,fullnames,colors,ordmin,
                               ordplotrange = (ordplotmin,ordplotmax),
                               title = covid.get_title(args) + ": %d sequences" % (nmatches,),
                               legend=1,fraction=f,lineplot=args.lineplot)
@@ -195,7 +209,10 @@ def main(args):
         linbar = "line" if args.lineplot else "bar"
         if args.output:
             fc = "f" if f else "c"
-            wk = "wk" if args.weekly else "dy"
+            wk = "wk" if args.daily==7 \
+                else "dy" if args.daily == 1 \
+                     else "cm"
+            
             plt.savefig("-".join([fc,wk,linbar,args.output]))
 
     if not args.output:
