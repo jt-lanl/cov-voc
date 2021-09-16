@@ -39,11 +39,60 @@ def corona_args(ap):
 
     return
 
+#### Routines for parsing sequence names 
+
 def get_isl(fullname):
+    '''return EPI_ISL number from the sequence name'''
     epi_patt = re.compile(r"EPI_ISL_\d+")
     g = epi_patt.search(fullname)
     return g[0] if g else "X"
 
+def date_fromiso(s):
+    if type(s) == datetime.date:
+        return s
+    try:
+        yyyy,mm,dd = s.split("-")
+        dt = datetime.date(int(yyyy),int(mm),int(dd))
+        return dt
+    except ValueError:
+        if s == ".":
+            return None
+        return None #raise RuntimeError(f"Invalid Date {s}")
+
+def date_from_seqname(s):
+    datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
+    return date_fromiso(datestring)
+    
+def add_date_attribute(seqlist):
+    for s in seqlist:
+        s.date = date_from_seqname(s.name)
+
+def count_bad_dates(seqlist):
+    return(sum(date_from_seqname(s) is None for s in seqlist))
+
+def range_of_dates(seqlist):
+    dates = [date_from_seqname(s) for s in seqlist]
+    dates = [d for d in dates if d is not None]
+    return min(dates).isoformat(),max(dates).isoformat()
+
+def filter_by_date(seqs,fromdate,todate,keepfirst=False):
+    '''input seqs is iterable (list or iterator); output is generator'''
+
+    f_date = date_fromiso(fromdate)
+    t_date = date_fromiso(todate)
+
+    for n,s in enumerate(seqs):
+        if keepfirst and n == 0:
+            yield s
+            continue
+        d = date_from_seqname(s)
+        if not d:
+            continue
+        if f_date and f_date > d:
+            continue
+        if t_date and t_date < d:
+            continue
+        yield s
 
 site_specifications = {
     "RBD"         : "330-521",
@@ -139,27 +188,15 @@ def summarizeseqlengths(seqlist,args):
             print(clen[l],"sequences of length",l,file=sys.stderr)
     if len(clen)>1:
         warnings.warn("Not all sequences are the same length")
-    
 
-def get_first_item(items,putitemback=True):
-    '''get first item in iterable, and and put it back'''
-    if isinstance(items,list):
-        first = items[0]
-        if not putitemback:
-            items = items[1:]
-    else:
-        first = next(items)
-        if putitemback:
-            items = itertools.chain([first],items)
-    return first,items
-        
-def checkseqlengths(seqs):
-    first,seqs = get_first_item(seqs)
-    seqlen = len(first.seq)
-    for s in seqs:
-        if len(s.seq) != seqlen:
-            raise RuntimeError(f"Sequence {s.name} has inconsistent length: {len(s.seq)} vs {seqlen}")
-        yield s
+
+def get_first_item(items,keepfirst=True):
+    '''
+    get first item in iterable, and and put it back;
+    works when the iterable is a list or an iterator
+    '''
+    warnings.warn("use sequtil.get not covid.get")
+    return sequtil.get_first_item(items,keepfirst=keepfirst)
 
 def read_filter_seqfile(args,**kwargs):
     seqs = read_seqfile(args,**kwargs)
@@ -172,9 +209,10 @@ def read_seqfile(args,**kwargs):
         seqs = wrapgen.keepcount(seqs,"Sequences read:")
     return seqs
 
+
 def fix_seqs(seqs,args):
 
-    firstseq,seqs = get_first_item(seqs)
+    firstseq,seqs = sequtil.get_first_item(seqs)
 
     if "-" in firstseq.seq and args.stripdashcols:
         seqs = sequtil.stripdashcols(firstseq.seq,seqs)
@@ -206,8 +244,8 @@ def filter_seqs(seqs,args):
 def xrepair(seqs,X='X'):
     '''replace all occurrences of X with the ancestral form in first sequence'''
     ## This seems dangerous!! Use with care ... or not at all.
-    first,seqs = get_first_item(seqs)
-    yield first
+    first,seqs = sequtil.get_first_item(seqs)
+    ref = first.seq
     for s in seqs:
         if X in s.seq:
             ss = list(s.seq)
@@ -226,13 +264,13 @@ def filter_seqs_by_date(seqs,args):
 
     if args.days:
         seqs = list(seqs)
-        _,lastdate = sequtil.range_of_dates(seqs)
-        t = sequtil.date_fromiso(lastdate) ## not: datetime.date.today()
+        _,lastdate = range_of_dates(seqs)
+        t = date_fromiso(lastdate) ## not: datetime.date.today()
         f = t - datetime.timedelta(days=args.days)
         args.dates = f,t
 
     if args.dates:
-        seqs = sequtil.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
+        seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
         
     return seqs
 

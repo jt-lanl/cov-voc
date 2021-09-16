@@ -1,14 +1,17 @@
-import sys
+'''utilities for seqs; where seqs is a list of SequenceSample's'''
+
 import re
-import datetime
+import itertools
 from collections import Counter
 import numpy as np
 
-import readseq
+
+from seqsample import SequenceSample
 
 def copy_seqlist(seqlist):
+    '''return a 'deep' copy of the sequence list'''
     ## nb, only copies .name and .seq attributes
-    return [readseq.SequenceSample(s.name,s.seq) for s in seqlist]
+    return [SequenceSample(s.name,s.seq) for s in seqlist]
 
 def gen_columns_seqlist(seqlist):
     '''generator that produces columns,
@@ -18,8 +21,11 @@ def gen_columns_seqlist(seqlist):
     return zip(*[s.seq for s in seqlist])
 
 def getcolumn(seqs,n,keepx=False):
-    ''' return list of aa's at given site number (column) Equiv: multicolumn(seqs,[n],keepx=keepx)'''
-    ## note, site number is one + zero-based index; so n-1 is index of s.seq
+    '''
+    return list of aa's at given column index
+    Equiv: multicolumn(seqs,[n],keepx=keepx)
+    '''
+    ## note, site number is one + zero-based index; so n+1 is site number
     if keepx:
         return [s.seq[n] for s in seqs]
     else:
@@ -32,11 +38,12 @@ def multicolumn(seqs,nlist,keepx=False):
         aaslist = [aas for aas in aaslist if "X" not in aas]
     return aaslist
 
+
 def numpy_from_seqlist(seqlist):
     ''' Experimental!'''
     x = np.array([list(s.seq) for s in seqlist])
     ## next line 1byte/character, use chr() to get characters back
-    #x = np.asarray(np.vectorize(ord)(x),dtype=np.byte) 
+    #x = np.asarray(np.vectorize(ord)(x),dtype=np.byte)
     return x
 
 
@@ -50,7 +57,7 @@ def consensus(seqlist):
     return "".join(mostcommonchar(clist)
                    for clist in gen_columns_seqlist(seqlist))
 
-    
+
 def relativename(master,mutant,matchchar="."):
     '''Mutant with blanks(matchchar's) for matches against a master;
     eg, master="ABC", mutant="ABD", then output="..D"
@@ -60,8 +67,35 @@ def relativename(master,mutant,matchchar="."):
         s += matchchar if a==b else b
     return s
 
+def get_first_item(items,keepfirst=True):
+    '''
+    get first item in an iterable, and return item,iterable
+    if keepfirst, then first item remains in iterable
+    note that the iterable can be a list or an iterator
+    returned iterable will be list or iterator, depending on input
+    '''
+    if isinstance(items,list):
+        first = items[0]
+        if not keepfirst:
+            items = items[1:]
+    else:
+        first = next(items)
+        if keepfirst:
+            items = itertools.chain([first],items)
+    return first,items
+
+def checkseqlengths(seqs):
+    '''ensure that all sequences are of the same length'''
+    first,seqs = get_first_item(seqs)
+    seqlen = len(first.seq)
+    for s in seqs:
+        if len(s.seq) != seqlen:
+            raise RuntimeError(f"Sequence {s.name} has inconsistent length: "
+                               "{len(s.seq)} vs {seqlen}")
+        yield s
+
 def str_indexes(s,c):
-    '''similar to s.index(c) but finds /all/ indexes n such that s[n]==c; 
+    '''similar to s.index(c) but finds /all/ indexes n such that s[n]==c;
     return list of n's '''
     ## equiv one-liner: [m.span(0)[0] for m in re.finditer(c,s)]
     ## and yes i know the plural of index is indices
@@ -75,9 +109,9 @@ def str_indexes(s,c):
         except ValueError:
             break
     return ndx
-    
+
 def stripdashcols(master,seqs,dashchar="-"):
-    '''strips positions from each sequence in seqs array, 
+    '''strips positions from each sequence in seqs array,
     based on dashes in master sequence'''
     ndx = str_indexes(master,dashchar)
     keep = [n for n in range(len(master)) if n not in ndx]
@@ -85,154 +119,100 @@ def stripdashcols(master,seqs,dashchar="-"):
         s.seq = "".join(s.seq[n] for n in keep)
         yield s
 
-## date-based utilities
+def get_gap_columns(seqs,dashchar='-'):
+    '''find indexes associated with gap-only columns'''
+    ## ie, indices such that s.seq[n]==dashchar for all s in seqs
+    first,seqs = get_first_item(seqs)
+    dashindexes = str_indexes(first.seq,dashchar)
+    for s in seqs:
+        dashindexes = [n for n in dashindexes if s.seq[n]==dashchar]
+        if not dashindexes:
+            break
+    return dashindexes
 
-def date_fromiso(s):
-    if type(s) == datetime.date:
-        return s
-    try:
-        yyyy,mm,dd = s.split("-")
-        dt = datetime.date(int(yyyy),int(mm),int(dd))
-        return dt
-    except ValueError:
-        if s == ".":
-            return None
-        return None #raise RuntimeError(f"Invalid Date {s}")
+def remove_gap_columns(seqs,dashchar='-'):
+    '''remove the gap-only columns'''
+    seqs = list(seqs) ## to ensure get_gap_column() doesn't consume seqs
+    dashindexes = get_gap_columns(seqs,dashchar=dashchar)
+    first,seqs = get_first_item(seqs)
+    keepndx = [n for n in range(len(first.seq)) if n not in dashindexes]
+    for s in seqs:
+        s.seq = "".join(s.seq[n] for n in keepndx)
+    return seqs
 
-def date_from_seqname(s):
-    datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
-    return date_fromiso(datestring)
-    
-def add_date_attribute(seqlist):
-    for s in seqlist:
-        s.date = date_from_seqname(s.name)
-
-def count_bad_dates(seqlist):
-    return(sum(date_from_seqname(s) is None for s in seqlist))
-
-def range_of_dates(seqlist):
-    dates = [date_from_seqname(s) for s in seqlist]
-    dates = [d for d in dates if d is not None]
-    return min(dates).isoformat(),max(dates).isoformat()
-
-def filter_by_date(seqs,fromdate,todate,keepfirst=False):
-    '''input is iterable (list or iterator); output is generator'''
-
-    f_date = date_fromiso(fromdate)
-    t_date = date_fromiso(todate)
-
-    for n,s in enumerate(seqs):
-        if keepfirst and n == 0:
-            yield s
-            continue
-        d = date_from_seqname(s)
-        if not d:
-            continue
-        if f_date and f_date > d:
-            continue
-        if t_date and t_date < d:
-            continue
-        yield s
-
-def filter_by_pattern(seqs,pattern,keepfirst=False,ignorecase=True):
-
-    if "Global" == pattern: ## should test in calling routine
-        yield from seqs
-    
-    flags = re.I if ignorecase else 0        
-    for n,s in enumerate(seqs):
-        if keepfirst and n == 0:
-            yield s
-            continue
-        if re.search(pattern,s.name,flags):
-            yield s
-
+######################## Filter based on pattens in the name of seq
 
 def filter_by_patternlist(seqs,patternlist,
                           keepfirst=False,ignorecase=True):
+    '''
+    return an iterator of SequenceSample's that match
+    any of the patterns in the patternlist
+    '''
 
     if "Global" in patternlist: ## should test in calling routine
         yield from seqs
-    
-    flags = re.I if ignorecase else 0        
-    for n,s in enumerate(seqs):
-        if keepfirst and n == 0:
-            yield s
-            continue
-        if any(re.search(pattern,s.name) for pattern in patternlist):
-            yield s
 
-    
-def filter_by_pattern_exclude(seqs,pattern,keepfirst=False):
-    for n,s in enumerate(seqs):
-        if keepfirst and n == 0:
-            yield s
-            continue
-        if not re.search(pattern,s.name):
+    flags = re.I if ignorecase else 0
+    if keepfirst:
+        first,seqs = get_first_item(seqs,keepfirst=False)
+        yield first
+    for s in seqs:
+        if any(re.search(pattern,s.name,flags)
+               for pattern in patternlist):
             yield s
 
 def filter_by_patternlist_exclude(seqs,patternlist,keepfirst=False):
-    for n,s in enumerate(seqs):
-        if keepfirst and n == 0:
+    '''
+    return an iterator of SequenceSample's that do not match
+    any of the patterns in the patternlist
+    '''
+    if keepfirst:
+        first,seqs = get_first_item(seqs,keepfirst=False)
+        yield first
+    for s in seqs:
+        if not any(re.search(pattern,s.name)
+                   for pattern in patternlist):
             yield s
-            continue
-        if not any(re.search(pattern,s.name) for pattern in patternlist):
-            yield s
-            
-def mutantlist(reference,variant,returnstring=False,badchar=None):
-    '''return a list of mutations, of the form "AnB", where ref[n-1]=A and var[n-1]=B and n is site number'''
-    warnings.warn("sequtil.mutantlist() is deprecated use MutationManager.get_mutation()")
-    assert( len(reference) == len(variant) )
-    mutants = []
-    for i,(ref,var) in enumerate(zip(reference,variant),start=1):
-        if ref != var and var != badchar:
-            mutants.append( ref + str(i) + var )
-    if returnstring:
-        mutants = "["+",".join(mutants)+"]"
-    return mutants
-    
+
+def filter_by_pattern(seqs,pattern,**kwargs):
+    '''
+    return an iterator of SequenceSample's that match the pattern
+    '''
+    return filter_by_patternlist(seqs,[pattern],**kwargs)
+
+def filter_by_pattern_exclude(seqs,pattern,**kwargs):
+    '''
+    return an iterator of SequenceSample's that do not match the pattern
+    '''
+    return filter_by_patternlist_exclude(seqs,pattern,**kwargs)
 
 if __name__ == "__main__":
 
+    import sys
     import argparse
+    import readseq
+
     def getargs():
         ap = argparse.ArgumentParser()
         paa = ap.add_argument
         paa("--input","-i",
             help="input fasta file")
-        paa("--range",nargs=2,
-            help="range of two dates, in yyyy-mm-dd format")
         paa("--verbose","-v",action="count",default=0,
             help="verbose")
         args = ap.parse_args()
         return args
 
-    args = getargs()
+    xargs = getargs()
     def vprint(*p,**kw):
-        if args.verbose:
+        if xargs.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
     def vvprint(*p,**kw):
-        if args.verbose>1:
+        if xargs.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
-
-    if args.input:
-        seqlist = readseq.read_seqfile(args.input)
-        print("seqlist:",type(seqlist))
-        seqlist = list(seqlist)
-        print("seqlist:",type(seqlist))
-        print("Sequences:",len(seqlist))
-
-        print("Bad dates:",count_bad_dates(seqlist))
-
-        if args.range:
-            seqlist = filter_by_date(seqlist,args.range[0],args.range[1],
-                                     keepfirst=True)
-            print("Sequences:",len(seqlist)-1,"in date range:",args.range)
-
-            
-        
-
-
-    
-
+    if xargs.input:
+        sequences = readseq.read_seqfile(xargs.input)
+        print("sequences:",type(sequences))
+        sequences = list(sequences)
+        print("sequences:",type(sequences))
+        print("Sequences:",len(sequences))
