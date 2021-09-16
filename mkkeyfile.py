@@ -6,6 +6,7 @@ import argparse
 import matplotlib.pyplot as plt
 
 from spikevariants import SpikeVariants
+import sequtil
 import covid
 
 def _getargs():
@@ -54,7 +55,7 @@ def _main(args):
     vprint(args)
 
     seqs = covid.read_filter_seqfile(args)
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
     if args.colormut:
         svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
