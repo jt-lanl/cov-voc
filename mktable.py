@@ -7,7 +7,9 @@ import re
 import itertools as it
 from collections import Counter
 import argparse
+import warnings
 
+import sequtil
 import covid
 import mutant
 
@@ -72,7 +74,8 @@ ColumnHeaders = {
                                 "contain this pattern",
     PangoPatternInclusiveFraction: "Fraction of sequences in the Pango lineage that " \
                                 "contain this pattern",
-    
+    'CountriesPatternFull': "Countries that exactly match this pattern",
+    'CountriesPatternInclusive': "Countries that contain this pattern",    
 }
 
 def column_header(column_name):
@@ -83,6 +86,15 @@ def column_header(column_name):
 def get_lineage_from_name(name):
     '''get pango lineage by parsing the sequence name'''
     return re.sub(r".*EPI_ISL_\d+\.","",name)
+
+def get_country_from_name(name):
+    '''get name of country from sequence name'''
+    return get_region_from_name(2,name)
+
+def get_region_from_name(level,name):
+    '''return the name of the region (based on level) in the full sequence name'''
+    m = name.split(".")
+    return m[level] if m else None    
 
 def pango_seqs(seqs,pango):
     '''return an iterator of seqs whose names indicate the pango type'''
@@ -161,6 +173,13 @@ def get_row(seqs,MM,pango,mstring):
                 column_name = "PatternFull" if exact else "PatternInclusive"
                 row["LineagesMatch" + column_name] = str_lineages
 
+                countries = [get_country_from_name(s.name) for s in matched_seqs]
+                cnt_countries = Counter(countries)
+                sorted_countries = sorted(cnt_countries,key=cnt_countries.get,reverse=True)
+                str_countries = ",".join("%s(%d)" % (c,cnt_countries[c])
+                                         for c in sorted_countries[:3])
+                row["Countries" + column_name] = str_countries
+
     return row
 
 def format_row(row,header=False,sepchar='\t'):
@@ -184,7 +203,7 @@ def _main(args):
         ## just grab the first N (for debugging w/ shorter runs)
         seqs = it.islice(seqs,args.N+1)
 
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
     firstseq = first.seq
 
     MM = mutant.MutationManager(firstseq)
