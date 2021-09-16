@@ -91,7 +91,7 @@ def main(args):
 
     last_days = f" in the last {args.days} days from our last update," if args.days else ""
     print(f"This output is based on sequences sampled{last_days} from %s to %s." \
-          % sequtil.range_of_dates(seqlist))
+          % covid.range_of_dates(seqlist))
 
     firstseq = seqlist[0].seq
 

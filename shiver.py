@@ -408,7 +408,7 @@ def main(args):
     print(TGM_STRATEGY[TGM])
     print()
     print("This run uses sequences sampled from %s to %s."
-          % sequtil.range_of_dates(pattseqs))
+          % covid.range_of_dates(pattseqs))
     if args.filterbyname:
         print("Filtered by geographic region(s):","+".join(args.filterbyname))
     if args.xfilterbyname:

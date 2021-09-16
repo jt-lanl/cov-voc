@@ -229,7 +229,7 @@ def main(args):
 
     print(f"Evaluating {N} sequences of length {M}")
     print("Sampled from %s to %s."
-          % sequtil.range_of_dates(seqs))
+          % covid.range_of_dates(seqs))
     if args.dates:
         print("Specified Date Range:",args.dates)
 
