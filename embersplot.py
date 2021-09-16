@@ -108,6 +108,10 @@ def embersplot(counts,
     if fraction and not lineplot:
         plt.ylim([0,1.05])
 
+    #if fraction:
+    #    plt.yticks([0.0001,0.001,0.01,0.1,1])
+    #    plt.yticks([0.0001,0.01,1])
+
     if legend:
         plt.legend(bbox_to_anchor=(1.02, 1),
                    #handlelength=3,
@@ -128,11 +132,11 @@ def embersplot(counts,
     xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
     xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
     xlabels = [date_friendly(dt) for dt in xlabels]
-    if len(xlabels) > 16:
-        xlabels = half_labels(xlabels)
-    plt.xticks(xticks,xlabels,fontsize='small',
+    nhalf = 1 + len(xlabels)//16
+    if nhalf>1:
+        xlabels = half_labels(xlabels,nhalf)
+    plt.xticks(xticks,xlabels,fontsize='medium', ## was small
                rotation=45,ha='right',position=(0,0.01))
-    #plt.xlabel("Date (2020)")
 
     if onsets:
         ylo,yhi = plt.gca().get_ylim()
@@ -163,6 +167,7 @@ def embersplot(counts,
 
         plt.gca().yaxis.set_major_formatter(mpl.ticker.FuncFormatter(ytickformat))
 
+    plt.yticks(fontsize=12)
 
     plt.tight_layout()
     if show:
