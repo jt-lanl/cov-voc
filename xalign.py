@@ -5,12 +5,14 @@ from collections import Counter,defaultdict
 from functools import lru_cache
 import itertools as it
 import argparse
+from tqdm import tqdm
 
 import skbio
 #from blosum50 import blosum50
 
 from seqsample import SequenceSample
 import readseq
+import sequtil
 import covid
 import mutant
 import nw_align as nw
@@ -22,10 +24,8 @@ def _getargs():
     paa = argparser.add_argument
     paa("-N",type=int,default=0,
         help="only read in the first N sequences")
-    paa("-m",type=int,default=1,
-        help="re-align the m most common sequences")
-    paa("--window","-w",type=int,default=0,
-        help="window size for NW alignment")
+    paa("--consensus","-c",action="store_true",
+        help="align to consensus instead of to first sequence")
     paa("--dedash",action="store_true",
         help="remove dashes from sequences")
     paa("--output","-o",
@@ -75,20 +75,28 @@ def align_seqs(fseq,cseq):
         xcseq = "-"*(fs-cs) + cseq[:cs] + xcseq + cseq[1+ce:]
 
     else:
-
         ## IDEA
         ## use NW algorithm to re-align the "head" and "tail"
         ## ok that NW is slow because these are short fragments
         ## and since short, NW can probably be cached
+        fpre,cpre = '',''
         if fs or cs:
             fpre,cpre = nwalign(fseq[:fs],cseq[:cs])
-            xfseq = fpre + xfseq + fseq[1+fe:]
-            xcseq = cpre + xcseq + cseq[1+ce:]
+        fpost,cpost = '',''
         if 1+fe < len(fseq) or 1+ce < len(cseq):
             fpost,cpost = nwalign(fseq[1+fe:],cseq[1+ce:])
-            xfseq = xfseq + fpost
-            xcseq = xcseq + cpost
-    
+
+        xfseq = fpre + xfseq + fpost
+        xcseq = cpre + xcseq + cpost
+        
+        if len(xfseq) != len(xcseq):
+            ## pad with dashes
+            xfseq = xfseq + "-"*(len(xcseq)-len(xfseq))
+            xcseq = xcseq + "-"*(len(xfseq)-len(xcseq))
+        if len(xfseq) != len(xcseq):
+            print("f:",len(xfseq),xfseq[:3],xfseq[-3:])
+            print("c:",len(xcseq),xcseq[:3],xcseq[-3:])
+            assert 0
     return xfseq,xcseq
 
 @lru_cache(maxsize=None)
@@ -100,6 +108,13 @@ def seq_to_mut(fseq,cseq):
     '''align cseq to fseq, then express cseq as an m-string, relative to aligned xfseq'''
     xfseq,xcseq = align_seqs(fseq,cseq)
     mut = get_manager(xfseq).get_mutation(xcseq)
+    if len(dedash(xfseq)) > len(fseq):
+        print(xfseq)
+        print(dedash(xfseq))
+        print(fseq)
+        assert 0
+    #if len(mut):
+    #    print("max site:",max(ssm.site for ssm in mut),"vs",len(dedash(xfseq)),len(fseq))
     return mut
 
 def update_xtrachars(mut,xtras):
@@ -126,7 +141,7 @@ def _main(args):
     if args.N:
         seqs = it.islice(seqs,args.N+1)
         
-    first, seqs = covid.get_first_item(seqs)
+    first, seqs = sequtil.get_first_item(seqs)
     refseq = first.seq
 
     outputseqs = []
@@ -134,9 +149,17 @@ def _main(args):
         if args.output:
             outputseqs.append(SequenceSample(name,seq))
 
+
+    if args.consensus:
+        seqs = list(seqs)
+        vprint("getting consensus...")
+        refseq = sequtil.consensus(seqs[1:])
+        seqs[0] = SequenceSample("cons",refseq)
+        vprint("Consensus defined...")
+
     xtras = dict()
             
-    for s in seqs:
+    for s in seqs: #tqdm(seqs):
         mut = seq_to_mut(refseq,s.seq)
         ssappend(s.name,mut) ## abusing SequenceSample structure
         update_xtrachars(mut,xtras)
@@ -151,7 +174,7 @@ def _main(args):
         try:
             ## convert 'abused' s.seq as mut into an actual sequence
             s.seq = m_mgr.seq_from_mutation(s.seq)
-        except TypeError as e:
+        except (IndexError,TypeError) as e:
             ## possible error: if mut includes [+0ABC]
             print("name:",s.name)
             print("oldmut:",oldmut)
