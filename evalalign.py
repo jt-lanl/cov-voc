@@ -43,7 +43,7 @@ def _main(args):
     '''main'''
     vprint(args)
     seqs = covid.read_filter_seqfile(args)
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
     m_mgr = mutant.MutationManager(first.seq)
 
     if args.N:
