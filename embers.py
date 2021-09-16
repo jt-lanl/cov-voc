@@ -148,7 +148,7 @@ def main(args):
     args.keepx = False
     seqs = covid.read_filter_seqfile(args)
     args.keepx = args_keepx
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
     if args.colormut:
         svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)

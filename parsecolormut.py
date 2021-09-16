@@ -11,6 +11,7 @@ import warnings
 
 from spikevariants import SpikeVariants
 import wrapgen
+import sequtil
 import covid
 import colornames
 
@@ -65,7 +66,7 @@ def main(args):
     if args.N:
         seqs = it.islice(seqs,args.N+1)
 
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
     svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
 
