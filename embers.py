@@ -270,7 +270,7 @@ def main(args):
         if not args.keepx and "X" in s.seq:
             raise RuntimeError("X's should have already been filtered out")
 
-        seqdate = sequtil.date_from_seqname(s)
+        seqdate = covid.date_from_seqname(s)
         if not seqdate:
             continue
 
