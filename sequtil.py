@@ -184,7 +184,7 @@ def filter_by_pattern_exclude(seqs,pattern,**kwargs):
     '''
     return an iterator of SequenceSample's that do not match the pattern
     '''
-    return filter_by_patternlist_exclude(seqs,pattern,**kwargs)
+    return filter_by_patternlist_exclude(seqs,[pattern],**kwargs)
 
 if __name__ == "__main__":
 
