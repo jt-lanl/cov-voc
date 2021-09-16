@@ -1,8 +1,14 @@
 '''
-"fix" input fasta (or tbl) sequence file by
-1/ removing columns with dashes in reference sequence,
-2/ stripping final stop codons from each sequence,
-3/ applying a date filter
+"fix" input fasta (or tbl, mase, etc) sequence file by (optionally)
+ - removing columns with dashes in reference sequence,
+ - removing columns with dashes in all sequences,
+ - padding sequences with dashes so all sequences are the same length
+ - stripping final stop codons from each sequence,
+ - applying a date filter
+ - applying any name-based filter (eg, country or lineage)
+ - codon aligning DNA sequence
+ - translating DNA sequence to amino-acids
+and writing the sequenecs to an output fasta file
 '''
 import sys
 import re
@@ -12,6 +18,7 @@ import random
 import argparse
 
 import readseq
+import sequtil
 import wrapgen
 import covid
 
@@ -30,6 +37,10 @@ def getargs():
         help="Translate from nucleotides to amino acids")
     paa("--codonalign",action="store_true",
         help="Add dashes to keep seqeunces aligned in triples")
+    paa("--padlength",action="store_true",
+        help="Pad seqs with dashes so all are the same length")
+    paa("--rmgapcols",action="store_true",
+        help="Remove gap-only columns")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -116,7 +127,7 @@ def codon_align_indices(refseq):
 def codon_align_seqs(seqs,ndxlist=None):
     '''replace sequences with codon-aligned sequences'''
     if ndxlist is None:
-        first,seqs = covid.get_first_item(seqs)
+        first,seqs = sequtil.get_first_item(seqs)
         ndxlist = codon_align_indices(first.seq)
     for s in seqs:
         slist = list(s.seq)
@@ -134,6 +145,19 @@ def getisls(file):
             if m:
                 isls.append(m[1])
     return isls
+
+def get_max_length(seqs):
+    '''get length of longest sequence'''
+    return max(len(s.seq) for s in seqs)
+
+def pad_to_length(seqs,length=None):
+    '''pads all sequences to a common length'''
+    seqs=list(seqs) ## will consume seqs if iterator
+    if not length:
+        length = get_max_length(seqs)
+    for s in seqs:
+        s.seq = s.seq + "-"*(length-len(s.seq))
+    return seqs
 
 def main(args):
     '''fixfasta main'''
@@ -160,6 +184,16 @@ def main(args):
     if args.translate:
         seqs = translate_to_aa_alt(seqs)
         seqs = vcount(seqs,"Sequences translated")
+
+    if args.padlength:
+        seqs = pad_to_length(seqs)
+
+    if args.rmgapcols:
+        first,seqs = sequtil.get_first_item(seqs)
+        initlen = len(first.seq)
+        seqs = sequtil.remove_gap_columns(seqs)
+        first,seqs = sequtil.get_first_item(seqs)
+        vprint(f"Removed {initlen-len(first.seq)} dashes")
 
     if args.output:
         readseq.write_seqfile(args.output,seqs)
