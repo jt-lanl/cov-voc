@@ -10,6 +10,7 @@ import itertools as it
 import argparse
 
 import readseq
+import sequtil
 import intlist
 import covid
 import mutant
@@ -78,7 +79,7 @@ def read_seqfile(args):
 
     seqs = covid.filter_seqs(seqs,args)
 
-    seqs = covid.checkseqlengths(seqs)
+    seqs = sequtil.checkseqlengths(seqs)
     if args.random:
         seqlist = list(seqs)
         seqs = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
@@ -89,7 +90,7 @@ def main(args):
     '''main'''
 
     seqs = read_seqfile(args)
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
     MM = mutant.MutationManager(first.seq)
 
@@ -146,6 +147,9 @@ def _mainwrapper(args):
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
         sys.exit(1)  # Python exits with error code 1 on EPIPE
+    except KeyboardInterrupt:
+        print("Keyboard Interrupt",file=sys.stderr)
+        sys.exit(1) ## Just exit
 
 if __name__ == "__main__":
 
