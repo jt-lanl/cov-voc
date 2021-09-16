@@ -6,6 +6,7 @@ from collections import defaultdict,Counter
 import argparse
 
 import readseq
+import sequtil
 import mutant
 import covid
 
@@ -166,7 +167,7 @@ def _main(args):
     ## Read full sequences
     args.keepdashcols = True
     seqs = covid.read_filter_seqfile(args)
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
     T = mutant.SiteIndexTranslator(first.seq)
 
