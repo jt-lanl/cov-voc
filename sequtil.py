@@ -95,8 +95,9 @@ def checkseqlengths(seqs):
         yield s
 
 def str_indexes(s,c):
-    '''similar to s.index(c) but finds /all/ indexes n such that s[n]==c;
-    return list of n's '''
+    '''
+    similar to s.index(c) but returns list of /all/ indexes n such that s[n]==c;
+    '''
     ## equiv one-liner: [m.span(0)[0] for m in re.finditer(c,s)]
     ## and yes i know the plural of index is indices
     ndx = []
@@ -109,6 +110,9 @@ def str_indexes(s,c):
         except ValueError:
             break
     return ndx
+
+## stripdashcols: strips columns where dash appears in the master sequence
+## remove_gap_columns: strips columns where dash appears in all sequences
 
 def stripdashcols(master,seqs,dashchar="-"):
     '''strips positions from each sequence in seqs array,
@@ -142,7 +146,7 @@ def remove_gap_columns(seqs,dashchar='-'):
 
 ######################## Filter based on pattens in the name of seq
 
-def filter_by_patternlist(seqs,patternlist,
+def filter_by_patternlist(seqs,patternlist,exclude=False,
                           keepfirst=False,ignorecase=True):
     '''
     return an iterator of SequenceSample's that match
@@ -157,22 +161,18 @@ def filter_by_patternlist(seqs,patternlist,
         first,seqs = get_first_item(seqs,keepfirst=False)
         yield first
     for s in seqs:
-        if any(re.search(pattern,s.name,flags)
-               for pattern in patternlist):
+        ## if exclude is False, then yield if any matches
+        ## if exclude is True, then yield if not any matches
+        if bool(exclude) ^ bool(any(re.search(pattern,s.name,flags)
+                                    for pattern in patternlist)):
             yield s
 
-def filter_by_patternlist_exclude(seqs,patternlist,keepfirst=False):
+def filter_by_patternlist_exclude(seqs,patternlist,**kwargs):
     '''
-    return an iterator of SequenceSample's that do not match
+    return an iterator of SequenceSample's that do NOT match
     any of the patterns in the patternlist
     '''
-    if keepfirst:
-        first,seqs = get_first_item(seqs,keepfirst=False)
-        yield first
-    for s in seqs:
-        if not any(re.search(pattern,s.name)
-                   for pattern in patternlist):
-            yield s
+    return filter_by_patternlist(seqs,patternlist,exclude=True,**kwargs)
 
 def filter_by_pattern(seqs,pattern,**kwargs):
     '''
