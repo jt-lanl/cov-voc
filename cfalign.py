@@ -4,9 +4,9 @@ import itertools as it
 from pathlib import Path
 import argparse
 
-import readseq
 import wrapgen
-import covid
+import readseq
+import sequtil
 import mutant
 
 def _getargs():
@@ -17,6 +17,8 @@ def _getargs():
         help="two sequence alignment files")
     paa("-N",type=int,default=0,
         help="for debugging purposes, just do the first N sequences")
+    paa("--mstringpairs","--msp",type=Path,
+        help="file with mstring pairs")
     paa("--output","-o",nargs=2,type=Path,
         help="write two fasta files with the differing sequences")
     paa("--verbose","-v",action="count",default=0,
@@ -77,13 +79,13 @@ def _main(args):
     aseqs = readseq.read_seqfile(afile)
     if args.verbose:
         aseqs = wrapgen.keepcount(aseqs,"A sequences:")
-    afirst,aseqs = covid.get_first_item(aseqs)
+    afirst,aseqs = sequtil.get_first_item(aseqs)
     a_mgr = mutant.MutationManager(afirst.seq)
     
     bseqs = readseq.read_seqfile(bfile)
     if args.verbose:
         bseqs = wrapgen.keepcount(bseqs,"B sequences:")
-    bfirst,bseqs = covid.get_first_item(bseqs)
+    bfirst,bseqs = sequtil.get_first_item(bseqs)
     b_mgr = mutant.MutationManager(bfirst.seq)
 
     if args.N:
@@ -95,6 +97,7 @@ def _main(args):
     bdict = seqdict(bseqs)
 
     set_of_diffs = set()
+    abmuts = []
     
     for a in aseqs:
         b = bdict[a.name]
@@ -107,6 +110,8 @@ def _main(args):
                 vprint(a.name)
                 vprint("   A:",amut)
                 vprint("   B:",bmut)
+                if len(amut) > len(bmut):
+                    abmuts.append( f"{amut} {bmut}" )
             a_del_seqs.append(a)
             b_del_seqs.append(b)
         set_of_diffs.add( (str(amut),str(bmut)) )
@@ -115,6 +120,11 @@ def _main(args):
     #    vprint("A:",diff[0])
     #    vprint("B:",diff[1])
 
+    if args.mstringpairs:
+        with open(args.mstringpairs,"w") as fmsp:
+            for abmut in abmuts:
+                print(abmut,file=fmsp)
+    
     if args.output:
         adel,bdel = args.output
         readseq.write_seqfile(adel,a_del_seqs)
