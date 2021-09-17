@@ -1,6 +1,7 @@
 '''covid-specific utilities and hardcoded values'''
 
 import sys
+import os
 import re
 import datetime
 import itertools
@@ -14,13 +15,34 @@ import readseq
 import sequtil
 import intlist
 
-DEFAULTFASTA="Latest.ipkl.gz"
+DEFAULTSEQFILE="Latest.ipkl.gz"
+
+def default_seqfile(seqfilename=DEFAULTSEQFILE):
+    '''
+    return the default file for input sequences;
+    hunt around in various directories until you find it
+    '''
+    for d in [os.getenv('DATA'),
+              '.',
+              'data',
+              '..',
+              '../data',
+    ]:
+        if not d:
+            continue
+        seqfile = Path(d) / seqfilename
+        if seqfile.exists():
+            return seqfile
+    return None
 
 def corona_args(ap):
-    ''' call this in the getargs() function, and these options will be added in '''
+    ''' 
+    call this in the getargs() function, 
+    and these options will be added in 
+    '''
     paa = ap.add_argument
     paa("--input","-i",type=Path,
-        default=Path(DEFAULTFASTA),
+        default=default_seqfile(),
         help="input file with aligned sequences (first is reference)")
     paa("--filterbyname","-f",nargs='+',
         help="Only use sequences whose name matches this pattern")
