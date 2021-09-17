@@ -197,7 +197,7 @@ def _main(args):
 
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs(seqs,args)
-    seqs = covid.checkseqlengths(seqs)
+    seqs = sequtil.checkseqlengths(seqs)
 
     if args.N:
         ## just grab the first N (for debugging w/ shorter runs)
