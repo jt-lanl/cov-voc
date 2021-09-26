@@ -122,8 +122,8 @@ def lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
     yield f"{master} Counts Percent Lineage"
     for voc in voclist[::-1]:
         patt = voc.flat_pattern
-        rpatt = relativepattern(master,patt)
         fpatt = cpatt[patt]/n_sequences if n_sequences else 0
+        rpatt = relativepattern(master,patt)
         yield "%s %6d %6.2f%% %s" % (rpatt,cpatt[patt],100*fpatt,voc.name)
 
 def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
@@ -168,7 +168,7 @@ def main(args):
 
     for v in voclist:
         v.flat_pattern = svar.flatpattern(v)
-        vprint(f"{v} {v.name}: {v.exact} {v.flat_pattern}")
+        vvprint(f"{v} {v.name}: {v.exact} {v.flat_pattern}")
 
     mutants = [v.flat_pattern for v in voclist]
     patterns = mutants + [OTHERNAME]
@@ -232,7 +232,7 @@ def main(args):
 
         vocmatch = svar.vocmatch(seq)
 
-        for voc in vocmatch:
+        for voc in vocmatch[:1]:
             cpatt[voc.flat_pattern] += c[seq]
 
         ## Ideally just one match, if zero or more than one, then...
@@ -240,16 +240,18 @@ def main(args):
             sseq = svar.shorten(seq)
             xpatt[sseq] = c[seq]
         elif len(vocmatch)>1:
-            warn_msg = f"\n{svar.shorten(seq)} matches\n"
-            warn_msg += " and\n".join(f"{relpattern(v.flat_pattern)} {v.name} {v}"
-                                      for v in vocmatch)
-            warn_msg += f"\n{svar.master} Master"
-            warnings.warn(warn_msg)
+            if any(voc.name != vocmatch[0].name for voc in vocmatch):
+                warn_msg = f"\n{svar.shorten(seq)} matches\n"
+                warn_msg += " and\n".join(f"{relpattern(v.flat_pattern)} {v.name} {v}"
+                                          for v in vocmatch)
+                warn_msg += f"\n{svar.master} Master"
+                warnings.warn(warn_msg)
 
     vprint("Unmatched sequences:",sum(xpatt.values()))
 
     ## Write counts table to file
     if args.ctable:
+        vprint(cpatt)
         with open(args.ctable,"w") as fout:
             for line in lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
                 print(line,file=fout)
