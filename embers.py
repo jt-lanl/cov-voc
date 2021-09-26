@@ -277,7 +277,9 @@ def main(args):
             continue
 
         vocmatch = svar.vocmatch(s.seq)
-        for voc in vocmatch:
+        for voc in vocmatch[:1]:
+            ## if multiple matches, only count the first
+            ## if that's an error, then you'll see a warning from earlier in the computation
             DG_datecounter[voc.flat_pattern][seqdate] += 1
         if not vocmatch:
             DG_datecounter[OTHERNAME][seqdate] += 1
