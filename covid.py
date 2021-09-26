@@ -69,6 +69,10 @@ def get_isl(fullname):
     g = epi_patt.search(fullname)
     return g[0] if g else "X"
 
+def get_lineage_from_name(name):
+    '''get pango lineage by parsing the sequence name'''
+    return re.sub(r".*EPI_ISL_\d+\.","",name)
+
 def date_fromiso(s):
     if type(s) == datetime.date:
         return s
