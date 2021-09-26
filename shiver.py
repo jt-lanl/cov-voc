@@ -8,7 +8,6 @@ import argparse
 import numpy as np
 
 
-import readseq
 import sequtil
 import intlist
 import mutant
@@ -400,7 +399,7 @@ def main(args):
             mut_lineage,
         )
         cocktail_fasta.append(
-            readseq.SequenceSample(v_fullseq_name,
+            sequtil.SequenceSample(v_fullseq_name,
                                    v_fullseq))
 
     print(DESCRIPTION)
@@ -433,7 +432,7 @@ def main(args):
     if args.output:
         fname = args.output
         fname = fname if fname.endswith(".fasta") else fname + ".fasta"
-        readseq.write_fasta(fname,cocktail_fasta)
+        sequtil.write_seqfile(fname,cocktail_fasta)
 
     dropFirst=False
     if dropFirst:
