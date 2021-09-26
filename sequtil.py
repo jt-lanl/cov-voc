@@ -7,6 +7,7 @@ import numpy as np
 
 
 from seqsample import SequenceSample
+from readseq import read_seqfile,write_seqfile
 
 def copy_seqlist(seqlist):
     '''return a 'deep' copy of the sequence list'''
