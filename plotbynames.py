@@ -30,6 +30,8 @@ def getargs():
     #paa("--nolegend",action="store_true",help="avoid putting legend on plot")
     paa("--legend",type=int,default=0,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
+    paa("--other",action="store_true",
+        help="write out the lineages in the 'other' class")
     paa("--output","-o",help="write plot to file")
     paa("--verbose","-v",action="count",
         help="verbosity")
@@ -112,15 +114,16 @@ def main(args):
     seqs = covid.read_seqfile(args)
     ## filter by country, but not by date
     seqs = covid.filter_seqs_by_pattern(seqs,args)
+    seqs = covid.filter_seqs_by_date(seqs,args)
     seqs = covid.fix_seqs(seqs,args)
-    seqs = covid.checkseqlengths(seqs)
+    seqs = sequtil.checkseqlengths(seqs)
 
     table = [
         ('other',   OTHER,                    'LightGrey'),
         ('Alpha',  'B.1.1.7',                 'Orange'),
         ('Beta',   'B.1.351',                 'Plum'),
         ('Gamma',  'P.1.*',                   'FireBrick'),
-        ('Delta',  '(B.1.617.2)|(AY.[0-9]+)', 'BlueViolet'),
+        ('Delta',  r'(B\.1\.617\.2)|(AY\.[0-9]+)', 'BlueViolet'),
         ('Lambda', 'C.37',                    'Green'),
         ('Mu',     'B.1.621(.1)?',            'Black'),
     ]
@@ -134,7 +137,8 @@ def main(args):
         patterns.append(patt)
         fullnames[patt] = name
     
-    DG_datecounter = {m: Counter() for m in patterns} 
+    DG_datecounter = {m: Counter() for m in patterns}
+    other_lineages = Counter()
     for s in seqs:
 
         seqdate = date_from_seqname(s.name)
@@ -150,7 +154,16 @@ def main(args):
         for voc in vocmatch:
             DG_datecounter[voc][seqdate] += 1
         if not vocmatch:
+            if args.other:
+                lineage = covid.get_lineage_from_name(s.name)
+                other_lineages[lineage] += 1
+                vprint(s.name)
             DG_datecounter[OTHER][seqdate] += 1
+
+    if args.other:
+        otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
+        for otherlin in otherlist:
+            print("%6d %s" % (other_lineages[otherlin],otherlin))
             
     nmatches = sum(sum(DG_datecounter[p].values()) for p in patterns)
     vprint("matched sequences:",nmatches)
