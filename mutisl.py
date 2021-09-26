@@ -65,6 +65,12 @@ def read_mutantfile(filename):
                 warnings.warn(f"Invalid line: {line}")
     return nomlist,mutlist
 
+def mk_name(nom,islname,mstring):
+    '''remake the sequence name to avoid commas and brackets'''
+    mstring = re.sub(r'[\[\]]','',mstring) #remove brackets
+    mstring = re.sub(r',','.',mstring)     #commas -> periods
+    return "__".join([nom,islname,mstring])
+
 def _main(args):
     '''mutlineage main'''
 
@@ -115,15 +121,16 @@ def _main(args):
             matchseqs = (refseqdict.get(islname,None)
                          for islname in islnames )
             matchseqs = filter(lambda x: x is not None,matchseqs)
-            [(cseq,_)] = Counter(s.seq for s in matchseqs).most_common(1)
+            [(cseq,_)] = Counter(re.sub('-','',s.seq)
+                                 for s in matchseqs).most_common(1)
             for islname in islnames:
                 if islname not in refseqdict:
                     continue
-                if cseq == refseqdict[islname].seq:
+                if cseq == re.sub('-','',refseqdict[islname].seq):
                     print(mutfmt % mstring,islname)
-                    s = refseqdict[islname]
-                    sname = ":".join([nom,s.name,mstring])
-                    outseq = sequtil.SequenceSample(sname,s.seq)
+                    sseq = refseqdict[islname].seq
+                    sname = mk_name(nom,islname,mstring)
+                    outseq = sequtil.SequenceSample(sname,sseq)
                     outseqs.append(outseq)
                     break ## just grab the first one
 
