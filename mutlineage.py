@@ -10,6 +10,7 @@ from collections import Counter
 import itertools as it
 import argparse
 
+import sequtil
 import covid
 import mutant
 
@@ -84,7 +85,7 @@ def _main(args):
         seqs = it.islice(seqs,args.N+1)
 
     seqs = list(seqs)
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
     MM = mutant.MutationManager(first.seq)
     for fullmatch in [True, False]:
         print("Exact matches:" if fullmatch else "Inclusive matches:")
