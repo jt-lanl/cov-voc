@@ -143,11 +143,15 @@ def _main(args):
     for ma,mb in mstringpairs:
         ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(MM,ma,mb)
         ndx_seqs_tuples.append( (ndxlo,ndxhi,seq_a,seq_b) )
+        vprint(f"{seq_a} -> {seq_b}")
     
 
     changed_sequences=[]
     seqs = list(seqs)
     for s in seqs:
+        ## Normalize sequence (seq -> mut -> seq)
+        nmut = MM.get_mutation(s.seq)
+        s.seq = MM.seq_from_mutation(nmut)
         for ndxlo,ndxhi,seq_a,seq_b in ndx_seqs_tuples:
             if s.seq[ndxlo:ndxhi] == seq_a:
                 s.seq = s.seq[:ndxlo] + seq_b + s.seq[ndxhi:]
