@@ -18,7 +18,7 @@ OTHER = 'other'
 def getargs():
     ap = argparse.ArgumentParser()
     paa = ap.add_argument
-    covid.corona_args(ap)
+    covid.corona_args(ap)  ## except want default to be names, not sequences!
     paa("--weekly",action="store_true",
         help="Make weekly average plots instead of cumulative")
     paa("--daily",type=int,default=7,
@@ -120,12 +120,15 @@ def main(args):
 
     table = [
         ('other',   OTHER,                    'LightGrey'),
-        ('Alpha',  'B.1.1.7',                 'Orange'),
+        ('Alpha',  r'(B\.1\.1\.7)|(Q\.[0-9]+)','Orange'),
         ('Beta',   'B.1.351',                 'Plum'),
-        ('Gamma',  'P.1.*',                   'FireBrick'),
+        ('Gamma',  r'P\.1.*',                   'FireBrick'),
         ('Delta',  r'(B\.1\.617\.2)|(AY\.[0-9]+)', 'BlueViolet'),
         ('Lambda', 'C.37',                    'Green'),
-        ('Mu',     'B.1.621(.1)?',            'Black'),
+        ('Mu',     'B.1.621(.1)?',            'Gold'),
+        ('B.1.628','B.1.628.*',                 'Cyan'),
+        ('B.1.632','B.1.632.*',                 'Black'),
+        #('C.1.2',  r'C\.1\.2',                'Black'),
     ]
 
     patterns = []
