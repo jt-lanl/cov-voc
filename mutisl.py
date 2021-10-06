@@ -54,6 +54,7 @@ def read_mutantfile(filename):
     with open(filename) as fptr:
         for line in fptr:
             line = line.strip()
+            line = re.sub('#.*','',line)
             if not line:
                 continue
             mpatt = mutantfilepatt.search(line)
