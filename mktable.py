@@ -1,6 +1,9 @@
 '''
 Make table/spreadsheet with various counts
 of pango forms and associated mutant strings
+
+Input is two columns: pango lineage name, and m-string
+(it's ok if there's spaces in the m-string)
 '''
 import sys
 import re
@@ -114,9 +117,30 @@ def mstring_seqs(seqs,MM,mstring,exact=False):
 def mstring_brackets(mstring):
     '''make sure mstring has brackets around it'''
     mstring = re.sub(r'\s','',mstring) ## remove extra spaces between ssms
+    mstring = re.sub(r'\s*ancestral\s*','',mstring) ## take out 'ancestral'
     mstring = re.sub(r'[\[\]]','',mstring) ## remove if already there
     mstring = f'[{mstring}]'
     return mstring
+
+def mstring_fix(mstring):
+    '''
+    1. fix G-- vs --G 
+    2. make a new mstring that treats G142x as G142.
+    '''
+    ### could we do D215A,+215AGY  => +214AAG,D215Y
+    ## fix G-- vs --G
+    if re.search('E156G,F157-,R158-',mstring):
+        warnings.warn(f'fixing mstring with G-- pattern: {mstring}')
+        mstring = re.sub('E156G,F157-,R158-','E156-,F157-,R158G',mstring)
+
+    ## fix G142G or G142_ or G142D -> G142.
+    newmut = []
+    for ssm in mutant.Mutation(mstring):
+        if ssm.site == 142 and ssm.mut in "GD_":
+            newmut.append(mutant.SingleSiteMutation.from_ref_site_mut('G',142,'.'))
+        else:
+            newmut.append(ssm)
+    return str(mutant.Mutation(newmut))
 
 def read_input_file(filename):
     items=[]
@@ -158,7 +182,10 @@ def get_row(seqs,MM,pango,mstring):
         for exact in [False,True]:
             column_name = "PatternFull" if exact else "PatternInclusive"
             column_name = seqtype + column_name
-            matched_seqs = list(mstring_seqs(seqs,MM,mstring,exact=exact))
+            mstring_adj = mstring_fix(mstring)
+            if mstring_adj != mstring:
+                print(f"M-String adjusted: {mstring} -> {mstring_adj}",file=sys.stderr)
+            matched_seqs = list(mstring_seqs(seqs,MM,mstring_adj,exact=exact))
             vprint(seqtype,exact,len(matched_seqs),len(seqs))
 
             row[column_name + Count] = len(matched_seqs)
