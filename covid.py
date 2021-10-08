@@ -61,7 +61,18 @@ def corona_args(ap):
 
     return
 
-#### Routines for parsing sequence names 
+#### Routines for parsing sequence names
+
+
+xpand_names = {
+    ## dict to convert WHO lineage names to pango pattern
+    'Alpha':  r'(B\.1\.1\.7)|(Q\.[0-9]+)',
+    'Beta':   r'B\.1\.351',
+    'Gamma':  r'P\.1.*',
+    'Delta':  r'(B\.1\.617\.2)|(AY\.[0-9]+)',
+    'Lambda': r'C\.37',
+    'Mu':     r'B\.1\.621(\.1)?',
+}
 
 def get_isl(fullname):
     '''return EPI_ISL number from the sequence name'''
@@ -308,12 +319,16 @@ def filter_seqs_by_pattern(seqs,args):
     if args.filterbyname:
         for name in args.filterbyname:
             patt,wo,xpat = name.partition("-w/o-")
+            if patt in xpand_names:
+                patt = xpand_names[patt]
             if patt != "Global":
                 keepers.append(patt)
             if xpat:
                 xcludes.append(xpat)
     if args.xfilterbyname:
         for name in args.xfilterbyname:
+            if name in xpand_names:
+                name = xpand_names[name]
             xcludes.append(name)
 
     ## Use r"\."+ to ensure that names have to be preceeded by a dot
