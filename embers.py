@@ -174,6 +174,10 @@ def main(args):
     patterns = mutants + [OTHERNAME]
     dups = check_dups(patterns)
     if dups:
+        for d in dups:
+            for v in voclist:
+                if v.flat_pattern == d:
+                    print("d=",d,"v=",v,v.name)            
         raise RuntimeError(f"Duplicated patterns {dups}")
 
     colors = [v.color for v in voclist] + [OTHERCOLOR]
