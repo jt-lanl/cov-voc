@@ -41,10 +41,13 @@ def mk_table(svar,seqs,usehex=False):
             voc_color = vocs[0].color
         elif len(vocs) == 0:
             voc_name = "other"
-            voc_name = "Gray"
+            voc_color = "Gray"
         else:
-            print(vocs,s.name,file=sys.stderr)
-            warnings.warn("multiple patterns matched!")
+            voc_names = [voc.name for voc in vocs]
+            if any(vname != voc_names[0] for vname in voc_names):
+                for voc in vocs:
+                    print(voc,voc.name,file=sys.stderr)
+                warnings.warn("multiple patterns matched!")
             voc_name = vocs[0].name
             voc_color = vocs[0].color
 
@@ -59,9 +62,11 @@ def main(args):
     '''main parsecolormut'''
 
     seqs = covid.read_seqfile(args)
-    seqs = wrapgen.keepcount(seqs,"Sequences read:")
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences read:")
     seqs = covid.filter_seqs(seqs,args)
-    seqs = wrapgen.keepcount(seqs,"Sequences after filtering:")
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences after filtering:")
 
     if args.N:
         seqs = it.islice(seqs,args.N+1)
