@@ -7,6 +7,7 @@ from collections import Counter,defaultdict
 import argparse
 
 import readseq
+import sequtil
 import wrapgen
 import intlist
 import mutant
@@ -50,7 +51,7 @@ def filtermutants(seqs,mstring):
     yield seqs that match mutant string;
     always yielding the first sequence
     '''
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
     yield first
     mpatt = mutant.Mutation(mstring)
     MM = mutant.MutationManager(first.seq)
