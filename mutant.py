@@ -402,10 +402,13 @@ class MutationManager(SiteIndexTranslator):
                 for n in range(ndx+1,ndx+1+len(ssm.mut)):
                     if mutseq[n] == '-':
                         mutseq[n] = ""
-            elif len(ssm.mut) > 1:
-                mutseq[ndx] = "&"  ## indicates multiple choices at this site
             else:
-                mutseq[ndx] = ssm.mut
+                if ssm.ref != self.refseq[ndx]:
+                    raise RuntimeError(f"Error in mut={mut}, ssm={ssm}: {ssm.ref}!={self.refseq[ndx]}")
+                if len(ssm.mut) > 1:
+                    mutseq[ndx] = "&"  ## indicates multiple choices at this site
+                else:
+                    mutseq[ndx] = ssm.mut
         mutseq = "".join(mutseq)
         return mutseq
 
