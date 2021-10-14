@@ -62,11 +62,7 @@ def main(args):
     '''main parsecolormut'''
 
     seqs = covid.read_seqfile(args)
-    if args.verbose:
-        seqs = wrapgen.keepcount(seqs,"Sequences read:")
     seqs = covid.filter_seqs(seqs,args)
-    if args.verbose:
-        seqs = wrapgen.keepcount(seqs,"Sequences after filtering:")
 
     if args.N:
         seqs = it.islice(seqs,args.N+1)
