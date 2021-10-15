@@ -53,7 +53,7 @@ def _main(args):
     vprint("Ref:",dcnt,rcnt)
 
     seqs = list(seqs)
-    E = [xentropy(clist,keepx=args.keepx)
+    E = [xentropy(clist,keepx=False) #args.keepx)
          for clist in sequtil.gen_columns_seqlist(seqs)]
     
     sitelist = range(1,1+m_mgr.topsite)
