@@ -203,7 +203,7 @@ class Mutation(list):
             if isinstance(ssms,list):
                 self.extend(ssms)
             elif isinstance(ssms,set):
-                self.extend(ssms)
+                self.extend(sorted(ssms))
             elif isinstance(ssms,str):
                 self.init_from_mstring(ssms)
             elif isinstance(ssms,tuple):
@@ -226,9 +226,11 @@ class Mutation(list):
         if exact is None:
             exact = bool(mat[2])
         self.exact = exact
+        ssmlist = []
         for m in mat[1].split(","):
             if m.strip():
-                self.append( SingleSiteMutation(m) )
+                ssmlist.append( SingleSiteMutation(m) )
+        self.extend(sorted(ssmlist))
         return self
 
     def init_from_sequences(self,refseq,seq,exact=False):
@@ -241,9 +243,10 @@ class Mutation(list):
         self.exact = exact
         return self
 
-    def __eq__(self,other):
-        '''returns boolean: is self == other?'''
-        return sorted(other) == sorted(self)
+    #def __eq__(self,other):
+    #    '''returns boolean: is self == other?'''
+    #    ## note, if we are careful that Mutation is sorted, then 'sorted' here not necessary
+    #    return sorted(other) == sorted(self)
 
     def __str__(self):
         return "[" + ",".join(str(ssm) for ssm in self) + "]" # + ("!" if self.exact else "")
@@ -350,7 +353,7 @@ class MutationManager(SiteIndexTranslator):
             mstr = "".join(clist)
             rr = "+" if r == "-" else r
             mutlist.append(SingleSiteMutation.from_ref_site_mut(rr,site,mstr))
-        return sorted(mutlist)
+        return mutlist ## should already be sorted? 
 
     def get_mutation(self,seq,exact=True):
         '''convert sequence into a mutation list'''
@@ -369,7 +372,6 @@ class MutationManager(SiteIndexTranslator):
         ## if ssmlist is meant to be a pattern, then more likely to be problematic
         alt=defaultdict(str)
         for ssm in sorted(ssmlist):
-            #print("ssm=",ssm)
             if ssm.ref == "+":
                 alt[ssm.site] = alt[ssm.site] or self.refval(ssm.site)
                 alt[ssm.site] += ssm.mut
@@ -460,35 +462,30 @@ class MutationManager(SiteIndexTranslator):
     ## if mpatt has no wild cards, this could go faster (separate routine for that?)
     def seq_fits_pattern(self,mpatt,seq,exact=None):
         '''return True if the sequence fits the pattern'''
+        #if not all( m==sm for m,sm in zip(mpatt,sorted(mpatt)) ):
+        #    raise RuntimeError(f"unsorted mpatt: {mpatt}")
         if exact is None:
             exact = mpatt.exact
         mseq = self.get_mutation(seq)
-        if mseq == mpatt: ## easy case: if seq an patt are identical, then True
+        if mseq == mpatt: ## easy case: if seq and patt are identical, then True
             return True
         alt_mseq = self.get_alt_mutation_ssmlist(mseq)
-        #print("alt_mseq:",alt_mseq)
         for ssm in mpatt:
             refval = self.refval(ssm.site)
             seqval = alt_mseq[ssm.site] or refval
-            #if len(seqval)>1 and seqval[0]==".":
-            #    seqval = refval + seqval[1:]
-            #print("ssm=",ssm,"seqval=",seqval,"refval=",refval)
             if ssm.mut == "_":
                 ## may never happen, get's converted when read into SSM
                 if seqval != ssm.ref:
                     return False
             elif ssm.mut == "*":
-                #print("patt ssm=",ssm,"seqval=",seqval,"exact=",exact)
                 if seqval[0] == ssm.ref or seqval[0] == ".":
                     return False
             elif ssm.mut == ".":
                 pass
             elif ssm.ref == "+":
-                #print("ssm.mut, seqvalxtra:",f"{ssm.mut},{seqval[1:]}")
                 if ssm.mut != seqval[1:]:
                     return False
             else:
-                #print("ssm.mut, seqval:",f"{ssm.mut},{seqval[0]}")
                 if ssm.mut != seqval[0]:
                     return False
         if not exact:
@@ -497,14 +494,10 @@ class MutationManager(SiteIndexTranslator):
         alt_mpatt = self.get_alt_mutation_ssmlist(mpatt)
         for site,seqval in alt_mseq.items():
             pval = alt_mpatt.get(site,None)
-            #print("site,seqval,pval:",f"{site},{seqval},{pval}")
             if not pval:
                 return False
             ref = self.refval(site)
             seqval = seqval or ref
-            #if len(seqval)>1 and seqval[0]==".":
-            #    seqval = ref + seqval[1:]
-            #print("site,seqval,pval:",f"{site},{seqval},{pval}")
             if pval[0] == "*" and seqval != ref:
                 continue
             if pval[0] == ".":
@@ -515,6 +508,9 @@ class MutationManager(SiteIndexTranslator):
 
     def filter_seqs_by_pattern(self,mpatt,seqs,exact=None):
         '''filter an iterable of seqs that match the pattern'''
+        ## if input mpatt is string, this converts to Mutation object
+        ## also, makes sure the ssm's in mpatt are sorted
+        mpatt = Mutation(sorted(Mutation(mpatt))) 
         for s in seqs:
             if self.seq_fits_pattern(mpatt,s.seq,exact=exact):
                 yield s
