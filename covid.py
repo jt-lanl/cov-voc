@@ -82,7 +82,10 @@ def get_isl(fullname):
 
 def get_lineage_from_name(name):
     '''get pango lineage by parsing the sequence name'''
-    return re.sub(r".*EPI_ISL_\d+\.","",name)
+    #re.sub is maybe more robust...but slower
+    #return re.sub(r".*EPI_ISL_\d+\.","",name)
+    tokens = name.split('.',6)
+    return tokens[6]
 
 def date_fromiso(s):
     if type(s) == datetime.date:
@@ -97,7 +100,10 @@ def date_fromiso(s):
         return None #raise RuntimeError(f"Invalid Date {s}")
 
 def date_from_seqname(s):
-    datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
+    tokens = s.name.split('.')
+    datestring = tokens[4]
+    ## the following statement is more robust ... but slower!
+    #datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
     return date_fromiso(datestring)
     
 def add_date_attribute(seqlist):
@@ -301,9 +307,20 @@ def filter_seqs_by_date(seqs,args):
         raise RuntimeError("Cannot specify both --days AND --dates")
 
     if args.days:
-        seqs = list(seqs)
-        _,lastdate = range_of_dates(seqs)
-        t = date_fromiso(lastdate) ## not: datetime.date.today()
+        ## to get last date
+        ## 1/ get modification date of input file
+        ## 2/ if that doesn't work (eg, if file not found) get today's date
+        ## 3/ if that doesn't work, get last date in dataset
+        try:
+            mtime = os.path.getmtime(args.input)
+            lastdate = datetime.date.fromtimestamp(mtime).isoformat()
+        except FileNotFoundError:
+            try:
+                lastdate = datetime.date.today().isoformat()
+            except:
+                seqs = list(seqs)
+                _,lastdate = range_of_dates(seqs)
+        t = date_fromiso(lastdate) 
         f = t - datetime.timedelta(days=args.days)
         args.dates = f,t
 
