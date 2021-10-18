@@ -1,8 +1,9 @@
 ## Here are the so-called "x11" color names
 ## You can see the colors at https://en.wikipedia.org/wiki/X11_color_names
 
-COLORNAMES='''
-#F0F8FF AliceBlue
+import re
+
+COLORNAMES='''#F0F8FF AliceBlue
 #FAEBD7 AntiqueWhite
 #00FFFF Aqua
 #7FFFD4 Aquamarine
@@ -141,22 +142,32 @@ COLORNAMES='''
 #FFFFFF White
 #F5F5F5 WhiteSmoke
 #FFFF00 Yellow
-#9ACD32 YellowGreen
-'''
+#9ACD32 YellowGreen'''
 
 import random
 
+## upon import, create ColorTable dict
 ColorTable = dict()
 for hn in COLORNAMES.splitlines():
-    try:
-        hexname,commonname = hn.strip().split()
-        ColorTable[commonname.lower()] = hexname
-        ColorTable[hexname] = hexname
-    except:
-        continue
+    hexname,commonname = hn.strip().split()
+    ColorTable[commonname.lower()] = hexname
 
 def tohex(commonname):
-    return ColorTable.get(commonname.lower(),None)
+    '''convert commonname (eg, YellowGreen) to hex string;
+    if common name is given as a hexstring already, then return the hexstring.
+    valid input hexstrings of form #9ACD32 or 9ACD32
+    output hexstring will always be preceeded by #
+    '''
+    name = commonname.lower()
+    try:
+        return ColorTable[name]
+    except KeyError:
+        if re.match(r'\#[0-9a-f]{6}$',name):
+            return name
+        elif re.match(r'[0-9a-f]{6}$',name):
+            return "#"+name
+        else:
+            raise KeyError('Invalid color: {name}')
     
 def random_hex():
     return random.choice(list(ColorTable.values()))
@@ -169,5 +180,16 @@ if __name__ == "__main__":
     for t in ColorTable:
         print(f"{t:20s} {ColorTable[t]}")
 
+    for t in ['Yellow', '06A6f6', '#06a6F6']:
+        print(f"{t:20s} {tohex(t)}")
+
+    name = 'YellowOrange'
+    name = '#06a6F77'
+    try:
+        hex=tohex(name)
+        print(f"{name:20s} {hex}")
+    except Exception as e:
+        print(f"Failed, as it should have with name={name}:",e)
+        
         
         
