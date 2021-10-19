@@ -37,14 +37,6 @@ def getargs():
         raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
     return args
 
-def get_lineage_from_name(name):
-    return re.sub(r".*EPI_ISL_\d+\.","",name)
-
-def count_lineages(seqlist):
-    '''return a counter with number of sequences for each lineage'''
-    lineages = [get_lineage_from_name(s.name) for s in seqlist]
-    return Counter(lineages)
-
 def mostcommonchar(clist):
     '''return the most common item in the list'''
     [(c,_)] = Counter(clist).most_common(1)
@@ -87,21 +79,21 @@ def main(args):
     print(f"We show {count_forms} forms{min_count}. {consensus_always}")
 
     seqs = covid.read_filter_seqfile(args)
-    seqlist = list(seqs)
-
+    first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
+    firstseq = first.seq
+    seqlist = list(seqlist)
+    
     last_days = f" in the last {args.days} days from our last update," if args.days else ""
     print(f"This output is based on sequences sampled{last_days} from %s to %s." \
           % covid.range_of_dates(seqlist))
 
-    firstseq = seqlist[0].seq
-
-    cnt_lin = count_lineages(seqlist[1:])
-    lineages = sorted(cnt_lin,key=cnt_lin.get,reverse=True)
-
     seqlist_by_lineage=defaultdict(list)
-    for s in seqlist[1:]:
-        lin = get_lineage_from_name(s.name)
+    for s in seqlist:
+        lin = covid.get_lineage_from_name(s.name)
         seqlist_by_lineage[lin].append(s)
+
+    cnt_lin = {lin: len(seqlist_by_lineage[lin]) for lin in seqlist_by_lineage} 
+    lineages = sorted(cnt_lin,key=cnt_lin.get,reverse=True)
 
     maxlinlen = max(len(lin) for lin in lineages)
     fmt = "%%-%ds" % (maxlinlen,)
