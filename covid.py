@@ -83,9 +83,15 @@ def get_isl(fullname):
 def get_lineage_from_name(name):
     '''get pango lineage by parsing the sequence name'''
     #re.sub is maybe more robust...but slower
-    #return re.sub(r".*EPI_ISL_\d+\.","",name)
-    tokens = name.split('.',6)
-    return tokens[6]
+    linpatt = re.sub(r".*EPI_ISL_\d+\.","",name)
+    #try:
+    #    tokens = name.split('.',6)
+    #    lintok = tokens[6]
+    #except IndexError:
+    #    lintok = None
+    #if linpatt != lintok:
+    #    print("name=",name,"patt:",linpatt,"token:",lintok)
+    return linpatt
 
 def date_fromiso(s):
     if type(s) == datetime.date:
@@ -100,10 +106,13 @@ def date_fromiso(s):
         return None #raise RuntimeError(f"Invalid Date {s}")
 
 def date_from_seqname(s):
-    tokens = s.name.split('.')
-    datestring = tokens[4]
+    #try:
+    #    tokens = s.name.split('.')
+    #    datestring = tokens[4]
+    #except IndexError:
+    #    datestring = s.name
     ## the following statement is more robust ... but slower!
-    #datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
+    datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
     return date_fromiso(datestring)
     
 def add_date_attribute(seqlist):
