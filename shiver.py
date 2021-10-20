@@ -22,7 +22,9 @@ focus on just the NTD and RBD neutralizing antibody epitope regions of
 the Spike protein, chosen to maximize coverage globally and/or on
 separate continents[*], depending on which of several strategies is
 employed.
+'''
 
+POST_DESCRIPTION='''
 The first variant in the input alignment is taken as the reference
 sequence, and should be the ancestral Wuhan variant to ensure epitope
 regions are chosen appropriately. The epitope regions in Spike that
@@ -57,7 +59,9 @@ All distinct variants found within these boundaries are identified and
 tallied, and the most common variants are selected.  Windows in time
 can be selected to reflect more recently emerging patterns in
 variation in key epitope regions.
+'''
 
+UK_FOOTNOTE='''
 [*] Note that the UK is treated as a separate continent because so much
 of the sequencing has been from the UK.
 '''
@@ -113,7 +117,7 @@ def _getargs():
         help="number of components in cocktail")
     paa("--strategy","-s",default="taketurns",
         help="how to pick variants: (T)aketurns, (M)ostimproved, (G)lobalonly")
-    paa("--region",default="NTD-18+RBD",
+    paa("--region",default="NTDss-18+RBD-142+Furin-950",
         help="region of spike sequence over which patterns are defined")
     paa("--colormut",
         help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
@@ -402,22 +406,9 @@ def main(args):
             sequtil.SequenceSample(v_fullseq_name,
                                    v_fullseq))
 
+            
     print(DESCRIPTION)
     print()
-    print(TGM_STRATEGY[TGM])
-    print()
-    print("This run uses sequences sampled from %s to %s."
-          % covid.range_of_dates(pattseqs))
-    if args.filterbyname:
-        print("Filtered by geographic region(s):","+".join(args.filterbyname))
-    if args.xfilterbyname:
-        print("Excluding geographic region(s):","+".join(args.xfilterbyname))
-    print("The number of sequences, broken out by continent is:")
-    print_sequence_counts_by_continent(ConExclude,continent_cnt)
-
-    print("Note: the focus here is specifically on the epitope region:",args.region)
-    print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
-
     print(TABLE_VARIANTS)
     TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations] %s" \
         % ("(Lineage)" if args.colormut else "")
@@ -471,6 +462,25 @@ The coverage table is based on {len(allpattseqs)} sequences.
         print()
         for line in coverage_table(cocktail[:n]):
             print(line)
+
+    print(POST_DESCRIPTION)
+    print()
+    print(TGM_STRATEGY[TGM])
+    print()
+    print("This run uses sequences sampled from %s to %s."
+          % covid.range_of_dates(pattseqs))
+    if args.filterbyname:
+        print("Filtered by geographic region(s):","+".join(args.filterbyname))
+    if args.xfilterbyname:
+        print("Excluding geographic region(s):","+".join(args.xfilterbyname))
+    print("The number of sequences, broken out by continent is:")
+    print_sequence_counts_by_continent(ConExclude,continent_cnt)
+
+    print("Note: the focus here is specifically on the epitope region:",args.region)
+    print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
+    print()
+    print(UK_FOOTNOTE)
+
 
 
 if __name__ == "__main__":
