@@ -77,8 +77,13 @@ def main(args):
                 zorder=3,
                 label=name)
 
-    plt.xticks(np.arange(Nv/2-1/2,Nc*(Nv+1),Nv+1),
-               labels=continents)
+    kwargs_xticks = dict(labels=continents)
+    if Nv<4:
+        kwargs_xticks.update(dict(rotation=45,
+                                  ha='right',
+                                  position=(0,0.02)))
+
+    plt.xticks(np.arange(Nv/2-1/2,Nc*(Nv+1),Nv+1),**kwargs_xticks)
     plt.grid(axis='y',linestyle='--',linewidth=0.5)
     if args.lack:
         plt.ylim([0.01,1])
