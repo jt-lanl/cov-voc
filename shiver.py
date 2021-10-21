@@ -16,72 +16,57 @@ import wrapgen
 import covid
 
 DESCRIPTION=__doc__ + '''
-
-SHIVER identifies sets of variant forms of the SARS CoV-2 virus with a
-focus on just the NTD and RBD neutralizing antibody epitope regions of
-the Spike protein, chosen to maximize coverage globally and/or on
-separate continents[*], depending on which of several strategies is
-employed.
-'''
-
-POST_DESCRIPTION='''
-The first variant in the input alignment is taken as the reference
-sequence, and should be the ancestral Wuhan variant to ensure epitope
-regions are chosen appropriately. The epitope regions in Spike that
-are featured as are defined as: The NTD supersite includes Spike
-positions 13-20, 140-158, and 242-264 (note, however, that site 18 is
-not included in the analysis because it is so variable that both the
-ancestral L18 form and the common variant L18F are very often both
-found in significant numbers among Variants of Interest).
-
-The NTD supersite sites selected are for inclusion are based on:
-
-Sites 14-20, 140-158, and 245-264:
-N-terminal domain antigenic mapping reveals a site of vulnerability for SARS-CoV-2
-McCallum, M. et al. bioRxiv
-doi: 10.1101/2021.01.14.426475
-
-Site 13:
-SARS-CoV-2 immune evasion by variant B.1.427/B.1.429
-McCallum, M. et al. bioRxiv, 2021/04/07
-doi: 10.1101/2021.03.31.437925 PMC8020983
-
-Sites 242-244:
-SARS-CoV-2 501Y.V2 escapes neutralization by South African COVID-19 donor plasma
-Wibmer, C. et al. bioRxiv,
-doi: 10.1101/2021.01.18.427166
-
-Sites 330-521:
-The RBD region includes positions 330-521, based on a synthesis of
-the literature from early 2020.
-
-All distinct variants found within these boundaries are identified and
-tallied, and the most common variants are selected.  Windows in time
-can be selected to reflect more recently emerging patterns in
-variation in key epitope regions.
+SHIVER identifies variant forms of the SARS CoV-2 virus with a focus on the NTD and RBD neutralizing antibody epitope regions of the Spike protein, as well as sites related to furin cleavage; the forms are chosen to maximize coverage globally and/or on separate continents[*], depending on which of several strategies is employed.
 '''
 
 UK_FOOTNOTE='''
-[*] Note that the UK is treated as a separate continent because so much
-of the sequencing has been from the UK.
+[*] Note that the UK is treated as a separate continent because so much of the sequencing has been from the UK.
 '''
 
-T_STRATEGY='''This run uses the T=taketurns strategy for identifying further
-variants.  Each continent, in turn, chooses the next variant, based on
-which is the most common variant in that continent that has not
-already been chosen.  The order of the continents
-is based on number of samples available in those continents.  '''
+TABLE_VARIANTS='''In the Table of Variants, below, the first column is the pattern at sites where differences occur, relative to initial (Wuhan) sequence, with site numbers read down vertically.
 
-G_STRATEGY='''This run uses the G=globalonly strategy for identifying further
-variants.  Coverage is optimzed globally, without consideration of
-continents.'''
+Table of Variants
 
-M_STRATEGY='''This run uses the M=mostimproved strategy for identifying further
-variants.  At each iteration, we determine for each continent how much
-gain in fraction coverage would be obtained within that continent if
-we chose the variant that maximized that fraction.  We choose the
-variant associated with the continent that sees the largest
-improvement in fractional coverage.'''
+LPM = Local Pattern Matches = # of seqs in continent that match over epitope region
+GPM = Global Pattern Matches = # of seqs in world that match over epitope region
+GSM = Global Sequence Matches = # of seqs in world that match over whole Spike protein
+'''
+
+POST_DESCRIPTION='''
+In the Table of Variants, above, the first variant in the input alignment is taken as the reference sequence, and is the ancestral Wuhan variant to ensure epitope regions are chosen appropriately. The alignment on the left shows the positions that define unique common forms that are searched using SHIVER. The positions numbers are written vertically. The amino acids in the top row are taken from is the ancestral Wuhan variant. The epitope regions in Spike that are explored for a focused search for the common Spike variants are defined at the end of this document. The epitope and furin cleavage regions in Spike that are featured are defined below.
+
+The basic NTD supersite sites selected are for inclusion are based on:
+
+Sites 14-20, 140-158, and 245-264:
+McCallum, M. et al. N-terminal domain antigenic mapping reveals a site of vulnerability for SARS-CoV-2. Cell 184:9 2332-2347.e16 (2021)
+
+Site 13: Impacts signal peptide cleavage and NTDss antibodies.
+McCallum, M. et al. SARS-CoV-2 immune evasion by the B.1.427/B.1.429 variant of concern.
+Science 373:648-654 (2021)
+
+Sites 242-244: Impacts NTDss antibody potency
+SARS-CoV-2 501Y.V2 escapes neutralization by South African COVID-19 donor plasma
+Wibmer, C. et al. Nature Med. 27(4): 622-625.
+
+Toggling Sites: Site 18 is in the NTDss and toggles frequently between L and F, so we exclude it from the tallies of forms of the regions of interest as it splits the counts on otherwise distinctive forms. An analogous situation is a problem for site 142. Among Delta variants, every common variant within the Delta lineages includes both (the ancestral) G and D at site 142. This is because the ARTIC 3 primers can results in an erroneous call of the ancestral G at position 142. The G142D mutation is the common form, and this error is resolved by using the ARTIC 4 primers. By excluding both sites 18 and 142 from our NTDss definition, we group the forms of Spike that carry either form in our tallies.
+
+Analysis of the ARTIC version 3 and version 4 SARS-CoV-2 primers and their impact on the detection of the G142D amino acid substitution in the spike protein. Davies et al. bioRxiv 10.1101/2021.09.27.461949 (2021)
+
+Sites 330-521: the RBD region includes positions 330-521, based on a synthesis of the literature from early 2020.
+
+Furin related sites: mutations that add positive charge to near the furin cleavage site can enhance Spike cleavage and infectivity. Also, the change at H655Y (Alba2021) has been shown to impact furin cleavage, and we include site 950 as it accompanies P681R in Delta and P681H in Mu, to variants that were particularly fast spreading, though Delta became prevalent.
+SARS-CoV-2 spike P681R mutation, a hallmark of the Delta variant, enhances viral fusogenicity and pathogenicity. Saito et al. bioRxiv 10.1101/2021.06.17.448820 (2021)
+SARS-CoV-2 variants of concern have acquired mutations associated with an increased spike cleavage.  Alba et al. bioRxiv 10.1101/2021.08.05.455290 (2021)
+'''
+
+T_STRATEGY='''
+This run uses the T=taketurns strategy for identifying further variants.  Each continent, in turn, chooses the next variant, based on which is the most common variant in that continent that has not already been chosen.  The order of the continents is based on number of samples available in those continents.'''
+
+G_STRATEGY='''
+This run uses the G=globalonly strategy for identifying further variants.  Coverage is optimzed globally, without consideration of continents.'''
+
+M_STRATEGY='''
+This run uses the M=mostimproved strategy for identifying further variants.  At each iteration, we determine for each continent how much gain in fraction coverage would be obtained within that continent if we chose the variant that maximized that fraction.  We choose the variant associated with the continent that sees the largest improvement in fractional coverage.'''
 
 TGM_STRATEGY = {
     'T': T_STRATEGY,
@@ -91,18 +76,7 @@ TGM_STRATEGY = {
 
 ## pattern, motif, design, stencil, prototype? not signature!
 
-TABLE_VARIANTS='''
 
-Table of Variants
-
-In the table below, the first column is the pattern at sites where differences occur,
-relative to initial (Wuhan) sequence, with site numbers read down vertically).
-
-LPM = Local Pattern Matches = # of seqs in continent that match over RBD+NTD
-GPM = Global Pattern Matches = # of seqs in world that match over RBD+NTD
-GSM = Global Sequence Matches = # of seqs that match over whole Spike protein
-
-'''
 
 
 
@@ -117,7 +91,7 @@ def _getargs():
         help="number of components in cocktail")
     paa("--strategy","-s",default="taketurns",
         help="how to pick variants: (T)aketurns, (M)ostimproved, (G)lobalonly")
-    paa("--region",default="NTDss-18+RBD-142+Furin-950",
+    paa("--region",default="NTDss-18-142+RBD+furin",
         help="region of spike sequence over which patterns are defined")
     paa("--colormut",
         help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
@@ -389,7 +363,7 @@ def main(args):
         mut_lineage = ",".join(voc.name for voc in svar.vocmatch(v_fullseq))
         if mut_lineage:
             mut_lineage = f"({mut_lineage})"
-            
+
         v_fullseq_name = name
 
         variant_table[v] = "%s %-20s %6d %6d %6d   %5.1f%% %s %s" % (
@@ -406,9 +380,8 @@ def main(args):
             sequtil.SequenceSample(v_fullseq_name,
                                    v_fullseq))
 
-            
+
     print(DESCRIPTION)
-    print()
     print(TABLE_VARIANTS)
     TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations] %s" \
         % ("(Lineage)" if args.colormut else "")
@@ -441,18 +414,14 @@ def main(args):
                 f = cov/tot
                 yield "%25s %-4s   %.4f" % (cx,CocktailName,f)
 
-    if len(allpattseqs) > len(pattseqs):
-        print("\nNote: coverage plot below is based on possibly larger sequence set:")
-        print_sequence_counts_by_continent(ConExclude,all_cont_cnt)
+    print(POST_DESCRIPTION)
+
+    ### Now, make the Coverage Table
 
     COVERAGETABLE = f'''
 Table of Coverages
 
-In table below, {TGM}-n refers to a batch of the first n variants.
-Coverage is defined as fraction of sequences in the continent with an
-exact match (over the region {args.region}) to one of the first n variants.
-(Here, '{TGM}' corresponds to the {strategy_name[TGM]} strategy.)
-The coverage table is based on {len(allpattseqs)} sequences.
+In table below, {TGM}-n refers to a batch of the first n variants.  Coverage is defined as fraction of sequences in the continent with an exact match (over the region {args.region}) to one of the first n variants.  (Here, '{TGM}' corresponds to the '{strategy_name[TGM]}' strategy.)  The coverage table is based on {len(allpattseqs)} sequences.  
 '''
 
     print(COVERAGETABLE)
@@ -463,11 +432,9 @@ The coverage table is based on {len(allpattseqs)} sequences.
         for line in coverage_table(cocktail[:n]):
             print(line)
 
-    print(POST_DESCRIPTION)
-    print()
     print(TGM_STRATEGY[TGM])
     print()
-    print("This run uses sequences sampled from %s to %s."
+    print("Sequence sample dates range from %s to %s."
           % covid.range_of_dates(pattseqs))
     if args.filterbyname:
         print("Filtered by geographic region(s):","+".join(args.filterbyname))
@@ -475,13 +442,15 @@ The coverage table is based on {len(allpattseqs)} sequences.
         print("Excluding geographic region(s):","+".join(args.xfilterbyname))
     print("The number of sequences, broken out by continent is:")
     print_sequence_counts_by_continent(ConExclude,continent_cnt)
+    if len(allpattseqs) > len(pattseqs):
+        print("Note: Coverage Table is based on possibly larger sequence set:")
+        print_sequence_counts_by_continent(ConExclude,all_cont_cnt)
 
-    print("Note: the focus here is specifically on the epitope region:",args.region)
+
+    print("The focus here is specifically on the epitope region:",args.region)
     print("Sites:",intlist.intlist_to_string(sitenums,sort=True))
     print()
     print(UK_FOOTNOTE)
-
-
 
 if __name__ == "__main__":
 
