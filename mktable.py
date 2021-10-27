@@ -120,10 +120,9 @@ def pango_seqs(seqs,pango):
             if pango == get_lineage_from_name(s.name):
                 yield s
 
-def sixtydays_seqs(seqs,days=60):
+def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
-    seqs = list(seqs)
-    _,lastdate = covid.range_of_dates(seqs)
+    lastdate = covid.lastdate_byfile(file,seqs)
     t = covid.date_fromiso(lastdate)
     f = t - datetime.timedelta(days=days)
     vprint("Sixty days:",f,t)
@@ -272,7 +271,8 @@ def _main(args):
 
     seqs = list(seqs)
 
-    seqs_sixtydays = list(sixtydays_seqs(seqs))
+    seqs_sixtydays = sixtydays_seqs(seqs,file=args.input)
+    seqs_sixtydays = list(seqs_sixtydays)
     vprint("Read",len(seqs),"sequences")
     vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
     
