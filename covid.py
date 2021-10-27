@@ -15,7 +15,7 @@ import readseq
 import sequtil
 import intlist
 
-DEFAULTSEQFILE="Latest.ipkl.gz"
+DEFAULTSEQFILE="Latest.ipkl"
 
 def default_seqfile(seqfilename=DEFAULTSEQFILE):
     '''
@@ -33,6 +33,10 @@ def default_seqfile(seqfilename=DEFAULTSEQFILE):
         seqfile = Path(d) / seqfilename
         if seqfile.exists():
             return seqfile
+        seqfile = Path(d) / (seqfilename + ".gz")
+        if seqfile.exists():
+            return seqfile
+        
     return None
 
 def corona_args(ap):
