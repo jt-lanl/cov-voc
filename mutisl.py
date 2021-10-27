@@ -1,12 +1,12 @@
 '''
-read mutant strings from a file
-identify sequences from input sequence file that match those stringa
-get the ISL numbers corresponding to those matching sequences
-Open /another/ file (eg a DNA file instead of protein)
-find all the sequences in that file with the given IDL numbers,
-determint the most common sequences among the matches
-output an example (with mstring pattern + sequence name, including ISL number)
-of a seqeunce that exhibits that most common variant
+Read mutant strings from a file.
+Identify sequences from input sequence file that match those stringa.
+Get the ISL numbers corresponding to those matching sequences.
+Open /another/ file (eg a DNA file instead of protein).
+Find all the sequences in that file with the given ISL numbers.
+Determine the most common sequences among the matches.
+Output an example (with mstring pattern + sequence name, including ISL number)
+of a seqeunce that exhibits that most common variant.
 Final output is a fasta file with a sequence for each mutant string
 '''
 import sys
@@ -61,7 +61,8 @@ def read_mutantfile(filename):
             if mpatt:
                 mstring = mstring_brackets(mpatt[2])
                 mutlist.append(mstring)
-                nomlist.append(mpatt[1])
+                nom = mpatt[1].strip()
+                nomlist.append(nom)
             else:
                 warnings.warn(f"Invalid line: {line}")
     return nomlist,mutlist
