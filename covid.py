@@ -313,6 +313,25 @@ def xrepair(seqs,X='X'):
             s.seq = "".join(ss)
         yield s
 
+def lastdate_byfile(file,seqs=None):
+    ## to get last date
+    ## 1/ get modification date of input file
+    ## 2/ if that doesn't work (eg, if file not found) get today's date
+    ## 3/ if that doesn't work, get last date in dataset
+
+    lastdate=None ## in case nothing works!
+    try:
+        mtime = os.path.getmtime(file)
+        lastdate = datetime.date.fromtimestamp(mtime).isoformat()
+    except FileNotFoundError:
+        try:
+            lastdate = datetime.date.today().isoformat()
+        except:
+            if seqs:
+                seqs = list(seqs)
+                _,lastdate = range_of_dates(seqs)
+    return lastdate
+        
 def filter_seqs_by_date(seqs,args):
 
     if not args.days and not args.dates:
@@ -321,19 +340,7 @@ def filter_seqs_by_date(seqs,args):
         raise RuntimeError("Cannot specify both --days AND --dates")
 
     if args.days:
-        ## to get last date
-        ## 1/ get modification date of input file
-        ## 2/ if that doesn't work (eg, if file not found) get today's date
-        ## 3/ if that doesn't work, get last date in dataset
-        try:
-            mtime = os.path.getmtime(args.input)
-            lastdate = datetime.date.fromtimestamp(mtime).isoformat()
-        except FileNotFoundError:
-            try:
-                lastdate = datetime.date.today().isoformat()
-            except:
-                seqs = list(seqs)
-                _,lastdate = range_of_dates(seqs)
+        lastdate = lastdate_byfile(args.input,seqs)
         t = date_fromiso(lastdate) 
         f = t - datetime.timedelta(days=args.days)
         args.dates = f,t
