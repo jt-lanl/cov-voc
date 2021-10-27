@@ -9,6 +9,7 @@ import sys
 import re
 import itertools as it
 from collections import Counter
+import datetime
 import argparse
 import warnings
 
@@ -34,6 +35,10 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+
+    if args.days:
+        warnings.warn("Probably you do not want to use --days; both full and days=60 are computed")
+
     return args
 
 ## ColumnNames
@@ -42,11 +47,14 @@ Pango = 'Pango'
 Pattern = 'Pattern'
 Count = 'Count'
 Fraction = 'Fraction'
+Recent = 'SixtyDays'
 TotalPangoCount = 'TotalPangoCount'
 TotalPangoFraction = 'TotalPangoFraction'
 TotalPatternFullCount = 'TotalPatternFullCount'
+SixtyDaysPatternFullCount = 'SixtyDaysPatternFullCount'
 TotalPatternFullFraction = 'TotalPatternFullFraction'
 TotalPatternInclusiveCount = 'TotalPatternInclusiveCount'
+SixtyDaysPatternInclusiveCount = 'SixtyDaysPatternInclusiveCount'
 TotalPatternInclusiveFraction = 'TotalPatternInclusiveFraction'
 PangoPatternFullCount = 'PangoPatternFullCount'
 PangoPatternFullFraction = 'PangoPatternFullFraction'
@@ -58,12 +66,15 @@ CommonPango2 = 'CommonPango2'
 CommonPango2Count = 'CommonPango2Count'
 CommonPango3 = 'CommonPango3'
 CommonPango3Count = 'CommonPango3Count'
+ExampleISL = 'ExampleISL'
 
 ColumnHeaders = {
     Pango: "Pango lineage",
     Pattern: "Spike backbone for variant...",
     TotalPatternFullCount: "Number of sequences thta exactly match this pattern",
     TotalPatternInclusiveCount: "Number of sequences that contain this pattern",
+    SixtyDaysPatternFullCount: "Number of sequences thta exactly match this pattern, last 60 days",
+    SixtyDaysPatternInclusiveCount: "Number of sequences that contain this pattern, last 60 days",
     'LineagesMatchPatternFull': "Lineages with sequences that " \
                                 "exactly match this pattern in Spike (and count)",
     'LineagesMatchPatternInclusive': "Lineages with sequences that " \
@@ -78,7 +89,8 @@ ColumnHeaders = {
     PangoPatternInclusiveFraction: "Fraction of sequences in the Pango lineage that " \
                                 "contain this pattern",
     'CountriesPatternFull': "Countries that exactly match this pattern",
-    'CountriesPatternInclusive': "Countries that contain this pattern",    
+    'CountriesPatternInclusive': "Countries that contain this pattern",
+    ExampleISL: 'Example ISL number for this pattern',
 }
 
 def column_header(column_name):
@@ -108,6 +120,15 @@ def pango_seqs(seqs,pango):
             if pango == get_lineage_from_name(s.name):
                 yield s
 
+def sixtydays_seqs(seqs,days=60):
+    '''return an iterator of seqs whose dates are in the last 60 days'''
+    seqs = list(seqs)
+    _,lastdate = covid.range_of_dates(seqs)
+    t = covid.date_fromiso(lastdate)
+    f = t - datetime.timedelta(days=days)
+    vprint("Sixty days:",f,t)
+    return covid.filter_by_date(seqs,f,t,keepfirst=False)
+
 def mstring_seqs(seqs,MM,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
     mpatt = mutant.Mutation(mstring)
@@ -125,13 +146,18 @@ def mstring_brackets(mstring):
 def mstring_fix(mstring):
     '''
     1. fix G-- vs --G 
-    2. make a new mstring that treats G142x as G142.
+    2. remove 'ancestral' string
+    3. make a new mstring that treats G142x as G142.
     '''
     ### could we do D215A,+215AGY  => +214AAG,D215Y
     ## fix G-- vs --G
     if re.search('E156G,F157-,R158-',mstring):
         warnings.warn(f'fixing mstring with G-- pattern: {mstring}')
         mstring = re.sub('E156G,F157-,R158-','E156-,F157-,R158G',mstring)
+
+    if re.search('ancestral',mstring):
+        warnings.warn(f'removing "ancestral" from "{mstring}"')
+        mstring = re.sub(r'\s*ancestral\s*','',mstring)
 
     ## fix G142G or G142_ or G142D -> G142.
     newmut = []
@@ -160,7 +186,7 @@ def read_input_file(filename):
     return items
 
 
-def get_row(seqs,MM,pango,mstring):
+def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
     '''produce a single row of the spreadsheet as a dict()'''
     
     row = dict()
@@ -176,8 +202,9 @@ def get_row(seqs,MM,pango,mstring):
     vprint("Of which,",len(seqdict[Pango]),"sequences matched pango form",pango)
     row[TotalPangoCount] = len(seqdict[Pango])
     row[TotalPangoFraction] = row[TotalPangoCount]/TotalCount
+    seqdict[Recent] = seqs_sixtydays
 
-    for seqtype in [Total,Pango]:
+    for seqtype in [Total,Pango,Recent]:
         seqs = seqdict[seqtype]
         for exact in [False,True]:
             column_name = "PatternFull" if exact else "PatternInclusive"
@@ -186,10 +213,18 @@ def get_row(seqs,MM,pango,mstring):
             if mstring_adj != mstring:
                 print(f"M-String adjusted: {mstring} -> {mstring_adj}",file=sys.stderr)
             matched_seqs = list(mstring_seqs(seqs,MM,mstring_adj,exact=exact))
-            vprint(seqtype,exact,len(matched_seqs),len(seqs))
+            vprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
 
             row[column_name + Count] = len(matched_seqs)
             row[column_name + Fraction] = len(matched_seqs)/len(seqs) if len(seqs) else 0
+
+            if seqtype == Total and exact == True:
+                if len(matched_seqs):
+                    exampleseq = matched_seqs[-1]
+                    row[ExampleISL] = covid.get_isl(exampleseq.name)
+                else:
+                    row[ExampleISL] = "NA"
+                    warnings.warn(f"No sequences exactly match: {mstring_adj}")
 
             if seqtype == Total:
                 lineages = [get_lineage_from_name(s.name) for s in matched_seqs]
@@ -206,7 +241,7 @@ def get_row(seqs,MM,pango,mstring):
                 str_countries = ",".join("%s(%d)" % (c,cnt_countries[c])
                                          for c in sorted_countries[:3])
                 row["Countries" + column_name] = str_countries
-
+    vvprint(list(row))
     return row
 
 def format_row(row,header=False,sepchar='\t'):
@@ -237,8 +272,12 @@ def _main(args):
 
     seqs = list(seqs)
 
+    seqs_sixtydays = list(sixtydays_seqs(seqs))
+    vprint("Read",len(seqs),"sequences")
+    vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
+    
     if args.pango and args.mutant:
-        row = get_row(seqs,MM,args.pango,args.mutant)
+        row = get_row(seqs,seqs_sixtydays,MM,args.pango,args.mutant)
         print(format_row(row,header=True))
         print(format_row(row))
 
@@ -247,7 +286,7 @@ def _main(args):
         for pango,mstring in read_input_file(args.pmfile):
             if args.nopango:
                 pango=""
-            row = get_row(seqs,MM,pango,mstring)
+            row = get_row(seqs,seqs_sixtydays,MM,pango,mstring)
             if not header_yet:
                 print(format_row(row,header=True))
                 header_yet=True
