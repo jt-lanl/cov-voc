@@ -144,10 +144,16 @@ def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
 
 def main(args):
     ''' embers main '''
-    args_keepx = args.keepx
-    args.keepx = False
+
+    ## At some point, I added code to ensure keepx=False for the purpose of
+    ## reading the input file (ie, forced X's to be filtered out) and than
+    ## reset keepx to the value in the command line.  But I don't know why
+    ## I did that, and now I think it's a bad idea, especially because
+    ## re-setting args.keepx back to original value doesn't affect anything!
+    #args_keepx = args.keepx
+    #args.keepx = False
     seqs = covid.read_filter_seqfile(args)
-    args.keepx = args_keepx
+    #args.keepx = args_keepx
     first,seqs = sequtil.get_first_item(seqs)
 
     if args.colormut:
@@ -242,7 +248,7 @@ def main(args):
         ## Ideally just one match, if zero or more than one, then...
         if len(vocmatch)==0:
             sseq = svar.shorten(seq)
-            xpatt[sseq] = c[seq]
+            xpatt[sseq] += c[seq]
         elif len(vocmatch)>1:
             if any(voc.name != vocmatch[0].name for voc in vocmatch):
                 warn_msg = f"\n{svar.shorten(seq)} matches\n"
@@ -255,7 +261,7 @@ def main(args):
 
     ## Write counts table to file
     if args.ctable:
-        vprint(cpatt)
+        vvprint(cpatt)
         with open(args.ctable,"w") as fout:
             for line in lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
                 print(line,file=fout)
