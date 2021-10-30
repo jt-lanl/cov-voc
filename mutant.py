@@ -257,6 +257,8 @@ class Mutation(list):
             exact = self.exact
         return self.__str__() + ("!" if exact else "")
 
+    ## note, no hash function, just too expensive to hash
+
     def sitelist(self):
         '''
         return list of relevant sites, with mutliple copies for insertions
@@ -368,13 +370,15 @@ class MutationManager(SiteIndexTranslator):
         ## alt mutation structure is a dictionary of sites
         ## [A1B,C3D,+3YZ] -> {1: 'B', 3: 'DYZ'}
         ## [A1B,+3YZ] -> {1: 'B', 3:'CYZ'}
+        ## [A1*] -> {1: '*A'}
         ## alt structure designed for describing sequences;
         ## if ssmlist is meant to be a pattern, then more likely to be problematic
-        alt=defaultdict(str)
+        alt=dict()
         for ssm in sorted(ssmlist):
             if ssm.ref == "+":
-                alt[ssm.site] = alt[ssm.site] or self.refval(ssm.site)
-                alt[ssm.site] += ssm.mut
+                alt[ssm.site] = alt.get(ssm.site,self.refval(ssm.site)) + ssm.mut
+            elif ssm.mut == "*":
+                alt[ssm.site] = "*" + ssm.ref
             else:
                 alt[ssm.site] = ssm.mut
         return alt
@@ -472,7 +476,7 @@ class MutationManager(SiteIndexTranslator):
         alt_mseq = self.get_alt_mutation_ssmlist(mseq)
         for ssm in mpatt:
             refval = self.refval(ssm.site)
-            seqval = alt_mseq[ssm.site] or refval
+            seqval = alt_mseq.get(ssm.site,refval)
             if ssm.mut == "_":
                 ## may never happen, get's converted when read into SSM
                 if seqval != ssm.ref:
@@ -498,7 +502,7 @@ class MutationManager(SiteIndexTranslator):
                 return False
             ref = self.refval(site)
             seqval = seqval or ref
-            if pval[0] == "*" and seqval != ref:
+            if pval[0] == "*" and seqval != ref: ## ref = pval[1] in this case
                 continue
             if pval[0] == ".":
                 continue
