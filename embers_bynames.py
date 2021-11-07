@@ -13,7 +13,7 @@ import sequtil
 import embersplot
 #from embers import get_daterange,date_from_seqname
 
-from lineagetablev1 import LineageTable
+from lineagetablev2 import LineageTable
 
 OTHER = 'other'
 
