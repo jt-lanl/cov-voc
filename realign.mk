@@ -1,8 +1,8 @@
 ## Makefile for boosting the alignment of sequences
-## make -f realign.mk makes a realigned sequences from INITALIGN
-## make -f realign.mk KEEPX='' turns off --keepx
-## make -j3 -f realign.sh permits parallel make
-## make -f realign.sh Latest makes a new Latest.ipkl
+## make -f src/realign.mk makes a realigned sequences from INITALIGN
+## make -f src/realign.mk KEEPX='' turns off --keepx
+## make -j3 -f src/realign.mk permits parallel make
+## make -f src/realign.mk Latest makes a new Latest.ipkl
 
 ID := 20211108
 INITALIGN := data/REG_COMP.SPIKE.protein.Human.$(ID).fasta.gz
