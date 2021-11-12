@@ -1,1 +1,114 @@
-../cmt/color-mutation-table-v6.txt
+# Format for this file:
+#   Comments begin with '#' and are ignored
+#   Each line has: <color> <mutation> <name> <etc>
+#   <color> is common color name, with no spaces (eg, DarkGreen not Dark Green), limited to X11_color_names
+#   <mutation> is of form [<ssm>,<ssm>,...<ssm>], possibly followed by an '!'
+#       <ssm> is a single site mutation of form <rchar><site><mchar>, where
+#             <rchar> = character in reference sequence
+#             <site> = integer site number
+#             <mchar> = character in mutated sequence
+#             special values of <mchar>: . = anything, _ = <rchar>, * = anything but <rchar>
+#       '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
+#           mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
+#           site is among the union of all the sites in all the mutation strings
+#   <name> is the name associated with the mutation (eg, Pango lineage)
+#   <etc>  is any further text; it is treated as a comment and is ignored
+#           
+ 
+# Exact matches
+
+FloralWhite	[]!	Ancestral
+Gainsboro	[L5.,D614G]!	G-clade
+Gainsboro	[L5.,S477N,D614G]!	G-clade
+Gainsboro	[L5.,N501*,D614G]!	G-clade
+Gainsboro	[L5.,N439K,D614G]!	G-clade
+Gainsboro	[L5.,T732A,D614G]!	G-clade
+Gainsboro	[L5.,T20I,D614G]!	G-clade
+Gainsboro	[L5.,D138Y,D614G]!	G-clade
+LightGrey	[L5.,L18.,D614G,A222V]!	GV-clade
+Fuchsia		[L5.,D614G,P681*]!	FurinRelated #P681 H/R
+Fuchsia		[D614G,Q677*]!	FurinRelated #Q677 H/R/P
+Fuchsia		[D614G,Q675*]!	FurinRelated #Q675 H
+Fuchsia         [D614G,H655Y]!  FurinRelated #H655 Y
+
+# Origin or Commonly sampled	
+	
+Orange		[T20_,H69-,V70-,Y144-,W152_,E484_,F490_,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	B.1.1.7=Alpha	
+Orange		[T20_,H69-,V70-,Y144_,W152_,E484_,F490_,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	B.1.1.7=Alpha	
+Orange		[T20_,H69-,V70-,Y144-,W152_,E484_,F490_,N501Y,A570D,D614G,P681R,T716I,S982A,D1118H]	B.1.1.7=Alpha	
+Orange		[T20_,H69-,V70-,Y144-,W152_,E484_,F490_,N501Y,A570D,D614G,P681H,T716_,S982A,D1118H]	B.1.1.7=Alpha	
+Coral		[T20_,H69-,V70-,Y144-,W152R,E484.,F490.,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	Alpha+W152R	
+LightCoral	[T20_,H69-,V70-,Y144-,W152.,E484K,F490.,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	Alpha+E484K
+Gold 		[T20_,H69-,V70-,Y144-,W152_,E484_,F490S,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	Alpha+F490S
+Goldenrod 	[T20I,H69-,V70-,Y144-,W152_,E484_,F490.,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]	Alpha+T20I
+
+Plum	[L18.,D80A,D215G,L242-,A243-,L244-,K417N,E484K,N501Y,D614G,A701V]	B.1.351=Beta
+
+#v5 FireBrick	[L18.,T20N,P26S,D138.,R190S,K417.,E484K,N501Y,D614G,H655Y,T1027I,V1176F]	P.1=Gamma
+FireBrick	[L18.,T20.,P26.,D138.,R190S,K417.,E484K,N501Y,D614G,H655Y,P681_,Q675_,Q677_,N679_,T1027.,V1176F]	P.1=Gamma  ## less specific at sites 1027.,26,20.
+
+Orchid [L18.,T20.,P26.,D138.,R190S,K417.,E484K,N501Y,D614G,H655Y,P681*,T1027.,V1176F]	Gamma+FurinRelated
+Orchid [L18.,T20.,P26.,D138.,R190S,K417.,E484K,N501Y,D614G,H655Y,Q675*,T1027.,V1176F]	Gamma+FurinRelated
+Orchid [L18.,T20.,P26.,D138.,R190S,K417.,E484K,N501Y,D614G,H655Y,Q677*,T1027.,V1176F]	Gamma+FurinRelated
+Orchid [L18.,T20.,P26.,D138.,R190S,K417.,E484K,N501Y,D614G,H655Y,N679*,T1027.,V1176F]	Gamma+FurinRelated
+
+## These Deltas are doubled to account for --G vs G-- ambiguity in sites 156-158
+BlueViolet	[T19R,V70_,T95.,G142.,E156-,F157-,R158G,A222.,W258_,K417_,L452R,T478K,D614G,H655_,Q675_,Q677_,N679_,P681R,D950N]	B.1.617.2=Delta	
+BlueViolet	[T19R,V70_,T95.,G142.,E156G,F157-,R158-,A222.,W258_,K417_,L452R,T478K,D614G,H655_,Q675_,Q677_,N679_,P681R,D950N]	B.1.617.2=Delta
+
+
+Aqua	[T19R,V70_,T95.,G142.,E156G,F157-,R158-,A222.,W258_,K417_,L452R,T478K,D614G,H655Y,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156G,F157-,R158-,A222.,W258_,K417_,L452R,T478K,D614G,P681H,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156G,F157-,R158-,A222.,W258_,K417_,L452R,T478K,D614G,Q675*,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156G,F157-,R158-,A222.,W258_,K417_,L452R,T478K,D614G,Q677*,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156G,F157-,R158-,A222.,W258_,K417_,L452R,T478K,D614G,N679*,D950N]	Delta+FurinRelated
+
+Aqua	[T19R,V70_,T95.,G142.,E156-,F157-,R158G,A222.,W258_,K417_,L452R,T478K,D614G,H655Y,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156-,F157-,R158G,A222.,W258_,K417_,L452R,T478K,D614G,P681H,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156-,F157-,R158G,A222.,W258_,K417_,L452R,T478K,D614G,Q675*,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156-,F157-,R158G,A222.,W258_,K417_,L452R,T478K,D614G,Q677*,D950N]	Delta+FurinRelated
+Aqua	[T19R,V70_,T95.,G142.,E156-,F157-,R158G,A222.,W258_,K417_,L452R,T478K,D614G,N679*,D950N]	Delta+FurinRelated
+
+
+LightPink [T19R,V70F,T95.,G142.,E156-,F157-,R158G,A222V,W258_,K417N,L452R,T478K,D614G,P681.,D950N] Delta-AY.2
+LightPink [T19R,V70F,T95.,G142.,E156G,F157-,R158-,A222V,W258_,K417N,L452R,T478K,D614G,P681.,D950N] Delta-AY.2
+
+## Retired at v6
+## Orchid	  [T19R,V70_,T95I,G142.,E156-,F157-,R158G,W258L,K417N,L452R,T478K,D614G,P681R,D950N] Delta-AY.1
+## Orchid	  [T19R,V70_,T95I,G142.,E156G,F157-,R158-,W258L,K417N,L452R,T478K,D614G,P681R,D950N] Delta-AY.1
+
+
+DarkBlue	[S13I,W152C,L452R,D614G]	B.1.429/7=Epsilon	
+Red	[T95_,K417_,E484K,N501_,D614G,F888_,V1176F]	P.2=Zeta	#subset	of P.1	
+DarkSeaGreen	[Q52R,A67V,H69-,V70-,Y144-,E484K,D614G,Q677H,F888L]	B.1.525=Eta
+	
+LimeGreen	[L5.,T95I,D253G,S477.,E484.,D614G,A701V,Q957_]	B.1.526=Iota
+LimeGreen	[L5.,T95I,D253G,S477N,D614G,A701_,Q957R]	B.1.526=Iota
+Purple		[D80G,Y144-,F157S,L452R,D614G,T859N,D950H]	B.1.637	
+DarkMagenta	[T95.,G142.,E154.,E156_,F157_,R158_,L452R,E484Q,D614G,P681R,Q1071.]	B.1.617.1=Kappa	
+#DarkMagenta	[T95.,G142D,E154K,L452R,E484Q,D614G,P681R,Q1071H]	B.1.617.1=Kappa	#(tighter)	
+#Green	[G75V,T76I,R246-,S247-,Y248-,L249-,T250-,P251-,G252-,D253N,L452Q,F490S,D614G,T859N]	C.37=Lambda ##original	
+Green	[G75V,T76I,R246.,S247-,Y248-,L249-,T250-,P251-,G252-,D253-,L452Q,F490S,D614G,T859N]	C.37=Lambda (253.)
+#Aquamarine	[L18.,L452R,N501Y,D614_,A653V,H655Y,D796Y,G1219V]	A.27	
+	
+#Other recurring variants	
+	
+#Chocolate	[F157L,V367F,Q613H,D614_,P681R]	A23.1	
+RoyalBlue	[T478K,D614G,P681H,T732A]	B.1.1.519	
+HotPink	[W152L,E484K,D614G,G769V]	R.1	#Japan	
+DarkOliveGreen	[S494P,N501_,D614G,P681H,T716I,S982_,D1118_]	B.1.575	##subset of B.1.1.7+S494P	
+Yellow	[H69-,V70-,L189F,N439K,D614G,V772I]	B.1.258.17
+
+LightSlateGray	[S13_,G142-,V143-,A222_,L452R,E484_,D614G,Q677_,P681_,T859_,D950_]	A.2.5.2	
+	
+Lavender	[Q414K,N450K,D614G,T716I]	B.1.214.2	
+ForestGreen	[S12F,H69-,V70-,W152R,R346S,L452R,D614G,Q677H,A899S]	C.36.3	
+#Indianred	[E156-,F157-,R158-,F306L,E484K,S494P,D614G,E780A,D839V,T1027I]	B.1.1.523	
+CadetBlue	[P26S,H69-,V70-,V126A,Y144-,L242-,A243-,L244-,H245Y,S477N,E484K,D614G,P681H,T1027I,D1118H]	B.1.620
+LightSteelBlue [S494P,N501Y,D614G,P681H,K854N,E1111K]	B.1.623
+Moccasin [T95I,Y144-,E484K,D614G,P681H,D796H] B.1.1.318
+
+Indigo     [I210T,N440K,E484K,D614G,D936N,S939F,T1027I]           B.1.619
+LawnGreen  [T95I,Y144S,Y145N,R346K,E484K,N501Y,D614G,P681H,D950N] B.1.621=Mu
+
+#LightCyan
