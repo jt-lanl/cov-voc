@@ -94,6 +94,8 @@ ColumnHeaders = {
                                 "contain this pattern",
     'CountriesPatternFull': "Countries that exactly match this pattern",
     'CountriesPatternInclusive': "Countries that contain this pattern",
+    'CountriesSixtyDaysPatternFull': "Countries that exactly match this pattern, counts based on last 60 days",
+    'CountriesSixtyDaysPatternInclusive': "Countries that contain this pattern, counts based on last 60 days",
     ExampleISL: 'Example ISL number for this pattern',
 }
 
@@ -241,7 +243,7 @@ def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
 
     mstring_adj = mstring_fix(mstring)
     if mstring_adj != mstring:
-        vprint(f"M-String adjusted: {mstring} -> {mstring_adj}",file=sys.stderr)
+        vprint(f"M-String adjusted: {mstring} -> {mstring_adj}")
 
     for seqtype in [Total,Pango,Recent]:
         seqs = seqdict[seqtype]
@@ -274,6 +276,7 @@ def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
                 column_name = "PatternFull" if exact else "PatternInclusive"
                 row["LineagesMatch" + column_name] = str_lineages
 
+            if seqtype in [Total,Recent]:
                 countries = [get_country_from_name(s.name) for s in matched_seqs]
                 cnt_countries = Counter(countries)
                 sorted_countries = sorted(cnt_countries,key=cnt_countries.get,reverse=True)
