@@ -41,10 +41,10 @@ tkfx-sk-$(XIDGZ): tkfx-sk-$(XID).msp tkfx-$(XIDGZ)
 	python -m tweakalign $(KEEPX) -M tkfx-sk-$(XID).msp -i tkfx-$(XIDGZ) -o $@
 
 ztkfx-sk-$(XIDGZ): tkfx-sk-$(XIDGZ)
-	python -m fixfasta $(KEEPX) --rmgapcols --random -i $< -o $@
+	python -m fixfasta $(KEEPX) --rmgapcols -i $< -o $@
 
 Latest: Latest.ipkl
 
 Latest.ipkl: ztkfx-sk-$(XIDGZ)
-	python -m fixfasta $(KEEPX) -i $< -o $@
+	python -m fixfasta $(KEEPX) --random -i $< -o $@
 
