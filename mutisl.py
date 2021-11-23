@@ -108,9 +108,11 @@ def _main(args):
         
     refseqs = sequtil.read_seqfile(args.j)
     firstref,refseqs = sequtil.get_first_item(refseqs,keepfirst=False)
-    refseqdict = {covid.get_isl(s.name): s
-                  for s in refseqs
-                  if covid.get_isl(s.name) in isl_setofall}
+    refseqdict = dict()
+    for s in refseqs:
+        isl_name = covid.get_isl(s.name)
+        if isl_name in isl_setofall:
+            refseqdict[isl_name] = s
     vprint("Read",len(refseqdict),"reference sequences")
 
     outseqs = []
