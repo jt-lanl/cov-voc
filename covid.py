@@ -150,6 +150,45 @@ def filter_by_date(seqs,fromdate,todate,keepfirst=False):
             continue
         yield s
 
+
+def mstring_brackets(mstring):
+    '''make sure mstring has brackets around it'''
+    mstring = re.sub(r'\s','',mstring) ## remove extra spaces between ssms
+    mstring = re.sub(r'\s*ancestral\s*','',mstring) ## take out 'ancestral'
+    mstring = re.sub(r'[\[\]]','',mstring) ## remove if already there
+    mstring = f'[{mstring}]'
+    return mstring
+
+def mstring_fix(mstring):
+    '''
+    1. fix G-- vs --G 
+    2. remove 'ancestral' string
+    3. make a new mstring that treats G142x as G142.
+    '''
+    ### could we do D215A,+215AGY  => +214AAG,D215Y
+    ## fix G-- vs --G
+    if re.search('E156G,F157-,R158-',mstring):
+        warnings.warn(f'fixing mstring with G-- pattern: {mstring}')
+        mstring = re.sub('E156G,F157-,R158-','E156-,F157-,R158G',mstring)
+
+    if re.search('ancestral',mstring):
+        warnings.warn(f'removing "ancestral" from "{mstring}"')
+        mstring = re.sub(r'\s*ancestral\s*','',mstring)
+
+    ## fix G142G or G142_ or G142D -> G142.
+    if re.search('G142',mstring):
+        mstring = re.sub(r'G142[GD_]','G142.',mstring)
+
+    return mstring
+
+    #newmut = []
+    #for ssm in mutant.Mutation(mstring):
+    #    if ssm.site == 142 and ssm.mut in "GD_":
+    #        newmut.append(mutant.SingleSiteMutation.from_ref_site_mut('G',142,'.'))
+    #    else:
+    #        newmut.append(ssm)
+    #return str(mutant.Mutation(newmut))        
+
 site_specifications = {
     "RBD"         : "330-521",
     "NTD"         : "14-292",
