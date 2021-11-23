@@ -18,8 +18,9 @@ import argparse
 import warnings
 
 import sequtil
-import covid
+import covidfast as covid
 import mutant
+import pseq
 
 def _getargs():
     '''get arguments from command line'''
@@ -39,16 +40,9 @@ def _getargs():
     args = aparser.parse_args()
     return args
 
-def mstring_brackets(mstring):
-    '''make sure mstring has brackets around it'''
-    mstring = re.sub(r'\s','',mstring) ## remove extra spaces between ssms
-    mstring = re.sub(r'[\[\]]','',mstring) ## remove if already there
-    mstring = f'[{mstring}]'
-    return mstring
-
 def read_mutantfile(filename):
     '''read mutant file and return mstring list'''
-    mutantfilepatt = re.compile(r'(.*)\s+(\[?.+\]?)')
+    mutantfilepatt = re.compile(r'(.*)\s+(\[?.+\]?)\s*$')
     mutlist=[]
     nomlist=[]
     with open(filename) as fptr:
@@ -57,9 +51,11 @@ def read_mutantfile(filename):
             line = re.sub('#.*','',line)
             if not line:
                 continue
-            mpatt = mutantfilepatt.search(line)
+            line = re.sub(r'\s*ancestral\s*','',line)
+            mpatt = mutantfilepatt.search(line) ## match should work too
             if mpatt:
-                mstring = mstring_brackets(mpatt[2])
+                mstring = covid.mstring_brackets(mpatt[2])
+                mstring = covid.mstring_fix(mstring)
                 mutlist.append(mstring)
                 nom = mpatt[1].strip()
                 nomlist.append(nom)
@@ -87,14 +83,18 @@ def _main(args):
         seqs = it.islice(seqs,args.N+1)
 
     seqs = list(seqs)
-    first,seqs = sequtil.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     m_mgr = mutant.MutationManager(first.seq)
+
+    seqs = [pseq.ProcessedSequence(m_mgr,s) for s in seqs]
+    
     isl_matches = dict() ## list of isl names for seq's that match pattern
     isl_setofall = set() ## set of all islnames
     for mstring in mutlist:
         mpatt = mutant.Mutation.from_mstring(mstring,exact=True)
-        matches = m_mgr.filter_seqs_by_pattern(mpatt,seqs)
-        islnames = [covid.get_isl(s.name) for s in matches]
+        #matches = m_mgr.filter_seqs_by_pattern(mpatt,seqs)
+        matches = pseq.filter_pseqs_by_pattern(m_mgr,mpatt,seqs,exact=True)
+        islnames = [s.ISL for s in matches]
         islnames = sorted(islnames)
         if len(islnames)==0:
             warnings.warn(f"No matches found for {mstring}")
