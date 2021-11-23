@@ -168,39 +168,6 @@ def mstring_pseqs(pseqs,MM,mstring,exact=False):
     return pseq.filter_pseqs_by_pattern(MM,mpatt,pseqs,
                                         exact=exact,assume_inclusive=exact)
 
-def mstring_brackets(mstring):
-    '''make sure mstring has brackets around it'''
-    mstring = re.sub(r'\s','',mstring) ## remove extra spaces between ssms
-    mstring = re.sub(r'\s*ancestral\s*','',mstring) ## take out 'ancestral'
-    mstring = re.sub(r'[\[\]]','',mstring) ## remove if already there
-    mstring = f'[{mstring}]'
-    return mstring
-
-def mstring_fix(mstring):
-    '''
-    1. fix G-- vs --G 
-    2. remove 'ancestral' string
-    3. make a new mstring that treats G142x as G142.
-    '''
-    ### could we do D215A,+215AGY  => +214AAG,D215Y
-    ## fix G-- vs --G
-    if re.search('E156G,F157-,R158-',mstring):
-        warnings.warn(f'fixing mstring with G-- pattern: {mstring}')
-        mstring = re.sub('E156G,F157-,R158-','E156-,F157-,R158G',mstring)
-
-    if re.search('ancestral',mstring):
-        warnings.warn(f'removing "ancestral" from "{mstring}"')
-        mstring = re.sub(r'\s*ancestral\s*','',mstring)
-
-    ## fix G142G or G142_ or G142D -> G142.
-    newmut = []
-    for ssm in mutant.Mutation(mstring):
-        if ssm.site == 142 and ssm.mut in "GD_":
-            newmut.append(mutant.SingleSiteMutation.from_ref_site_mut('G',142,'.'))
-        else:
-            newmut.append(ssm)
-    return str(mutant.Mutation(newmut))
-
 def read_input_file(filename):
     items=[]
     with open(filename) as f_input:
@@ -212,7 +179,7 @@ def read_input_file(filename):
             try:
                 pango,mstring = line.split('\t',1)
                 pango = pango.strip()
-                mstring = mstring_brackets(mstring)
+                mstring = covid.mstring_brackets(mstring)
             except ValueError:
                 warnings.warn("Problem reading line:",line)
                 continue
@@ -241,7 +208,7 @@ def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
     row[TotalPangoFraction] = row[TotalPangoCount]/TotalCount
     seqdict[Recent] = seqs_sixtydays
 
-    mstring_adj = mstring_fix(mstring)
+    mstring_adj = covid.mstring_fix(mstring)
     if mstring_adj != mstring:
         vprint(f"M-String adjusted: {mstring} -> {mstring_adj}")
 
@@ -350,6 +317,8 @@ def _main(args):
             header_yet=True
         print(format_row(row))
         print(end="",flush=True)
+
+    print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences",file=sys.stderr)
 
 if __name__ == "__main__":
 
