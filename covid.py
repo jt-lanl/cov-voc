@@ -48,6 +48,8 @@ def corona_args(ap):
     paa("--input","-i",type=Path,
         default=default_seqfile(),
         help="input file with aligned sequences (first is reference)")
+    paa("--title",
+        help="use this TITLE in plots")
     paa("--filterbyname","-f",nargs='+',
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
@@ -270,6 +272,8 @@ def parse_continents(withglobal=False):
 
 def get_title(args):
     ## Get title for plots and tables
+    if args.title:
+        return args.title
     title = "+".join(args.filterbyname) if args.filterbyname else "Global"
     if title==".":
         title = "Global"
