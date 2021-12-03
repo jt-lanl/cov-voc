@@ -6,14 +6,16 @@ import random
 import datetime
 import argparse
 
+import warnings
+
 import covid
 import colornames
-#import readseq
 import sequtil
 import embersplot
-#from embers import get_daterange,date_from_seqname
 
-from lineagetablev2 import LineageTable
+## Default lineage table
+#from lineagetable import LineageTable
+import lineagetable
 
 OTHER = 'other'
 
@@ -32,6 +34,8 @@ def getargs():
     #paa("--nolegend",action="store_true",help="avoid putting legend on plot")
     paa("--legend",type=int,default=0,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
+    paa("--lineagetable","-l",
+        help="read lineage table from file")
     paa("--other",action="store_true",
         help="write out the lineages in the 'other' class")
     paa("--output","-o",help="write plot to file")
@@ -110,15 +114,36 @@ def get_daterange(datecounter,argsdates):
 
     return ordmin, ordmax, ordplotmin, ordplotmax
 
+def rd_lineage_table(filename):
+    lineage_table=[]
+    with open(filename) as ftable:
+        for line in ftable:
+            line = re.sub(r'#.*','',line)
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                color,name,pattern = line.split()
+                lineage_table.append( (color,name,pattern) )
+            except:
+                warnings.warn(f'Bad line in lineage file: {line}')
+    return lineage_table
 
 
 def main(args):
+
     seqs = covid.read_seqfile(args)
     ## filter by country, but not by date
     seqs = covid.filter_seqs_by_pattern(seqs,args)
     seqs = covid.filter_seqs_by_date(seqs,args)
     seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
+
+    LineageTable = lineagetable.LineageTable
+    if args.lineagetable:
+        ## if file exists, over-ride default
+        LineageTable = rd_lineage_table(args.lineagetable)
+        LineageTable = [(c,n,eval(p)) for c,n,p in LineageTable]
 
     table = [
         ('Gray', 'other', OTHER),
@@ -129,9 +154,14 @@ def main(args):
     fullnames = dict()
 
     for color,name,patt in table:
-        colors[patt] = colornames.tohex(color)
         patterns.append(patt)
+        colors[patt] = colornames.tohex(color)
         fullnames[patt] = name
+
+    #vocpatterns = [r'\.'+eval(voc)+'$'
+    #               for voc in patterns[1:]]
+    vocpatterns = [r'\.'+voc+'$'
+                   for voc in patterns[1:]]
     
     DG_datecounter = {m: Counter() for m in patterns}
     other_lineages = Counter()
@@ -145,8 +175,9 @@ def main(args):
             print("bad seqdate:",seqdate)
             continue
 
-        vocmatch = [voc for voc in patterns[1:]
-                    if re.search(r'\.'+voc+'$',s.name)]
+        vocmatch = [patt for patt,vocpatt in zip(patterns[1:],vocpatterns)
+                    if re.search(vocpatt,s.name)]
+
         if vocmatch:
             voc = vocmatch[0] ## only take the first one
             DG_datecounter[voc][seqdate] += 1
