@@ -146,7 +146,7 @@ def main(args):
         LineageTable = [(c,n,eval(p)) for c,n,p in LineageTable]
 
     table = [
-        ('Gray', 'other', OTHER),
+        ('Gainsboro', 'other', OTHER),
         ] + LineageTable
 
     patterns = []
