@@ -13,7 +13,7 @@ import sequtil
 import covid
 import colornames
 
-from lineagetablev1 import LineageTable
+from lineagetable import LineageTable
 
 def _getargs():
     '''get arguments from command line'''
@@ -42,7 +42,7 @@ def main(args):
     first,seqs = sequtil.get_first_item(seqs)
 
     table = [
-        ('Gray', 'other', 'other'),
+        ('Gainsboro', 'other', 'other'),
         ] + LineageTable
 
     patterns = []
