@@ -242,7 +242,7 @@ def main(args):
         embersplot.embersplot(DG_cum,fullnames,colors,ordmin,
                               ordplotrange = (ordplotmin,ordplotmax),
                               title = covid.get_title(args) + ": %d sequences" % (nmatches,),
-                              legend=1,fraction=f,lineplot=args.lineplot)
+                              legend=args.legend,fraction=f,lineplot=args.lineplot)
 
         plt.ylabel("Fraction" if f else "Counts")
         plt.tight_layout() ## do it again to accomodate the ylabel
