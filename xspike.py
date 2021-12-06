@@ -114,12 +114,9 @@ def cramerv(table):
         chisq,_,_,_ = sst.chi2_contingency(table,lambda_='pearson')
     except ValueError:
         chisq=0
-        print("ERROR: in chisq",k,N,file=sys.stderr)
-        print(table)
+        print(f"Warning: in chisq k={k}, N={N}",file=sys.stderr)
+        print("Table:\n",table,file=sys.stderr)
     
-    #if alist == blist:
-    #    print("alist=blist:",k,N,chisq)
-    #    print(table)
     return np.sqrt(chisq/(N*max([1,(k-1)])))
 
 def mutinfo(table):
