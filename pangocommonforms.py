@@ -82,6 +82,8 @@ def main(args):
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
     seqlist = list(seqlist)
+
+    covid.summarizeseqlengths(seqlist,args)
     
     last_days = f" in the last {args.days} days from our last update," if args.days else ""
     print(f"This output is based on sequences sampled{last_days} from %s to %s." \
