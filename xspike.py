@@ -84,27 +84,40 @@ def contingency_table(alist,blist,keepx=False,thresh=3):
     for i,j in it.product(range(A),range(B)):
         table[i,j] = ab[(avals[i],bvals[j])]
 
+    def minsum():
+        '''return the miniumum sum along all the rows and columns'''
+        hsum = [np.sum(table[:,j]) for j in range(table.shape[1])]
+        vsum = [np.sum(table[i,:]) for i in range(table.shape[0])]
+        return min(hsum + vsum)
+
+    if thresh:
+        ## Stability (remove rows and columns whose sums are < thresh)
+        otable = table.copy()
+        while( minsum() < thresh ):
+            hok = [np.sum(table[:,j])>=thresh for j in range(table.shape[1])]
+            vok = [np.sum(table[i,:])>=thresh for i in range(table.shape[0])]
+            table = table[:,hok][vok,:]
+
+    ## Check that table is okay
     hzero = [np.sum(table[:,j])==0 for j in range(table.shape[1])]
     vzero = [np.sum(table[i,:])==0 for i in range(table.shape[0])]
-    if (np.any( hzero ) or np.any( vzero )):
+    if (np.any( hzero ) or np.any( vzero ) or min(table.shape)<2 ):
+        def printerr(*parg):
+            print(*parg,file=sys.stderr)
         ## This should never happen
-        print("---------------")
-        print("len a,b:",len(alist),len(blist))
-        print(acnt)
-        print(bcnt)
-        print(ab)
-        print(hzero)
-        print(vzero)
-        print("Table;")
-        print(table)
-        raise RuntimeError("Contingency table has all zeros in a row or column")
+        printerr("warning: possible issues with contingency table")
+        printerr("len a,b:",len(alist),len(blist))
+        printerr(acnt)
+        printerr(bcnt)
+        printerr(ab)
+        printerr(hzero)
+        printerr(vzero)
+        printerr("Table;")
+        printerr(table)
+        if thresh:
+            printerr("Original Table:")
+            printerr(otable)
 
-    ## Stability term (remove rows and columns whose sums are < thresh)
-    if thresh:
-        hok = [np.sum(table[:,j])>=thresh for j in range(table.shape[1])]
-        vok = [np.sum(table[i,:])>=thresh for i in range(table.shape[0])]
-        table = table[:,hok][vok,:]
-        
     return table    
 
 def cramerv(table):
