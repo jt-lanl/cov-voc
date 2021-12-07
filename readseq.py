@@ -20,6 +20,7 @@ import re
 import pickle
 from gzip import open as gzip_open
 
+import warnings
 
 from seqsample import SequenceSample
 
@@ -113,6 +114,11 @@ def read_fasta(filename,gz=False):
     return seqlist
     
 def rd_tbl(fp):
+    ## table format is two whitespace-separated strings on each line
+    ## first string it name, second string is sequence
+    ## Spaces in the name string are not allowed ... but sometimes creep in
+    ## To deal with that, take name as first token and sequence as last token
+    
     re_comment    = re.compile('^\#.*')
 
     for line in fp:
@@ -121,7 +127,11 @@ def rd_tbl(fp):
         if not line:
             continue
         try:
-            name,seq = line.split(None,1)
+            tokens = line.split()
+            if len(tokens) != 2:
+                warnings.warn(f"Invalid tbl line: {' '.join(tokens[0:-1])} {tokens[-1][:5]}...")
+            name,seq = tokens[0],tokens[-1]
+            #name,seq = line.split(None,1)
             yield SequenceSample(name,seq)
         except ValueError:
             print("line=[",line,"]")
