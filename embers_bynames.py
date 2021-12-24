@@ -32,7 +32,7 @@ def getargs():
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
     #paa("--nolegend",action="store_true",help="avoid putting legend on plot")
-    paa("--legend",type=int,default=0,choices=(0,1,2),
+    paa("--legend",type=int,default=1,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
     paa("--lineagetable","-l",
         help="read lineage table from file")
@@ -50,6 +50,16 @@ def getargs():
     
     return args
 
+def filename_prepend(pre,file):
+    '''prepend a string to a file name; eg
+       "pre","file" -> "prefile", but also
+       "pre","dir/file" -> "dir/prefile"
+    '''
+    ## note, the same subroutine is in embers.py;
+    ## should someday be moved to common library, eg covid.py
+    if not file:
+        return file
+    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
 
 def xdate_fromiso(s):
     return sequtil.date_fromiso(s)
@@ -158,8 +168,6 @@ def main(args):
         colors[patt] = colornames.tohex(color)
         fullnames[patt] = name
 
-    #vocpatterns = [r'\.'+eval(voc)+'$'
-    #               for voc in patterns[1:]]
     vocpatterns = [r'\.'+voc+'$'
                    for voc in patterns[1:]]
     
@@ -169,6 +177,7 @@ def main(args):
 
         seqdate = date_from_seqname(s.name)
         if not seqdate:
+            vprint("No seqdate:",s.name)
             continue
 
         if (seqdate.year,seqdate.month) < (2019,11):
@@ -253,8 +262,10 @@ def main(args):
             wk = "wk" if args.daily==7 \
                 else "dy" if args.daily == 1 \
                      else "cm"
-            
-            plt.savefig("-".join([fc,wk,linbar,args.output]))
+
+            prepend = "-".join([fc,wk,linbar,""])
+            outfile = filename_prepend(prepend,args.output)
+            plt.savefig(outfile)
 
     if not args.output:
         plt.show()
