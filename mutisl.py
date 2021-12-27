@@ -42,7 +42,7 @@ def _getargs():
 
 def read_mutantfile(filename):
     '''read mutant file and return mstring list'''
-    mutantfilepatt = re.compile(r'(.*)\s+(\[?.+\]?)\s*$')
+    ## assume tab separated columns
     mutlist=[]
     nomlist=[]
     with open(filename) as fptr:
@@ -51,23 +51,21 @@ def read_mutantfile(filename):
             line = re.sub('#.*','',line)
             if not line:
                 continue
-            line = re.sub(r'\s*ancestral\s*','',line)
-            mpatt = mutantfilepatt.search(line) ## match should work too
-            if mpatt:
-                mstring = covid.mstring_brackets(mpatt[2])
+            try:
+                nom,mstring = line.split('\t')
+
+                mstring = covid.mstring_brackets(mstring)
                 mstring = covid.mstring_fix(mstring)
                 mutlist.append(mstring)
-                nom = mpatt[1].strip()
-                nomlist.append(nom)
-            else:
-                warnings.warn(f"Invalid line: {line}")
-    return nomlist,mutlist
 
-def mk_name(nom,islname,mstring):
-    '''remake the sequence name to avoid commas and brackets'''
-    mstring = re.sub(r'[\[\]]','',mstring) #remove brackets
-    mstring = re.sub(r',','.',mstring)     #commas -> periods
-    return "__".join([nom,islname,mstring])
+                nom = nom.strip()
+                nomlist.append(nom)
+
+            except ValueError:
+                warnings.warn(f"Invalid line: {line}")
+                continue
+
+    return nomlist,mutlist
 
 def _main(args):
     '''mutlineage main'''
@@ -87,17 +85,17 @@ def _main(args):
     m_mgr = mutant.MutationManager(first.seq)
 
     seqs = [pseq.ProcessedSequence(m_mgr,s) for s in seqs]
-    
+
     isl_matches = dict() ## list of isl names for seq's that match pattern
     isl_setofall = set() ## set of all islnames
-    for mstring in mutlist:
+    for nom,mstring in zip(nomlist,mutlist):
         mpatt = mutant.Mutation.from_mstring(mstring,exact=True)
         #matches = m_mgr.filter_seqs_by_pattern(mpatt,seqs)
         matches = pseq.filter_pseqs_by_pattern(m_mgr,mpatt,seqs,exact=True)
         islnames = [s.ISL for s in matches]
         islnames = sorted(islnames)
         if len(islnames)==0:
-            warnings.warn(f"No matches found for {mstring}")
+            warnings.warn(f"No matches found for {nom}: {mstring}")
         vprint(mutfmt % mstring," ".join(islnames[:3]),
                "..." if len(islnames)>3 else "")
         isl_matches[mstring] = islnames
@@ -105,7 +103,7 @@ def _main(args):
 
     if not args.j:
         return
-        
+
     refseqs = sequtil.read_seqfile(args.j)
     firstref,refseqs = sequtil.get_first_item(refseqs,keepfirst=False)
     refseqdict = dict()
@@ -114,6 +112,8 @@ def _main(args):
         if isl_name in isl_setofall:
             refseqdict[isl_name] = s
     vprint("Read",len(refseqdict),"reference sequences")
+    if not refseqdict:
+        return
 
     outseqs = []
     if firstref:
@@ -121,27 +121,33 @@ def _main(args):
 
     for nom,mstring in zip(nomlist,mutlist):
         islnames = isl_matches[mstring]
-        if refseqdict:
-            matchseqs = (refseqdict.get(islname,None)
-                         for islname in islnames )
-            matchseqs = filter(lambda x: x is not None,matchseqs)
+        matchseqs = (refseqdict.get(islname,None)
+                     for islname in islnames )
+        matchseqs = filter(lambda x: x is not None,matchseqs)
+        try:
             [(cseq,_)] = Counter(re.sub('-','',s.seq)
                                  for s in matchseqs).most_common(1)
-            for islname in islnames:
-                if islname not in refseqdict:
-                    continue
-                if cseq == re.sub('-','',refseqdict[islname].seq):
-                    print(mutfmt % mstring,islname)
-                    sseq = refseqdict[islname].seq
-                    sname = mk_name(nom,islname,mstring)
-                    outseq = sequtil.SequenceSample(sname,sseq)
-                    outseqs.append(outseq)
-                    break ## just grab the first one
+        except ValueError:
+            print(mutfmt % mstring,f"ISL not found for {nom}")
+            outseq = sequtil.SequenceSample(nom,'xxx')
+            outseqs.append(outseq)
+            continue
+
+        for islname in islnames:
+            if islname not in refseqdict:
+                continue
+            if cseq == re.sub('-','',refseqdict[islname].seq):
+                print(mutfmt % mstring,islname,nom)
+                sseq = refseqdict[islname].seq
+                sname = f'{nom}__{islname}'
+                outseq = sequtil.SequenceSample(sname,sseq)
+                outseqs.append(outseq)
+                break ## just grab the first one
 
 
     if args.output:
-        sequtil.write_seqfile(args.output,outseqs)            
-            
+        sequtil.write_seqfile(args.output,outseqs)
+
 
 if __name__ == "__main__":
 
