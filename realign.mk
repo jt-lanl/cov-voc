@@ -21,6 +21,7 @@ tweakfile.txt:
 	echo '[E156G,F157-,R158-] [E156-,F157-,R158G]' > $@
 	echo '[+214AAG,D215Y] [D215A,+215AGY]' >> $@
 	echo '[Y144_,Y145-] [Y144-,Y145_]' >> $@
+	echo '[N211-,L212I] [N211I,L212-]' >> $@
 
 fx-$(XIDGZ): $(INITALIGN)
 	python -m fixalign $(KEEPX) -i $(INITALIGN) --fix $@
