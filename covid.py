@@ -181,6 +181,11 @@ def mstring_fix(mstring):
     if re.search('G142',mstring):
         mstring = re.sub(r'G142[GD_]','G142.',mstring)
 
+    ## fix N.10: I210V,N211-,L212I -> I210V,N211I,L212-
+    if re.search('I210V,N211-,L212I',mstring):
+        warnings.warn(f'fixing N.10, V-I -> VI-')
+        mstring = re.sub('N211-,L212I','N211I,L212-',mstring)
+
     return mstring
 
     #newmut = []
