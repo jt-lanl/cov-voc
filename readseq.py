@@ -114,7 +114,7 @@ def read_fasta(filename,gz=False):
     return seqlist
     
 def rd_tbl(fp):
-    ## table format is two whitespace-separated strings on each line
+    ## table format is two whitespace-separated strings on each line (Hyejin says: tab separated)
     ## first string it name, second string is sequence
     ## Spaces in the name string are not allowed ... but sometimes creep in
     ## To deal with that, take name as first token and sequence as last token
@@ -127,7 +127,7 @@ def rd_tbl(fp):
         if not line:
             continue
         try:
-            tokens = line.split()
+            tokens = line.split() ## split('\t') instead?
             if len(tokens) != 2:
                 warnings.warn(f"Invalid tbl line: {' '.join(tokens[0:-1])} {tokens[-1][:5]}...")
             name,seq = tokens[0],tokens[-1]
