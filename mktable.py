@@ -180,6 +180,7 @@ def read_input_file(filename):
                 pango,mstring = line.split('\t',1)
                 pango = pango.strip()
                 mstring = covid.mstring_brackets(mstring)
+                mstring = covid.mstring_fix(mstring)
             except ValueError:
                 warnings.warn("Problem reading line:",line)
                 continue
@@ -232,7 +233,7 @@ def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
                     row[ExampleISL] = exampleseq.ISL
                 else:
                     row[ExampleISL] = "NA"
-                    warnings.warn(f"No sequences exactly match: {mstring_adj}")
+                    warnings.warn(f"For pango={pango}, no sequences exactly match: {mstring_adj}")
 
             if seqtype == Total:
                 lineages = [ps.lineage for ps in matched_seqs]
