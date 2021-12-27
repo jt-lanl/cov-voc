@@ -39,6 +39,8 @@ def getargs():
         help="output fasta file")
     paa("--exact",action="store_true",
         help="require all non-listed sites to match reference sequence")
+    paa("--uniq",action="store_true",
+        help="eliminate sequences with duplicate names")
     paa("--showmutants",action="store_true",
         help="show mutant string after sequence name")
     paa("--verbose","-v",action="count",default=0,
@@ -86,6 +88,16 @@ def read_seqfile(args):
 
     return seqs
 
+def keepuniq(seqs):
+    '''yield input sequences but with duplicate named sequences filtered out'''
+    sname_set = set()
+    for s in seqs:
+        if s.name in sname_set:
+            print('Dup: ',s.name,file=sys.stderr)
+            continue
+        sname_set.add(s.name)
+        yield s
+
 def main(args):
     '''main'''
 
@@ -116,6 +128,9 @@ def main(args):
         if args.verbose:
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
         seqs = it.chain([first],seqs)
+
+    if args.uniq:
+        seqs = keepuniq(seqs)
 
     if args.N:
         seqs = it.islice(seqs,args.N+1)
