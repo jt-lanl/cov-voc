@@ -92,7 +92,7 @@ def checkseqlengths(seqs):
     for s in seqs:
         if len(s.seq) != seqlen:
             raise RuntimeError(f"Sequence {s.name} has inconsistent length: "
-                               "{len(s.seq)} vs {seqlen}")
+                               f"{len(s.seq)} vs {seqlen}")
         yield s
 
 def str_indexes(s,c):
