@@ -217,7 +217,7 @@ def filter_seqs(seqs,
     seqgen = generator (eg, output of rd_seqfile(filename) )
     rmdash=True/False: to remove dashes from every sequence (loses alignment)
     toupper=True/False: convert all sequence characters to upper case
-    badchar=char: replace "bad" characters (currently: #$*X) with specified character
+    badchar=char: replace "bad" characters (currently: #*X) with specified character
     pattern=str: only keep seqeunces whose name matches this pattern
     xpattern=str: only keep seqeunces whose name does NOT match this pattern
     revseq=True/False: reverse the s.seq's
@@ -229,7 +229,7 @@ def filter_seqs(seqs,
     ## seqs = itertools.islice(seqs,maxseqs) if maxseqs else seqs
 
     re_dash = re.compile('-')
-    re_badchar = re.compile('[\#\$\*Xx]')
+    re_badchar = re.compile('[\#\*Xx]') ## \$ no longer considered a bad character
     if pattern:
         re_pattern = re.compile(pattern)
     if xpattern:
