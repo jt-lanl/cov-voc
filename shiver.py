@@ -127,9 +127,14 @@ def main(args):
     allfullseqs = vcount(allfullseqs,"Total sequences:")
     allfullseqs = covid.filter_seqs_by_date(allfullseqs,args)
     allfullseqs = covid.fix_seqs(allfullseqs,args)
+    allfullseqs = sequtil.checkseqlengths(allfullseqs)
     allfullseqs = list(allfullseqs)
     vprint("Read",len(allfullseqs),"sequences")
+    
+    
+    
     fullseqs = covid.filter_seqs_by_pattern(allfullseqs,args)
+    fullseqs = sequtil.checkseqlengths(fullseqs)
     fullseqs = list(fullseqs)
     vprint("Read",len(fullseqs),"sequences after filtering")
     firstseq = fullseqs[0].seq
@@ -334,7 +339,8 @@ def main(args):
     svar = SpikeVariants.from_colormut(args.colormut,refseq=firstseq) \
         if args.colormut \
         else SpikeVariants.default(refseq=firstseq)
-    vprint("lineages:",svar.vocs)
+    for voc in svar.vocs:
+        vprint("lineage:",voc)
 
     variant_table = dict()
     cocktail_fasta = []
