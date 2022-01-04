@@ -318,22 +318,24 @@ def read_seqfile(args,**kwargs):
 
 def fix_seqs(seqs,args):
 
-    firstseq,seqs = sequtil.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
-    if "-" in firstseq.seq and args.stripdashcols:
-        seqs = sequtil.stripdashcols(firstseq.seq,seqs)
+    if "-" in first.seq and args.stripdashcols:
+        seqs = sequtil.stripdashcols(first.seq,seqs)
 
-    if not args.keeplastchar and firstseq.seq and firstseq.seq[-1] in "$X":
-        seqs = striplastchar(seqs)
+    if not args.keeplastchar and "$" in first.seq:
+        first.seq = re.sub('\$[^\$]*$','',first.seq)
+        seqs = striplastchars(seqs,len(first.seq))
 
     if not args.keepx:
         seqs = (s for s in seqs if "X" not in s.seq)
 
     return seqs
 
-def striplastchar(seqs):
+def striplastchars(seqs,seqlen):
     for s in seqs:
-        s.seq = s.seq[:-1]
+        s.seq = s.seq[:seqlen]
+        s.seq = re.sub('\$','X',s.seq)
         yield s
 
 def filter_seqs(seqs,args):
