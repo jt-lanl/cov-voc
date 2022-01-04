@@ -127,12 +127,11 @@ def rd_tbl(fp):
         if not line:
             continue
         try:
-            tokens = line.split() ## split('\t') instead?
+            tokens = line.split('\t')
             if len(tokens) != 2:
                 warnings.warn(f"Invalid tbl line: {' '.join(tokens[0:-1])} {tokens[-1][:5]}...")
             name,seq = tokens[0],tokens[-1]
-            #name,seq = line.split(None,1)
-            yield SequenceSample(name,seq)
+            yield SequenceSample(name.strip(),seq.strip())
         except ValueError:
             print("line=[",line,"]")
             raise RuntimeError("Invalid line in tbl file")
