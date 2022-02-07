@@ -394,13 +394,14 @@ def filter_seqs_by_date(seqs,args):
         lastdate = lastdate_byfile(args.input,seqs)
         t = date_fromiso(lastdate) 
         f = t - datetime.timedelta(days=args.days)
-        args.dates = f,t
+        args.dates = [f.isoformat(),t.isoformat()]
 
     if args.dates:
         ## check format of dates; should be yyyy-mm-dd
         ## (but '.' is also allowed to indicated a default)
         for i in range(len(args.dates)):
-            if not re.match(r'\d\d\d\d-\d\d-\d\d',args.dates[i]) and args.dates[i] != '.':
+            if (not re.match(r'\d\d\d\d-\d\d-\d\d',args.dates[i])
+                and args.dates[i] != '.'):
                 raise ValueError(f'Invalid date {args.dates[i]}; '
                                  f'should be in yyyy-mm-dd format')
         seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
