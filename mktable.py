@@ -188,13 +188,13 @@ def read_input_file(filename):
     return items
 
 
-def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
+def get_row(seqs,seqs_sixtydays,MM,pangofull,mstring):
     '''produce a single row of the spreadsheet as a dict()'''
     
     row = dict()
 
-    row[Pango] = pango ## give it the full name
-    pango = re.sub(r'\s+.*','',pango) ## but use the truncated name
+    row[Pango] = pangofull ## give it the full name
+    pango = re.sub(r'\s+.*','',pangofull) ## but use the truncated name
     pango = re.sub(r'_.*','',pango)
     
     row[Pattern] = re.sub(r'[\[\]]','',mstring) ## brackets off
@@ -204,7 +204,7 @@ def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
     TotalCount = len(seqs)
     vprint("Read",len(seqs),"sequences")
     seqdict[Pango] = list(pango_pseqs(seqs,pango))
-    vprint("Of which,",len(seqdict[Pango]),"sequences matched pango form",pango)
+    vprint("Of which,",len(seqdict[Pango]),"sequences matched pango form",pangofull)
     row[TotalPangoCount] = len(seqdict[Pango])
     row[TotalPangoFraction] = row[TotalPangoCount]/TotalCount
     seqdict[Recent] = seqs_sixtydays
@@ -233,7 +233,7 @@ def get_row(seqs,seqs_sixtydays,MM,pango,mstring):
                     row[ExampleISL] = exampleseq.ISL
                 else:
                     row[ExampleISL] = "NA"
-                    warnings.warn(f"For pango={pango}, no sequences exactly match: {mstring_adj}")
+                    warnings.warn(f"For pango={pangofull}, no sequences exactly match: {mstring_adj}")
 
             if seqtype == Total:
                 lineages = [ps.lineage for ps in matched_seqs]
