@@ -72,12 +72,13 @@ def corona_args(ap):
 
 xpand_names = {
     ## dict to convert WHO lineage names to pango pattern
-    'Alpha':  r'(B\.1\.1\.7)|(Q\.[0-9]+)',
+    'Alpha':  r'(B\.1\.1\.7)|(Q\.[1-9].*)',
     'Beta':   r'B\.1\.351',
     'Gamma':  r'P\.1.*',
-    'Delta':  r'(B\.1\.617\.2)|(AY\.[0-9]+)',
+    'Delta':  r'(B\.1\.617\.2)|(AY\.[1-9].*)',
     'Lambda': r'C\.37',
     'Mu':     r'B\.1\.621(\.1)?',
+    'Omicron': r'(B\.1\.1\.529)|(BA\.[1-9].*)',
 }
 
 def get_isl(fullname):
@@ -182,9 +183,9 @@ def mstring_fix(mstring):
         mstring = re.sub(r'G142[GD_]','G142.',mstring)
 
     ## fix N.10: I210V,N211-,L212I -> I210V,N211I,L212-
-    if re.search('I210V,N211-,L212I',mstring):
-        warnings.warn(f'fixing N.10, V-I -> VI-')
-        mstring = re.sub('N211-,L212I','N211I,L212-',mstring)
+    #if re.search('I210V,N211-,L212I',mstring):
+    #    warnings.warn(f'fixing N.10, V-I -> VI-')
+    #    mstring = re.sub('N211-,L212I','N211I,L212-',mstring)
 
     return mstring
 
@@ -396,6 +397,12 @@ def filter_seqs_by_date(seqs,args):
         args.dates = f,t
 
     if args.dates:
+        ## check format of dates; should be yyyy-mm-dd
+        ## (but '.' is also allowed to indicated a default)
+        for i in range(len(args.dates)):
+            if not re.match(r'\d\d\d\d-\d\d-\d\d',args.dates[i]) and args.dates[i] != '.':
+                raise ValueError(f'Invalid date {args.dates[i]}; '
+                                 f'should be in yyyy-mm-dd format')
         seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
         
     return seqs
