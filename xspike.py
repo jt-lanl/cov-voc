@@ -78,7 +78,7 @@ def contingency_table(alist,blist,keepx=False,thresh=3):
         
     acnt = Counter(alist); avals=list(acnt); A=len(acnt)
     bcnt = Counter(blist); bvals=list(bcnt); B=len(bcnt)
-    table = np.empty((A,B),dtype=np.int)
+    table = np.empty((A,B),dtype=np.int32)
 
     ab = Counter(zip(alist,blist))
     for i,j in it.product(range(A),range(B)):
@@ -101,7 +101,7 @@ def contingency_table(alist,blist,keepx=False,thresh=3):
     ## Check that table is okay
     hzero = [np.sum(table[:,j])==0 for j in range(table.shape[1])]
     vzero = [np.sum(table[i,:])==0 for i in range(table.shape[0])]
-    if (np.any( hzero ) or np.any( vzero ) or min(table.shape)<2 ):
+    if (np.any( hzero ) or np.any( vzero )): # or min(table.shape)<2 ):
         def printerr(*parg):
             print(*parg,file=sys.stderr)
         ## This should never happen
