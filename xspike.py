@@ -6,6 +6,7 @@ import sys
 import re
 from collections import Counter,defaultdict
 import numpy as np
+import random
 import itertools as it
 import scipy.stats as sst
 
@@ -39,6 +40,8 @@ def getargs():
         help="Number of highest-entropy sites to use")
     paa("--thresh",type=int,default=2,
         help="Only include patterns that appear at least this many times")
+    paa("--entropysamples","-E",type=int,default=0,
+        help="For single-site entropy, subsample sequences for faster estimates")
     paa("--cvthresh",type=int,default=3, ## should maybe just be hardcoded
         help="Require this many sequences for each site in the pairwise correlation")
     paa("--plot",action="store_true",
@@ -56,13 +59,12 @@ def getargs():
     args = ap.parse_args()
     return args
 
-def xentropy(clist,keepx=False):
+def xentropy(clist):
     cnt = Counter(clist)
-    if not keepx:
-        cnt.pop('X',None)
+    cnt.pop('X',None)
     return sst.entropy(list(cnt.values()))
 
-def stripxs(alist,blist,badchar='X'):
+def stripxs_orig(alist,blist,badchar='X'):
     '''given a pair of lists (or strings), strip element n where 
     either alist[n]=='X' or blist[n]=='X'
     return pair of tuples
@@ -72,9 +74,21 @@ def stripxs(alist,blist,badchar='X'):
     alist,blist = zip(*ab)
     return alist,blist
 
-def contingency_table(alist,blist,keepx=False,thresh=3):
-    if not keepx:
-        alist,blist = stripxs(alist,blist)
+def stripxs(alist,blist,badchar='X'):
+    '''given a pair of lists (or strings), strip element n
+    from both lists, if either alist[n]=='X' or blist[n]=='X'
+    return pair of tuples
+    '''
+    if badchar in alist or badchar in blist:
+        good = [i for i,(a,b) in enumerate(zip(alist,blist))
+                if not(a==badchar or b==badchar)]
+        alist = [alist[g] for g in good]
+        blist = [blist[g] for g in good]
+    return alist,blist
+
+def contingency_table(alist,blist,thresh=3):
+    '''convert pair of lists (alist,blist) into a contingency table'''
+    alist,blist = stripxs(alist,blist)
         
     acnt = Counter(alist); avals=list(acnt); A=len(acnt)
     bcnt = Counter(blist); bvals=list(bcnt); B=len(bcnt)
@@ -169,7 +183,7 @@ def pairwise(args,esites,charsatsite,mutname,title=None):
         ei,ej = esites[i],esites[j]
         if ei <= ej:
             table = contingency_table(charsatsite[ei],charsatsite[ej],
-                                      keepx=args.keepx,thresh=args.cvthresh)
+                                      thresh=args.cvthresh)
             cvtable[i,j] = cvtable[j,i] = cramerv(table)
             mitable[i,j] = mitable[j,i] = mutinfo(table)
 
@@ -244,13 +258,13 @@ def main(args):
         print("Specified Date Range:",args.dates)
 
     #### SINGLE-SITE ENTROPY
-    ## keepx redundant here? since seqs already filtered by keepx ?
     vprint("Single-site entropy...",end="")
-    E = [xentropy(clist,keepx=args.keepx)
-         for clist in sequtil.gen_columns_seqlist(seqs)]
+    ## If args.entropysamples, then use subsampling of the sequences to estimate entropy
+    sampleseqs = random.choices(seqs,k=args.entropysamples) if N>args.entropysamples>0 else seqs
+    E = [xentropy(clist)
+         for clist in sequtil.gen_columns_seqlist(sampleseqs)]
     vprint("ok")
 
-    #T = mutant.SiteIndexTranslator(firstseq)
     T = mutant.MutationManager(firstseq)
 
     ## Determine which sites will be employed
@@ -318,13 +332,14 @@ def main(args):
     for s in pattseqs:
         s.seq = "".join(s.seq[n] for n in ndxsites)
     cnt = Counter([s.seq for s in pattseqs])
-    
-    if not args.keepx:
-        ## set count[patt]=0 if "X" in patt
-        ## one-liner: cnt = { patt: cnt[patt] * bool("X" not in patt) for patt in cnt }
-        xpatts = [patt for patt in cnt if "X" in patt]
-        for patt in xpatts:
-                cnt[patt]=0
+
+    ## Do not include patterns with X's in them
+    ## set count[patt]=0 if "X" in patt
+    ## one-liner: cnt = { patt: cnt[patt] * bool("X" not in patt) for patt in cnt }
+    ## alt: cnt = Counter({patt: cnt[patt] for patt in cnt if 'X' not in patt})
+    for patt in cnt:
+        if 'X' in patt:
+            cnt[patt]=0
 
     patternlist = sorted(cnt, key=cnt.get, reverse=True)
     vvprint("Sums:",args.filterbyname,len(seqs),sum(cnt.values()))
@@ -345,7 +360,7 @@ def main(args):
         #    print("Global cseqs=",len(cseqs))
 
         cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,ndxsites,
-                                                  keepx=args.keepx))
+                                                  keepx=True))
         cont_sum[c] = len(cseqs)
         vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
     
@@ -375,7 +390,7 @@ def main(args):
 
     for p in patternlist:
 
-        if args.keepx == False and "X" in p:
+        if "X" in p:
             continue
         if cnt[p] <  args.thresh:
             break
