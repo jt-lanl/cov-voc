@@ -168,6 +168,25 @@ def tohex(commonname):
             return "#"+name
         else:
             raise KeyError('Invalid color: {name}')
+
+def torgb(commonname):
+    hex = tohex(commonname)
+    rgb = [int("0x" + c, 16) for c in (hex[1:3],hex[3:5],hex[5:7])]
+    return rgb
+
+def lighter(commonname):
+    '''return a lighter color than the input color'''
+    r,g,b = torgb(commonname)
+    r = (r + 255) // 2
+    g = (g + 255) // 2
+    b = (b + 255) // 2
+    return '#' + "".join([format(v,"02x") for v in (r,g,b)])
+
+def darker(commonname):
+    '''return a darker color than the input color'''
+    r,g,b = torgb(commonname)
+    r,g,b = [v//2 for v in (r,g,b)] 
+    return '#' + "".join([format(v,"02x") for v in (r,g,b)])
     
 def random_hex():
     return random.choice(list(ColorTable.values()))
