@@ -49,18 +49,6 @@ def _getargs():
         raise RuntimeError("'--weekly' deprecated; use '--daily 1' for daily")
     return args
 
-def date_fromiso(s):
-    ''' return datetime.date value based on yyyy-mm-dd string '''
-    if isinstance(s,datetime.date):
-        return s
-    try:
-        yyyy,mm,dd = s.split("-")
-        dt = datetime.date(int(yyyy),int(mm),int(dd))
-        return dt
-    except ValueError:
-        #print("Invalid date:",s)
-        return None
-
 def get_daterange(datecounter,argsdates):
     ''' find range of dates, in ordinal numbers, based on:
     datecounter[mutant][date] = count of mutants in date, and
@@ -77,23 +65,14 @@ def get_daterange(datecounter,argsdates):
     ordplotmin = ordmin
     ordplotmax = ordmax
     if argsdates and argsdates[0] and argsdates[0] != ".":
-        ordplotmin = date_fromiso(argsdates[0]).toordinal()
+        ordplotmin = covid.date_fromiso(argsdates[0]).toordinal()
     if argsdates and argsdates[1] and argsdates[1] != ".":
-        ordplotmax = date_fromiso(argsdates[1]).toordinal()
+        ordplotmax = covid.date_fromiso(argsdates[1]).toordinal()
 
     ordmin = min([ordmin,ordplotmin])
     ordmax = max([ordmax,ordplotmax])
 
     return ordmin, ordmax, ordplotmin, ordplotmax
-
-def filename_prepend(pre,file):
-    '''prepend a string to a file name; eg
-       "pre","file" -> "prefile", but also
-       "pre","dir/file" -> "dir/prefile"
-    '''
-    if not file:
-        return file
-    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
 
 def relativepattern(master,mutant,dittochar='_',noditto='-'):
     '''ABC,ABD -> __D'''
@@ -145,15 +124,7 @@ def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
 def main(args):
     ''' embers main '''
 
-    ## At some point, I added code to ensure keepx=False for the purpose of
-    ## reading the input file (ie, forced X's to be filtered out) and than
-    ## reset keepx to the value in the command line.  But I don't know why
-    ## I did that, and now I think it's a bad idea, especially because
-    ## re-setting args.keepx back to original value doesn't affect anything!
-    #args_keepx = args.keepx
-    #args.keepx = False
     seqs = covid.read_filter_seqfile(args)
-    #args.keepx = args_keepx
     first,seqs = sequtil.get_first_item(seqs)
 
     if args.colormut:
@@ -269,7 +240,7 @@ def main(args):
     ## Write x-counts table to file (sequences that don't match patterns)
     ## Include the nearby c-pattern that is closest
     if args.ctable:
-        xctable = filename_prepend("x-",args.ctable)
+        xctable = covid.filename_prepend("x-",args.ctable)
         vprint("Unmatched sequence patterns in file:",xctable)
         with open(xctable,"w") as fout:
             for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
@@ -354,23 +325,23 @@ def main(args):
         ## Line plot
         mmakeplot(fraction=True,lineplot=True)
         if args.output:
-            plt.savefig(filename_prepend("line-",args.output))
+            plt.savefig(covid.filename_prepend("line-",args.output))
 
     else:
         ## Stacked bar plots
         outfilename = args.output
         if args.daily == 7:
-            outfilename = filename_prepend("wk-",outfilename)
+            outfilename = covid.filename_prepend("wk-",outfilename)
         if args.daily == 1:
-            outfilename = filename_prepend("dy-",outfilename)
+            outfilename = covid.filename_prepend("dy-",outfilename)
 
         mmakeplot(fraction=True)
         if args.output:
-            plt.savefig(filename_prepend("f-",outfilename))
+            plt.savefig(covid.filename_prepend("f-",outfilename))
 
         mmakeplot(fraction=False)
         if args.output:
-            plt.savefig(filename_prepend("c-",outfilename))
+            plt.savefig(covid.filename_prepend("c-",outfilename))
 
     if not args.output:
         plt.show()
