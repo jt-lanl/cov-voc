@@ -39,6 +39,15 @@ def default_seqfile(seqfilename=DEFAULTSEQFILE):
         
     return None
 
+def datestring(yyyymmdd):
+    ''' check format of dates; should be yyyy-mm-dd '''
+    ## (but '.' is also allowed to indicated a default)
+    if (not re.match(r'\d\d\d\d-\d\d-\d\d',yyyymmdd)
+        and yyyymmdd != '.'):
+        raise ValueError(f'Invalid date {yyyymmdd}; '
+                         f'should be in yyyy-mm-dd format')
+    return yyyymmdd
+
 def corona_args(ap):
     ''' 
     call this in the getargs() function, 
@@ -54,7 +63,7 @@ def corona_args(ap):
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
         help="Do not use sequences whose name matches this pattern")
-    paa("--dates","-d",nargs=2,
+    paa("--dates","-d",nargs=2,type=datestring,
         help="Only use seqs in range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
         help="Consider date range of DAYS days ending on the last sampled date")
@@ -122,10 +131,6 @@ def date_from_seqname(s):
     datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
     return date_fromiso(datestring)
     
-def add_date_attribute(seqlist):
-    for s in seqlist:
-        s.date = date_from_seqname(s.name)
-
 def count_bad_dates(seqlist):
     return(sum(date_from_seqname(s) is None for s in seqlist))
 
@@ -276,6 +281,17 @@ def parse_continents(withglobal=False):
         ConExclude.append((cx,c,x))
     return ConExclude
 
+def filename_prepend(pre,file):
+    '''prepend a string to a file name; eg
+       "pre","file" -> "prefile", but also
+       "pre","dir/file" -> "dir/prefile"
+    '''
+    ## alt: dir,base = os.path.split(file)
+    ##      return os.path.join(dir,pre+base)
+    if not file:
+        return file
+    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
+
 def get_title(args):
     ## Get title for plots and tables
     if args.title:
@@ -394,16 +410,9 @@ def filter_seqs_by_date(seqs,args):
         lastdate = lastdate_byfile(args.input,seqs)
         t = date_fromiso(lastdate) 
         f = t - datetime.timedelta(days=args.days)
-        args.dates = [f.isoformat(),t.isoformat()]
-
+        seqs = filter_by_date(seqs,f,t,keepfirst=True)
+        
     if args.dates:
-        ## check format of dates; should be yyyy-mm-dd
-        ## (but '.' is also allowed to indicated a default)
-        for i in range(len(args.dates)):
-            if (not re.match(r'\d\d\d\d-\d\d-\d\d',args.dates[i])
-                and args.dates[i] != '.'):
-                raise ValueError(f'Invalid date {args.dates[i]}; '
-                                 f'should be in yyyy-mm-dd format')
         seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
         
     return seqs
