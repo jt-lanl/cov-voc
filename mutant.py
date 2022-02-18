@@ -96,7 +96,7 @@ class SingleSiteMutation():
     def init_from_mstring(self,mstring):
         '''initialize from mstring; eg "D614G" '''
         mstring = mstring.strip()
-        m = re.match(r"(.)(\d+)(.[A-Z-_]*)",mstring)  ## what's that second '.' doing?
+        m = re.match(r"\[?(.)(\d+)(.[A-Z-_]*)\]?",mstring)
         if not m:
             raise RuntimeError(f"SingleSiteMutation string /{mstring}/ invalid")
         self.ref = m[1]
@@ -110,6 +110,8 @@ class SingleSiteMutation():
 
         if "_" in self.mut:
             ## recognize that ssm.mut might have multiple characters
+            ## worry that +614ABC might be converted to +614A_C
+            ## so maybe should do this only if there's one character?
             self.mut = re.sub("_",self.ref,self.mut)
 
         return self
