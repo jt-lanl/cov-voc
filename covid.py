@@ -253,7 +253,7 @@ def spike_sites(sitespec):
         
 
 CONTINENTS = ["United-Kingdom",
-              "Europe-w/o-United-Kingdom",
+              "Europe-minus-United-Kingdom",
               "North-America",
               "Asia",
               "Africa",
@@ -261,7 +261,7 @@ CONTINENTS = ["United-Kingdom",
               "Oceania",
 ]
 ABBREV_CONTINENTS = {"United-Kingdom"           : "UK",
-                     "Europe-w/o-United-Kingdom": "Eu-UK",
+                     "Europe-minus-United-Kingdom": "Eu-UK",
                      "North-America"            : "NAmer",
                      "Asia"                     : "Asia",
                      "Africa"                   : "Africa",
@@ -274,8 +274,8 @@ def parse_continents(withglobal=False):
     if withglobal:
         ConExclude.append(("Global","Global",None))
     for cx in CONTINENTS:
-        if "-w/o-" in cx:
-            c,x = cx.split("-w/o-")
+        if "-minus-" in cx:
+            c,x = cx.split("-minus-")
         else:
             c,x = cx,None
         ConExclude.append((cx,c,x))
@@ -424,7 +424,7 @@ def filter_seqs_by_pattern(seqs,args):
     xcludes = []
     if args.filterbyname:
         for name in args.filterbyname:
-            patt,wo,xpat = name.partition("-w/o-")
+            patt,wo,xpat = name.partition("-minus-")
             if patt in xpand_names:
                 patt = xpand_names[patt]
             if patt != "Global":
