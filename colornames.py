@@ -185,7 +185,7 @@ def lighter(commonname):
 def darker(commonname):
     '''return a darker color than the input color'''
     r,g,b = torgb(commonname)
-    r,g,b = [v//2 for v in (r,g,b)] 
+    r,g,b = [3*v//4 for v in (r,g,b)] 
     return '#' + "".join([format(v,"02x") for v in (r,g,b)])
     
 def random_hex():
