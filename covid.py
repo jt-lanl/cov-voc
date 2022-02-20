@@ -54,11 +54,10 @@ def corona_args(ap):
     and these options will be added in 
     '''
     paa = ap.add_argument
+    #faa = ap.add_argument_group('File input options').add_argument
     paa("--input","-i",type=Path,
         default=default_seqfile(),
         help="input file with aligned sequences (first is reference)")
-    paa("--title",
-        help="use this TITLE in plots")
     paa("--filterbyname","-f",nargs='+',
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
@@ -73,6 +72,11 @@ def corona_args(ap):
         help="Do not strip final stop codon from end of sequences")
     paa("--keepx",action="store_true",
         help="Keep sequences that include bad characters, denoted X")
+    paa("--skipx",action="store_false",dest='keepx',
+        help="Skip sequences that include bad characters, denoted X")
+    ap.set_defaults(keepx=False)
+    paa("--title",
+        help="use this TITLE in plots")
 
     return
 
@@ -294,15 +298,19 @@ def filename_prepend(pre,file):
 
 def get_title(args):
     ## Get title for plots and tables
+    MAX_TITLE_LENGTH = 60
     if args.title:
-        return args.title
-    newfilterbynames = [re.sub('-minus-',' w/o ',name)
-                        for name in args.filterbyname]
-    title = "+".join(newfilterbynames) if args.filterbyname else "Global"
-    if title==".":
+        return "Global" if args.title=='.' else args.title
+    if args.filterbyname:
+        newfilterbynames = [re.sub('-minus-',' w/o ',name)
+                            for name in args.filterbyname]
+        title = "+".join(newfilterbynames)
+    else:
         title = "Global"
     if args.xfilterbyname:
         title = title + " w/o " + "+".join(args.xfilterbyname)
+    if len(title) > MAX_TITLE_LENGTH:
+        title = title[:MAX_TITLE_LENGTH-3]+"..."
     return title
 
 def summarizeseqlengths(seqlist,args):
