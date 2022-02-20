@@ -286,17 +286,19 @@ def filename_prepend(pre,file):
        "pre","file" -> "prefile", but also
        "pre","dir/file" -> "dir/prefile"
     '''
-    ## alt: dir,base = os.path.split(file)
-    ##      return os.path.join(dir,pre+base)
+    ## alt: re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
     if not file:
         return file
-    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
+    dir,base = os.path.split(file)
+    return os.path.join(dir,pre+base)
 
 def get_title(args):
     ## Get title for plots and tables
     if args.title:
         return args.title
-    title = "+".join(args.filterbyname) if args.filterbyname else "Global"
+    newfilterbynames = [re.sub('-minus-',' w/o ',name)
+                        for name in args.filterbyname]
+    title = "+".join(newfilterbynames) if args.filterbyname else "Global"
     if title==".":
         title = "Global"
     if args.xfilterbyname:
