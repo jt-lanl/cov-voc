@@ -1,6 +1,9 @@
+'''embers-style analysis/plotting based only on names of sequences'''
 import sys
+import os
 import re
 from collections import defaultdict,Counter
+from pathlib import Path
 import matplotlib.pyplot as plt
 import random
 import datetime
@@ -19,19 +22,27 @@ import lineagetable
 
 OTHER = 'other'
 
+DEFAULTNAMESFILE="Latest-names.nm"
+
 def getargs():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 conflict_handler='resolve')
+    covid.corona_args(ap)
     paa = ap.add_argument
-    covid.corona_args(ap)  ## except want default to be names, not sequences!
-    paa("--weekly",action="store_true",
-        help="Make weekly average plots instead of cumulative")
+    ap.set_defaults(input=covid.default_seqfile(DEFAULTNAMESFILE))
+    #paa("--input","-i",type=Path,
+    #    default=covid.default_seqfile(DEFAULTNAMESFILE),
+    #    help="input file with names of sequences")
+    paa("--weekly",action="store_const",const=7,dest='daily',
+        help="Make weekly average plots instead of cumulative (daily=7)")
     paa("--daily",type=int,default=7,
         help="daily=1 for daily, daily=7 (default) for weekly, daily=0 for cumulative")
     paa("--lineplot",action="store_true",
         help="Make log-linear line plot instead of linear stacked bar plot")
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
-    #paa("--nolegend",action="store_true",help="avoid putting legend on plot")
+    paa("--nolegend",action="store_const",const=0,dest='legend',
+        help="avoid putting legend on plot")
     paa("--legend",type=int,default=1,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
     paa("--lineagetable","-l",
