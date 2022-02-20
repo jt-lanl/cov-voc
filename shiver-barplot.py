@@ -44,7 +44,7 @@ def main(args):
                 ## Relevant lines are of the form: Continent vacc-name fraction
                 cont,vacc,*flist = line.split()
                 fo = float( flist[0] )
-                cont = re.sub("-w/o.*","",cont)
+                cont = re.sub("-minus-.*","",cont)
                 cont = re.sub("-"," ",cont)
                 lines.append((cont,vacc,fo))
             except:
