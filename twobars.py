@@ -262,8 +262,6 @@ def main(args):
     g = G[0:1]
     print(" "*16,"Location  Date     "+g+"/("+g+"+"+d+") "+g+"+"+d+"   Date    "+g+"/("+g+"+"+d+") "+g+"+"+d+"   Sample  "+g+"/("+g+"+"+d+")  p-val")
     
-    print(" "*16,"Location  Date     G/(G+D) G+D   Date    G/(G+D) G+D   Sample  G/(G+D)  p-val")
-
     ## Initialize lists (we'll be plotting these)
     good_patt = []
     f_befor = []
