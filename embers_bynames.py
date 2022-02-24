@@ -53,12 +53,6 @@ def getargs():
     paa("--verbose","-v",action="count",
         help="verbosity")
     args = ap.parse_args()
-    if args.weekly:
-        warnings.warn("'--weekly' deprecated: weekly is now default")
-    if (args.daily and args.weekly):
-        raise RuntimeError("'--weekly' deprecated; use '--daily 1' for daily, "
-                           "default is '--daily 7' which is weekly")
-    
     return args
 
 def filename_prepend(pre,file):
