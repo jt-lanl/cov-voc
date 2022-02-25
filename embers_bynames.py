@@ -41,10 +41,10 @@ def getargs():
         help="Make log-linear line plot instead of linear stacked bar plot")
     paa("--onsets",action="store_true",
         help="plot onset dates for each mutant")
-    paa("--nolegend",action="store_const",const=0,dest='legend',
-        help="avoid putting legend on plot")
     paa("--legend",type=int,default=1,choices=(0,1,2),
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
+    paa("--nolegend",action="store_const",const=0,dest='legend',
+        help="avoid putting legend on plot")
     paa("--lineagetable","-l",
         help="read lineage table from file")
     paa("--other",action="store_true",
@@ -130,7 +130,6 @@ def rd_lineage_table(filename):
                 warnings.warn(f'Bad line in lineage file: {line}')
     return lineage_table
 
-
 def main(args):
     '''embers_bynames main'''
     vprint(args)
@@ -147,24 +146,16 @@ def main(args):
     if args.lineagetable:
         ## if file exists, over-ride default
         LineageTable = rd_lineage_table(args.lineagetable)
-        LineageTable = [(c,n,eval(p)) for c,n,p in LineageTable]
 
     table = [
         ('Gainsboro', 'other', OTHER),
         ] + LineageTable
 
-    patterns = []
-    colors = dict()
-    fullnames = dict()
+    patterns =  [patt                                for color,name,patt in table]
+    colors =    {patt: colornames.tohex(color)       for color,name,patt in table}
+    fullnames = {patt: name                          for color,name,patt in table}
+    regexpatt = {patt: re.compile(r'\.('+patt+r')$') for color,name,patt in table}
 
-    for color,name,patt in table:
-        patterns.append(patt)
-        colors[patt] = colornames.tohex(color)
-        fullnames[patt] = name
-
-    vocpatterns = [r'\.'+voc+'$'
-                   for voc in patterns[1:]]
-    
     DG_datecounter = {m: Counter() for m in patterns}
     other_lineages = Counter()
     for s in seqs:
@@ -175,24 +166,19 @@ def main(args):
             continue
 
         if (seqdate.year,seqdate.month) < (2019,11):
-            print("bad seqdate:",seqdate)
+            vprint("bad seqdate:",seqdate)
             continue
 
-        if datetime.date(year=seqdate.year,month=seqdate.month,day=seqdate.day) < date_fromiso(args.dates[0]):
-            vprint("Early date:",s.name)
+        ## voc is the first pattern that matches
+        voc = next((patt for patt in patterns[1:]
+                    if regexpatt[patt].search(s.name)),OTHER)
+        DG_datecounter[voc][seqdate] += 1
 
-        vocmatch = [patt for patt,vocpatt in zip(patterns[1:],vocpatterns)
-                    if re.search(vocpatt,s.name)]
-
-        if vocmatch:
-            voc = vocmatch[0] ## only take the first one
-            DG_datecounter[voc][seqdate] += 1
-        if not vocmatch:
-            if args.other:
-                lineage = covid.get_lineage_from_name(s.name)
-                other_lineages[lineage] += 1
-                vprint(s.name)
-            DG_datecounter[OTHER][seqdate] += 1
+        if args.other and voc == OTHER:
+            lineage = covid.get_lineage_from_name(s.name)
+            other_lineages[lineage] += 1
+            if lineage != 'None':
+                vvprint('other:',s.name)
 
     if args.other:
         otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
@@ -204,14 +190,21 @@ def main(args):
     if nmatches==0:
         raise RuntimeError("No sequences for: " + " ".join(args.filterbyname))
 
-    for p in DG_datecounter:
-        vprint(p,sum(DG_datecounter[p].values()))
+    onsets=None
+    if args.onsets:
+        ## Don't include OTHER or patterns that don't appear in sequence set
+        onsets = {m: min(DG_datecounter[m]) for m in patterns[1:] if DG_datecounter[m]}
 
-    ## Onset times for each pattern
-    ## Don't include OTHER or patterns that don't appear in sequence set
-    onset = {m: min(DG_datecounter[m]) for m in patterns if DG_datecounter[m]}
-    for m in onset:
-        vprint("onset",m,onset[m])
+    if args.verbose:
+        ## make a little table of counts and onsets
+        maxnamelen = max(len(fullnames[p]) for p in DG_datecounter)
+        fmt = f'%{maxnamelen}s %6s %10s %s'
+        vprint(fmt % ('Name','Count','Onset','Pattern'))
+        for p in DG_datecounter:
+            name = fullnames[p]
+            count = sum(DG_datecounter[p].values())
+            onset = min(DG_datecounter[p]) if DG_datecounter[p] else ''
+            vprint(fmt % (name,str(count),onset,p))
 
     ordmin, ordmax, ordplotmin, ordplotmax = get_daterange(DG_datecounter,args.dates)
     Ndays = ordmax+1-ordmin
@@ -248,13 +241,14 @@ def main(args):
         embersplot.embersplot(DG_cum,fullnames,colors,ordmin,
                               ordplotrange = (ordplotmin,ordplotmax),
                               title = covid.get_title(args) + ": %d sequences" % (nmatches,),
-                              legend=args.legend,fraction=f,lineplot=args.lineplot)
+                              legend=args.legend,lineplot=args.lineplot,
+                              onsets=onsets,fraction=f)
 
         plt.ylabel("Fraction" if f else "Counts")
         plt.tight_layout() ## do it again to accomodate the ylabel
 
-        linbar = "line" if args.lineplot else "bar"
         if args.output:
+            linbar = "line" if args.lineplot else "bar"
             fc = "f" if f else "c"
             wk = "wk" if args.daily==7 \
                 else "dy" if args.daily == 1 \
