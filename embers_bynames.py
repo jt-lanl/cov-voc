@@ -55,20 +55,6 @@ def getargs():
     args = ap.parse_args()
     return args
 
-def filename_prepend(pre,file):
-    '''prepend a string to a file name; eg
-       "pre","file" -> "prefile", but also
-       "pre","dir/file" -> "dir/prefile"
-    '''
-    ## note, the same subroutine is in embers.py;
-    ## should someday be moved to common library, eg covid.py
-    if not file:
-        return file
-    return re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
-
-def xdate_fromiso(s):
-    return sequtil.date_fromiso(s)
-
 def days_in_month(yyyy,mm):
     # https://stackoverflow.com/questions/42950/how-to-get-the-last-day-of-the-month
     next_month = datetime.date(int(yyyy),int(mm),28) + datetime.timedelta(days=4)
@@ -150,9 +136,13 @@ def main(args):
     vprint(args)
 
     seqs = covid.read_seqfile(args)
-    ## filter by country, but not by date
+    ## filter by country, then by date
     seqs = covid.filter_seqs_by_pattern(seqs,args)
     seqs = covid.filter_seqs_by_date(seqs,args)
+    if args.dates:
+        ## seems redundant, but enables filtering of first seq which is NOT
+        ## a reference sequence in the _bynames variant of embers
+        seqs = covid.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=False)
     seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 
@@ -190,6 +180,9 @@ def main(args):
         if (seqdate.year,seqdate.month) < (2019,11):
             print("bad seqdate:",seqdate)
             continue
+
+        if datetime.date(year=seqdate.year,month=seqdate.month,day=seqdate.day) < date_fromiso(args.dates[0]):
+            vprint("Early date:",s.name)
 
         vocmatch = [patt for patt,vocpatt in zip(patterns[1:],vocpatterns)
                     if re.search(vocpatt,s.name)]
@@ -271,7 +264,7 @@ def main(args):
                      else "cm"
 
             prepend = "-".join([fc,wk,linbar,""])
-            outfile = filename_prepend(prepend,args.output)
+            outfile = covid.filename_prepend(prepend,args.output)
             plt.savefig(outfile)
 
     if not args.output:
