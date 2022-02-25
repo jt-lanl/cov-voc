@@ -33,10 +33,10 @@ def getargs():
     #paa("--input","-i",type=Path,
     #    default=covid.default_seqfile(DEFAULTNAMESFILE),
     #    help="input file with names of sequences")
-    paa("--weekly",action="store_const",const=7,dest='daily',
-        help="Make weekly average plots instead of cumulative (daily=7)")
     paa("--daily",type=int,default=7,
         help="daily=1 for daily, daily=7 (default) for weekly, daily=0 for cumulative")
+    paa("--weekly",action="store_const",const=7,dest='daily',
+        help="Make weekly average plots instead of cumulative (daily=7)")
     paa("--lineplot",action="store_true",
         help="Make log-linear line plot instead of linear stacked bar plot")
     paa("--onsets",action="store_true",
@@ -146,6 +146,8 @@ def rd_lineage_table(filename):
 
 
 def main(args):
+    '''embers_bynames main'''
+    vprint(args)
 
     seqs = covid.read_seqfile(args)
     ## filter by country, but not by date
