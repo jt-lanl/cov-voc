@@ -410,6 +410,10 @@ def lastdate_byfile(file,seqs=None):
     return lastdate
         
 def filter_seqs_by_date(seqs,args):
+    '''passes through seq's whose date is in range specified by args;
+    also, ensures that args.dates is set to range of dates (eg, if range 
+    specified by --days, then set args.dates to be consistent with that)
+    '''
 
     if not args.days and not args.dates:
         return seqs
@@ -420,7 +424,7 @@ def filter_seqs_by_date(seqs,args):
         lastdate = lastdate_byfile(args.input,seqs)
         t = date_fromiso(lastdate) 
         f = t - datetime.timedelta(days=args.days)
-        seqs = filter_by_date(seqs,f,t,keepfirst=True)
+        args.dates = [f.isoformat(),t.isoformat()]
         
     if args.dates:
         seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=True)
