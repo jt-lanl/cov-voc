@@ -141,11 +141,9 @@ def embersplot(counts,
     if onsets:
         ylo,yhi = plt.gca().get_ylim()
         for m in patterns:
-            if m not in onset:
+            if m not in onsets:
                 continue
-            if m == OTHER:
-                continue
-            x = onset[m].toordinal() - ordmin
+            x = onsets[m].toordinal() - ordmin
             kwargs=dict(lw=1,color=mcolors[m])
             if not fraction:
                 kwargs['zorder']=0
