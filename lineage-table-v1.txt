@@ -1,0 +1,20 @@
+
+Orange		Alpha	(B\.1\.1\.7)|(Q\..*)
+ForestGreen	Lambda	C\.37(\..*)?
+LightPink	Beta	B\.1\.351(\..*)?
+LimeGreen	Mu	B\.1\.621(\..*)?
+FireBrick	Gamma	P\.1(\..*)?
+Cyan		Epsilon	B\.1\.42[97](\..*)?
+DodgerBlue	Iota	B\.1\.526(\..*)?
+Gold		Eta	B\.1\.525(\..*)?
+OliveDrab	Kappa	B\.1\.617\.1(\..*)?
+Goldenrod	R.1	R\.1(\..*)?
+				
+BlueViolet	Delta	(B\.1\.617\.2)|(AY\..*)	
+
+Yellow		C.1.2	C\.1\.2(\..*)?
+Khaki		B.1.1.318	B\.1\.1\.318(\..*)?
+DarkTurquoise	B.1.640		B\.1\.640(\..*)?
+Red		Omicron		(B\.1\.1\.529)|(BA\.1)|(BA\.[^12](\..*)?)
+Pink		Omicron_BA.1.1	BA\.1\..*
+Maroon		Omicron_BA.2	BA\.2(\..*)?
