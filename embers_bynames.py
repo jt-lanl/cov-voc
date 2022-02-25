@@ -138,11 +138,8 @@ def main(args):
     seqs = covid.read_seqfile(args)
     ## filter by country, then by date
     seqs = covid.filter_seqs_by_pattern(seqs,args)
-    seqs = covid.filter_seqs_by_date(seqs,args)
-    if args.dates:
-        ## seems redundant, but enables filtering of first seq which is NOT
-        ## a reference sequence in the _bynames variant of embers
-        seqs = covid.filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=False)
+    ## keepfirst=False because names files don't begin with a reference name
+    seqs = covid.filter_seqs_by_date(seqs,args,keepfirst=False)
     seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 
