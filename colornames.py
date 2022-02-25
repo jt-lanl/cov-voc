@@ -167,7 +167,7 @@ def tohex(commonname):
         elif re.match(r'[0-9a-f]{6}$',name):
             return "#"+name
         else:
-            raise KeyError('Invalid color: {name}')
+            raise KeyError(f'Invalid color: {name}')
 
 def torgb(commonname):
     hex = tohex(commonname)
