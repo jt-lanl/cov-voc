@@ -3,7 +3,7 @@ from collections import Counter
 import argparse
 
 import covid
-import verbose as v
+from verbose import verbose as v
 import embersutil as emu
 import lineagetable
 
@@ -60,7 +60,11 @@ def main(args):
             lineage = covid.get_lineage_from_name(s.name)
             other_lineages[lineage] += 1
             if lineage != 'None':
-                v.vvprint('other:',s.name)
+                v.vvprint_only(10,'Other:',s.name)
+
+    v.vprint_only_summary("No seqdate:","warnings triggered")
+    v.vprint_only_summary("Bad seqdate:","warnings triggered")
+    v.vprint_only_summary("Other:","non-None sequences in OTHER category")
 
     if args.other:
         otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
@@ -82,7 +86,7 @@ def main(args):
     if args.verbose:
         ## make a little table of counts and onsets
         maxnamelen = max(len(T.names[p]) for p in date_counter)
-        fmt = f'%{maxnamelen}s %6s %10s %s'
+        fmt = f'%{maxnamelen}s %7s %10s %s'
         v.vprint(fmt % ('Name','Count','Onset','Pattern'))
         for p in date_counter:
             name = T.names[p]

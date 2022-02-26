@@ -6,7 +6,7 @@ import covid
 import colornames
 import sequtil
 import mutant
-import verbose as v
+from verbose import verbose as v
 import embersutil as emu
 
 import lineagetable #_cinders as lineagetable
