@@ -1,14 +1,24 @@
+'''verbose: print statements that depend on a user-set level of verbosity'''
+
 import sys
 from collections import Counter
 
 ## Global variable (well, global to the verbose module)
-verbose=0
-def vnprint(n,*p,**kw):
-    '''if verbosity level is n or higher, then print
-    to sys.stderr and flush every print'''
-    if verbose >= n:
+VERBOSE=0
+
+def verbosity(vlevel):
+    '''user sets the level of verbosity'''
+    global VERBOSE
+    VERBOSE = vlevel
+
+def vnprint(vlevel,*p,**kw):
+    '''
+    if verbosity level is n or higher, then print
+    to sys.stderr and flush every print
+    '''
+    if VERBOSE >= vlevel:
         print(*p,file=sys.stderr,flush=True,**kw)
-        
+
 def vprint(*p,**kw):  vnprint(1,*p,**kw)
 def vvprint(*p,**kw): vnprint(2,*p,**kw)
 
@@ -45,15 +55,17 @@ def vvprint(*p,**kw): vnprint(2,*p,**kw)
 ##
 
 def vprint_only_summary(msg):
+    '''summarize how many times vprint_only was called with msg as first arguemnt'''
     vprint_only(None,msg)
-    
+
 def vprint_only(maxcount,msg,*p,**kw):
+    '''vprint, but only maxcount times, at most'''
     try:
         vprint_only.count[msg] += 1
     except AttributeError:
         vprint_only.count = Counter()
         vprint_only.count[msg] += 1
-        
+
     if maxcount is None:
         vprint_only.count[msg] -= 1 # to un-count the call with None
         if vprint_only.count[msg] > 0:
@@ -61,7 +73,4 @@ def vprint_only(maxcount,msg,*p,**kw):
     elif vprint_only.count[msg] < maxcount:
         vprint(msg,*p,*kw)
 
-
-        
-        
-        
+## should there also be a vvprint_only ???

@@ -167,6 +167,7 @@ def embersplot(counts,
 
     plt.yticks(fontsize=12)
 
+    plt.ylabel("Fraction" if fraction else "Counts")
     plt.tight_layout()
     if show:
         plt.show()

@@ -2,21 +2,19 @@
 Stacked barplots (also, optionally, line-plots) of variant counts over time
 '''
 
-import sys
 import warnings
 
-import re
-from collections import Counter,defaultdict
-import datetime
+from collections import Counter
 
 import argparse
-import matplotlib.pyplot as plt
 
 import sequtil
 import intlist
 from spikevariants import SpikeVariants
-import embersplot
 import covid
+
+import verbose as v
+import embersutil as emu
 
 def _getargs():
     ''' read command line arguments using argparse package'''
@@ -24,55 +22,17 @@ def _getargs():
                                  conflict_handler='resolve')
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--weekly",action="store_true",
-        help="Make weekly average plots instead of cumulative")
-    paa("--daily",type=int,default=7,
-        help="daily=1 for daily, daily=7 (default) for weekly, daily=0 for cumulative")
-    paa("--lineplot",action="store_true",
-        help="Make log-linear line plot instead of linear stacked bar plot")
-    paa("--onsets",action="store_true",
-        help="plot onset dates for each mutant")
-    paa("--legend",type=int,default=0,choices=(0,1,2),
-        help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
+    emu.embers_args(ap)
     paa("--colormut","-c",
         help="read SpikeVariants structure from color-mut file")
     paa("--ctable","-t",
         help="write a count table to this file")
-    paa("--output","-o",help="write plot to file")
-    paa("--verbose","-v",action="count",
+    paa("--verbose","-v",action="count",default=0,
         help="verbosity")
+    ap.set_defaults(legend=0)
     args = ap.parse_args()
 
-    if args.weekly:
-        warnings.warn("'--weekly' deprecated: weekly is now default")
-    if (args.daily and args.weekly):
-        raise RuntimeError("'--weekly' deprecated; use '--daily 1' for daily")
     return args
-
-def get_daterange(datecounter,argsdates):
-    ''' find range of dates, in ordinal numbers, based on:
-    datecounter[mutant][date] = count of mutants in date, and
-    argsdates is basically args.dates '''
-
-    all_dateset=set()
-    for p in datecounter:
-        all_dateset.update(datecounter[p])
-
-    vprint("Range of dates:",min(all_dateset),max(all_dateset))
-    ordmin = min(all_dateset).toordinal()
-    ordmax = max(all_dateset).toordinal()
-
-    ordplotmin = ordmin
-    ordplotmax = ordmax
-    if argsdates and argsdates[0] and argsdates[0] != ".":
-        ordplotmin = covid.date_fromiso(argsdates[0]).toordinal()
-    if argsdates and argsdates[1] and argsdates[1] != ".":
-        ordplotmax = covid.date_fromiso(argsdates[1]).toordinal()
-
-    ordmin = min([ordmin,ordplotmin])
-    ordmax = max([ordmax,ordplotmax])
-
-    return ordmin, ordmax, ordplotmin, ordplotmax
 
 def relativepattern(master,mutant,dittochar='_',noditto='-'):
     '''ABC,ABD -> __D'''
@@ -136,42 +96,39 @@ def main(args):
     OTHERNAME  = svar.OTHERNAME
     OTHERCOLOR = svar.OTHERCOLOR
 
-    ## try this?? makes very little difference!!
-    # svar.less_exact()
-
     master = svar.master
     sitelist = svar.ssites()
     voclist = svar.vocs
 
-    for v in voclist:
-        v.flat_pattern = svar.flatpattern(v)
-        vvprint(f"{v} {v.name}: {v.exact} {v.flat_pattern}")
+    for voc in voclist:
+        voc.flat_pattern = svar.flatpattern(voc)
+        v.vvprint(f"{voc} {voc.name}: {voc.exact} {voc.flat_pattern}")
 
     mutants = [v.flat_pattern for v in voclist]
     patterns = mutants + [OTHERNAME]
     dups = check_dups(patterns)
     if dups:
-        for d in dups:
-            for v in voclist:
-                if v.flat_pattern == d:
-                    print("d=",d,"v=",v,v.name)            
+        for dup in dups:
+            for voc in voclist:
+                if voc.flat_pattern == dup:
+                    print("dup=",dup,"voc=",voc,voc.name)
         raise RuntimeError(f"Duplicated patterns {dups}")
 
-    colors = [v.color for v in voclist] + [OTHERCOLOR]
+    colors = [voc.color for voc in voclist] + [OTHERCOLOR]
     mcolors = dict(zip(patterns,colors))
     dups = check_dups(colors)
     if dups:
-        vprint("Duplicated colors:",dups)
+        v.vprint("Duplicated colors:",dups)
 
-    namelist = [v.name for v in voclist] + [OTHERNAME]
+    namelist = [voc.name for voc in voclist] + [OTHERNAME]
     maxnamelen = max(len(n) for n in namelist)
     namefmt = "%%-%ds" % maxnamelen
-    for v in voclist:
-        v.name = namefmt % v.name
+    for voc in voclist:
+        voc.name = namefmt % voc.name
     mnames =  {m: namefmt%n for m,n in zip(patterns,namelist)}
     dups = check_dups(namelist)
     if dups:
-        vprint("Duplicated names:",dups)
+        v.vprint("Duplicated names:",dups)
 
     def relpattern(mut):
         if mut == OTHERNAME:
@@ -181,17 +138,14 @@ def main(args):
     mrelpatt = {p: relpattern(p) for p in patterns}
 
     for p in patterns:
-        vprint(mnames[p],mrelpatt[p],mcolors[p])
+        v.vprint(mnames[p],mrelpatt[p],mcolors[p])
 
     if args.legend == 0:
         fullnames = None
-        legendtitle = None
     if args.legend == 1:
         fullnames = mnames
-        legendtitle = None
     if args.legend == 2:
         fullnames = {p: " ".join([mnames[p],mrelpatt[p]]) for p in patterns}
-        legendtitle = " "*(maxnamelen+2) + master
 
     svar.checkmaster(first.seq) ## ensure master agrees with first seqlist
 
@@ -200,7 +154,7 @@ def main(args):
 
     if not args.keepx:
         seqlist = [s for s in seqlist if "X" not in s.seq]
-        vprint("Removed",n_sequences+1-len(seqlist),"sequences with X")
+        v.vprint("Removed",n_sequences+1-len(seqlist),"sequences with X")
         n_sequences = len(seqlist)-1
 
     ## How many of each sequence
@@ -226,13 +180,14 @@ def main(args):
                 warn_msg += " and\n".join(f"{relpattern(v.flat_pattern)} {v.name} {v}"
                                           for v in vocmatch)
                 warn_msg += f"\n{svar.master} Master"
-                warnings.warn(warn_msg)
+                v.vprint_only(10,'overlap:',warn_msg)
 
-    vprint("Unmatched sequences:",sum(xpatt.values()))
+    v.vprint_only_summary('overlap:')
+    v.vprint("Unmatched sequences:",sum(xpatt.values()))
 
     ## Write counts table to file
     if args.ctable:
-        vvprint(cpatt)
+        v.vvprint(cpatt)
         with open(args.ctable,"w") as fout:
             for line in lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
                 print(line,file=fout)
@@ -241,14 +196,14 @@ def main(args):
     ## Include the nearby c-pattern that is closest
     if args.ctable:
         xctable = covid.filename_prepend("x-",args.ctable)
-        vprint("Unmatched sequence patterns in file:",xctable)
+        v.vprint("Unmatched sequence patterns in file:",xctable)
         with open(xctable,"w") as fout:
             for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
                 print(line,file=fout)
 
     ## now go through the sequences and tally dates
 
-    DG_datecounter = {m: Counter() for m in patterns}
+    date_counter = {m: Counter() for m in patterns}
     for s in seqlist[1:]:
         if not args.keepx and "X" in s.seq:
             raise RuntimeError("X's should have already been filtered out")
@@ -261,101 +216,47 @@ def main(args):
         for voc in vocmatch[:1]:
             ## if multiple matches, only count the first
             ## if that's an error, then you'll see a warning from earlier in the computation
-            DG_datecounter[voc.flat_pattern][seqdate] += 1
+            date_counter[voc.flat_pattern][seqdate] += 1
         if not vocmatch:
-            DG_datecounter[OTHERNAME][seqdate] += 1
+            date_counter[OTHERNAME][seqdate] += 1
 
-    nmatches = sum(sum(DG_datecounter[p].values()) for p in patterns)
-    vprint("matched sequences:",nmatches)
+    nmatches = sum(sum(date_counter[p].values()) for p in patterns)
+    v.vprint("matched sequences:",nmatches)
     if nmatches==0:
         raise RuntimeError("No sequences for: " + " ".join(args.filterbyname))
 
-    for p in DG_datecounter:
-        vprint(p,sum(DG_datecounter[p].values()))
+    for p in date_counter:
+        v.vprint(p,sum(date_counter[p].values()))
 
-    ## Onset times for each pattern
-    ## Don't include OTHER or patterns that don't appear in sequence set
-    onset = {m: min(DG_datecounter[m]) for m in mutants if DG_datecounter[m]}
-    for m in onset:
-        vprint("onset",m,onset[m])
+    ## Onset times for each mutant
+    onsets=dict()
+    if args.onsets:
+        onsets.update( {m: min(date_counter[m]) for m in mutants if date_counter[m]} )
 
-    ordmin, ordmax, ordplotmin, ordplotmax = get_daterange(DG_datecounter,args.dates)
-    Ndays = ordmax+1-ordmin
-    vprint("Days:",Ndays,ordmin,ordmax)
-
-    DG_cum=defaultdict(list)
-    for ordval in range(ordmin,ordmax+1):
-        day = datetime.date.fromordinal(ordval)
-        for m in DG_datecounter:
-            DG_cum[m].append( sum(DG_datecounter[m][dt] for dt in DG_datecounter[m] if dt <= day ) )
-
-    if args.daily: ## daily=7 (default) for weekly averages
-        DAYSPERWEEK=args.daily
-        DG_weekly=dict()
-        for m in DG_cum:
-            DG_weekly[m] = DG_cum[m][:]
-            for n in range(DAYSPERWEEK,Ndays):
-                DG_weekly[m][n] = DG_cum[m][n] - DG_cum[m][n-DAYSPERWEEK]
-            DG_cum[m] = DG_weekly[m]
+    ordmin, ordmax, ordplotmin, ordplotmax = emu.get_daterange(date_counter,args.dates)
+    cum_counts = emu.get_cumulative_counts(date_counter,(ordmin, ordmax),
+                                           daysperweek=args.daily)
 
     ## Only keep data that is within the specified date range
     ## That way, automatic scaling on the y-axis will be based on available data
     if args.dates:
-        for m in DG_cum:
+        for m in cum_counts:
             ztmp = []
-            for i,cnt in enumerate(DG_cum[m]):
+            for i,cnt in enumerate(cum_counts[m]):
                 if ordplotmin <= ordmin+i <= ordplotmax:
                     ztmp.append(cnt)
-            DG_cum[m] = ztmp
+            cum_counts[m] = ztmp
         ordmin = ordplotmin
-        Ndays = ordplotmax+1-ordmin
 
     title = covid.get_title(args)
     title = title + ": %d sequences" % (n_sequences,)
 
-    def mmakeplot(fraction=False,lineplot=False):
-        embersplot.embersplot(DG_cum,fullnames, mcolors, ordmin,
-                              ordplotrange = (ordplotmin, ordplotmax),
-                              title=title,
-                              legend=args.legend,legendtitle=legendtitle,
-                              fraction=fraction,lineplot=lineplot)
-
-
-    if args.lineplot:
-        ## Line plot
-        mmakeplot(fraction=True,lineplot=True)
-        if args.output:
-            plt.savefig(covid.filename_prepend("line-",args.output))
-
-    else:
-        ## Stacked bar plots
-        outfilename = args.output
-        if args.daily == 7:
-            outfilename = covid.filename_prepend("wk-",outfilename)
-        if args.daily == 1:
-            outfilename = covid.filename_prepend("dy-",outfilename)
-
-        mmakeplot(fraction=True)
-        if args.output:
-            plt.savefig(covid.filename_prepend("f-",outfilename))
-
-        mmakeplot(fraction=False)
-        if args.output:
-            plt.savefig(covid.filename_prepend("c-",outfilename))
-
-    if not args.output:
-        plt.show()
+    emu.make_emberstyle_plots(args,None,cum_counts,fullnames,mcolors,ordmin,
+                              ordplotrange = (ordplotmin,ordplotmax),
+                              title = title, onsets=onsets)
 
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very-verbose print'''
-        if _args.verbose and _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     main(_args)
