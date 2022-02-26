@@ -12,9 +12,6 @@ as well to other proteins in the SARS-CoV-2 genome.
 For most of these routines, the input is an aligned amino-acid sequence file (usually, but not necessarily, in fasta format) whose
 first sequence is taken as the *reference* sequence, typically `NC_045512_spike_surface_glycoprotein` which is the ancestral Wuhan strain.
 
-CAVEAT: Virtually all of the analysis in this software neglects insertions.  Only the sites at which the reference strain has an amino acid are considered.
-
-UN-CAVEAT: This generation of this software *does* handle insertions.
 
 # MAIN ANALYSIS PROGRAMS
 
@@ -47,7 +44,7 @@ of these routines read sequence files using the `readseq.py` module, and this pe
 (including fasta, mase, tbl, and raw sequences, and gzip'd versions of these as well); the file type is inferred
 from the extension of the file name.
 
-## EMBERS
+## EMBERS, SPARKS, and CINDERS
 
 EMBERS is a display tool that creates colorful stacked barplots showing how variant counts change over time.
 These are like the "blue wave" plots in our original D614G paper, but with many more variants and many more colors.
@@ -55,6 +52,18 @@ The routine can also create simple line plots on a logarithmic axis, which is us
 are much rarer than the dominant variants (but that may be increasing in time).
 
 The variants used in `embers` are defined in a "color mutation" file, described below
+
+SPARKS was formerly called 'EMBERS_BYNAMES' -- it maked the same kind of stacked barplots (or lineplots) that
+embers makes, but based on
+the pango lineage names that are encoded in the sequence names.
+In fact, it works with both sequence files (.fasta, .tbl, etc) and with simple name files (.nm) which are just
+the list of sequence names without the sequences.
+
+Because the pango lineage names are somewhat Byzantine in their structure, `sparks` reads a "lineage table" which
+has colors, names, and regular expressions describing the range of pango names that correspond to the given name.
+
+CINDERS is an experimental code that uses both pango names and sequences; currently it only considers how
+single site mutations (eg, A222V) affect the various pango lineage evolution over time.
 
 ## PANGOCOMMONFORMS
 
@@ -145,6 +154,11 @@ those tweaks to taste and/or add some of your own.
 codon-aligned DNA sequences from which the amino-acid sequences were derived, and it then re-aligns
 the DNA sequences to be consistent with their newly-aligned amino-acid sequence counterpargs.
 
+## MKTABLE, MUTISL
+
+These are specialized routines that are used in the creation of the tables that appear in the
+LANL corner of the GISAID website.
+
 # SOME USEFUL LIBRARIES
 
 ### readseq/sequtil 
@@ -192,6 +206,23 @@ column to get the number of the site.
     124455555444556613577890
     902423678234362779278441
     TTGYWMEFRLALDSAVKNLSTESN
+
+### verbose
+encapsulates vprint functions that write messages based on user-set level of verbosity; typical use:
+
+       from verbose import verbose as v
+       ...
+       v.verbosity(1)
+       ...
+       v.vprint("read",n_sequences,"seqeunces from file")
+
+as an alternative to:
+
+       verbosity_level=1
+       ...
+       if verbosity_level > 0:
+           print("read",n_sequences,"sequences from file")
+       ...
 ___
 
 # COLOR MUTATION TABLE
@@ -229,6 +260,16 @@ mutation can have any character except Q at site 677.  The '!'
 permitted; a sequence that disagrees with the reference sequence at
 any other site will not be consistent with this pattern.
 
+# LINEAGE TABLE
+
+Typical lines in the lineage table looks like:
+
+    Orange          Alpha   (B\.1\.1\.7)|(Q\..*)
+    BlueViolet      Delta   (B\.1\.617\.2)|(AY\..*) 
+  
+with three columns corresponding to color, name, and a regexp that matches the
+various pango names associated with the name.  For instance, B.1.1.7 or Q.anything
+will correspond to the Alpha variant, and will be plotted in orange.
 ___
 
 ### The 'help' command-line option
