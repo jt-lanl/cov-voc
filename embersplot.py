@@ -3,6 +3,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import datetime
 
+import warnings
+
 def date_friendly(dt):
     #return dt.strftime("%b %-d")
     mmm = dt.strftime("%b")
@@ -32,6 +34,9 @@ def embersplot(counts,
     ordplotrange: tuple (ordplotmin, ordplotmax) indicates range of days to plot
     master: if specified, plot a dummy with this as name in legend (can be used as a lable)
     '''
+
+    warnings.warn("This version of embersplot is DEPRECATED\n"
+                  "Use the version in the embersutil.py instead")
 
     patterns = list(counts)
     fullnames = fullnames if fullnames else {m:m for m in patterns}
