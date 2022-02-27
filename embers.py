@@ -1,12 +1,9 @@
 '''
 Stacked barplots (also, optionally, line-plots) of variant counts over time
 '''
-
-import warnings
-
 from collections import Counter
-
 import argparse
+import warnings
 
 import sequtil
 import intlist
@@ -35,7 +32,7 @@ def _getargs():
     return args
 
 def relativepattern(master,mutant,dittochar='_',noditto='-'):
-    '''ABC,ABD -> __D'''
+    '''AB-C,AB-D -> __-D'''
     return "".join((dittochar if (a==b and a not in noditto) else b)
                    for a,b in zip(master,mutant))
 
@@ -81,11 +78,33 @@ def missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
         yield "%s %6d %6.2f%% %s" % (rseq,xpatt[seq],100*fpatt,
                              ", ".join(vnearby_names))
 
+def write_counts_file(filename,sitelist,master,voclist,cpatt,xpatt,n_sequences):
+    '''write both the counts.out and x-count.out summary tables'''
+    if not filename:
+        return
+    with open(filename,'w') as fout:
+        for line in lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
+            print(line,file=fout)
+
+    xfilename = covid.filename_prepend('x-',filename)
+    v.vprint("Unmatched sequence patterns in file:",xfilename)
+    with open(xfilename,'w') as fout:
+        for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
+            print(line,file=fout)
+
+
 def main(args):
     ''' embers main '''
+    v.vprint(args)
 
-    seqs = covid.read_filter_seqfile(args)
-    first,seqs = sequtil.get_first_item(seqs)
+    ## read sequences, filter by pattern and by padded dates
+    seqs = covid.read_seqfile(args)
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+    seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
+    seqs = emu.filter_seqs_by_padded_dates(seqs,args)
+    if not args.keepx:
+        seqs = (s for s in seqs if "X" not in s.seq)
+    seqs = sequtil.checkseqlengths(seqs)
 
     if args.colormut:
         svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
@@ -185,30 +204,14 @@ def main(args):
     v.vprint_only_summary('overlap:')
     v.vprint("Unmatched sequences:",sum(xpatt.values()))
 
-    ## Write counts table to file
-    if args.ctable:
-        v.vvprint(cpatt)
-        with open(args.ctable,"w") as fout:
-            for line in lineage_counts(sitelist,master,voclist,cpatt,n_sequences):
-                print(line,file=fout)
-
-    ## Write x-counts table to file (sequences that don't match patterns)
-    ## Include the nearby c-pattern that is closest
-    if args.ctable:
-        xctable = covid.filename_prepend("x-",args.ctable)
-        v.vprint("Unmatched sequence patterns in file:",xctable)
-        with open(xctable,"w") as fout:
-            for line in missing_patterns_with_nearby(sitelist,master,voclist,xpatt,n_sequences):
-                print(line,file=fout)
-
-    ## now go through the sequences and tally dates
+    write_counts_file(args.ctable,sitelist,master,voclist,cpatt,xpatt,n_sequences)
 
     date_counter = {m: Counter() for m in patterns}
     for s in seqlist[1:]:
         if not args.keepx and "X" in s.seq:
             raise RuntimeError("X's should have already been filtered out")
 
-        seqdate = covid.date_from_seqname(s)
+        seqdate = emu.date_from_seqname(s.name)
         if not seqdate:
             continue
 
@@ -233,27 +236,15 @@ def main(args):
     if args.onsets:
         onsets.update( {m: min(date_counter[m]) for m in mutants if date_counter[m]} )
 
-    ordmin, ordmax, ordplotmin, ordplotmax = emu.get_daterange(date_counter,args.dates)
-    cum_counts = emu.get_cumulative_counts(date_counter,(ordmin, ordmax),
+    ord_range, ord_plot_range = emu.get_ord_daterange(date_counter,args.dates)
+    cum_counts = emu.get_cumulative_counts(date_counter,ord_range,
                                            daysperweek=args.daily)
 
-    ## Only keep data that is within the specified date range
-    ## That way, automatic scaling on the y-axis will be based on available data
-    if args.dates:
-        for m in cum_counts:
-            ztmp = []
-            for i,cnt in enumerate(cum_counts[m]):
-                if ordplotmin <= ordmin+i <= ordplotmax:
-                    ztmp.append(cnt)
-            cum_counts[m] = ztmp
-        ordmin = ordplotmin
-
-    title = covid.get_title(args)
-    title = title + ": %d sequences" % (n_sequences,)
-
-    emu.make_emberstyle_plots(args,None,cum_counts,fullnames,mcolors,ordmin,
-                              ordplotrange = (ordplotmin,ordplotmax),
-                              title = title, onsets=onsets)
+    emu.make_emberstyle_plots(args,None,cum_counts,fullnames,mcolors,ord_range[0],
+                              ordplotrange = ord_plot_range,
+                              title=": ".join([covid.get_title(args),
+                                               f"{n_sequences} sequences"]),
+                              onsets=onsets)
 
 if __name__ == "__main__":
 

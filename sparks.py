@@ -7,6 +7,7 @@ from verbose import verbose as v
 import embersutil as emu
 import lineagetable
 
+
 OTHER = lineagetable.OTHER
 DEFAULTNAMESFILE="Latest-names.nm"
 
@@ -26,16 +27,20 @@ def _getargs():
     args = ap.parse_args()
     return args
 
+def print_other_lineages(other_lineages):
+    '''if other lineages found, print out a summary'''
+    otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
+    for otherlin in otherlist:
+        print("%6d %s" % (other_lineages[otherlin],otherlin))
+
 def main(args):
     '''sparks main'''
     v.vprint(args)
 
-    seqs = covid.read_seqfile(args) ## <- should keepfirst be here??
-    ## filter by country, then by date
-    seqs = covid.filter_seqs_by_pattern(seqs,args)
-    ## keepfirst=False because names files don't begin with a reference name
-    seqs = covid.filter_seqs_by_date(seqs,args,keepfirst=False)
-    seqs = covid.fix_seqs(seqs,args)  ## make any sense for names???
+    seqs = covid.read_seqfile(args)
+    seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
+    seqs = emu.filter_seqs_by_padded_dates(seqs,args)
+    v.vprint(args)
 
     T = lineagetable.get_lineage_table(args.lineagetable)
 
@@ -52,8 +57,7 @@ def main(args):
             v.vprint_only(5,"Bad seqdate:",seqdate)
             continue
 
-        ## voc is the first pattern that matches
-        voc = T.match_name(s.name)
+        voc = T.first_match(s.name)
         date_counter[voc][seqdate] += 1
 
         if args.other and voc == OTHER:
@@ -67,9 +71,7 @@ def main(args):
     v.vprint_only_summary("Other:","non-None sequences in OTHER category")
 
     if args.other:
-        otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
-        for otherlin in otherlist:
-            print("%6d %s" % (other_lineages[otherlin],otherlin))
+        print_other_lineages(other_lineages)
 
     nmatches = sum(sum(date_counter[p].values()) for p in T.patterns)
     v.vprint("matched sequences:",nmatches)
@@ -83,36 +85,18 @@ def main(args):
                         for m in T.patterns[1:]
                         if date_counter[m] and m != OTHER} )
 
-    if args.verbose:
-        ## make a little table of counts and onsets
-        maxnamelen = max(len(T.names[p]) for p in date_counter)
-        fmt = f'%{maxnamelen}s %7s %10s %s'
-        v.vprint(fmt % ('Name','Count','Onset','Pattern'))
-        for p in date_counter:
-            name = T.names[p]
-            count = sum(date_counter[p].values())
-            onset = min(date_counter[p]) if date_counter[p] else ''
-            v.vprint(fmt % (name,str(count),onset,p))
+    for line in emu.mk_counts_table(date_counter,T.names):
+        v.vprint(line)
 
-    ordmin, ordmax, ordplotmin, ordplotmax = emu.get_daterange(date_counter,args.dates)
-    cum_counts = emu.get_cumulative_counts(date_counter,(ordmin, ordmax),
-                                       daysperweek=args.daily)
+    ord_range, ord_plot_range = emu.get_ord_daterange(date_counter,args.dates)
+    v.vprint("ordinal range:",ord_range,ord_plot_range)
+    cum_counts = emu.get_cumulative_counts(date_counter,ord_range,
+                                           daysperweek=args.daily)
 
-    ## Only keep data that is within the specified date range
-    ## That way, automatic scaling on the y-axis will be based on available data
-    ## Are we sure this is really necessary!?
-    if args.dates:
-        for m in cum_counts:
-            ztmp = []
-            for i,cnt in enumerate(cum_counts[m]):
-                if ordplotmin <= ordmin+i <= ordplotmax:
-                    ztmp.append(cnt)
-            cum_counts[m] = ztmp
-        ordmin = ordplotmin
-
-    emu.make_emberstyle_plots(args,'bynames',cum_counts,T.names,T.colors,ordmin,
-                              ordplotrange = (ordplotmin,ordplotmax),
-                              title = covid.get_title(args) + ": %d sequences" % (nmatches,),
+    emu.make_emberstyle_plots(args,'bynames',cum_counts,T.names,T.colors,ord_range[0],
+                              ordplotrange = ord_plot_range,
+                              title=": ".join([covid.get_title(args),
+                                               f"{nmatches} sequences"]),
                               onsets=onsets)
 
 

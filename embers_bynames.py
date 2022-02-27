@@ -134,6 +134,8 @@ def main(args):
     '''embers_bynames main'''
     vprint(args)
 
+    warnings.warn('embers_bynames is DEPRECATED; use sparks instead')
+
     seqs = covid.read_seqfile(args)
     ## filter by country, then by date
     seqs = covid.filter_seqs_by_pattern(seqs,args)
@@ -142,7 +144,7 @@ def main(args):
     seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 
-    LineageTable = lineagetable.LineageTable
+    LineageTable = lineagetable.DefaultLineageTable
     if args.lineagetable:
         ## if file exists, over-ride default
         LineageTable = rd_lineage_table(args.lineagetable)
@@ -162,7 +164,7 @@ def main(args):
 
         seqdate = date_from_seqname(s.name)
         if not seqdate:
-            vprint("No seqdate:",s.name)
+            vvprint("No seqdate:",s.name)
             continue
 
         if (seqdate.year,seqdate.month) < (2019,11):

@@ -31,6 +31,7 @@ def getargs():
         help="write out the lineages in the 'other' class")
     paa("--verbose","-v",action="count",default=0,
         help="verbosity")
+    ap.set_defaults(keepx=True) ## no reason to exclude X's here
     args = ap.parse_args()
 
     return args
@@ -40,9 +41,13 @@ def main(args):
     v.vprint(args)
 
     seqs = covid.read_seqfile(args)
-    seqs = covid.filter_seqs(seqs,args)
-    seqs = sequtil.checkseqlengths(seqs)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+    seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
+    seqs = emu.filter_seqs_by_padded_dates(seqs,args)
+    v.vprint(args)
+    if not args.keepx:
+        seqs = (s for s in seqs if "X" not in s.seq)
+    seqs = sequtil.checkseqlengths(seqs)
 
     T = lineagetable.get_lineage_table(args.lineagetable)
 
@@ -71,9 +76,7 @@ def main(args):
             v.vprint_only(5,"Bad seqdate:",seqdate)
             continue
 
-
-        ## voc is the first pattern that matches
-        voc = T.match_name(s.name)
+        voc = T.first_match(s.name)
         if seq_mut_consistent(s.seq):
             date_counter[voc+MUTATED][seqdate] += 1
         else:
@@ -113,17 +116,13 @@ def main(args):
 
     if args.verbose:
         ## make a little table of counts and onsets
-        maxnamelen = max(len(T.names[p]) for p in date_counter)
-        fmt = f'%{maxnamelen}s %6s %10s %s'
-        v.vprint(fmt % ('Name','Count','Onset','Pattern'))
-        for p,counter in date_counter.items():
-            name = T.names[p]
-            count = total_counts[p]
-            onset = min(counter) if counter else ''
-            v.vprint(fmt % (name,str(count),onset,p))
+        for line in emu.mk_counts_table(date_counter,T.names):
+            v.vprint(line)
 
-    ordmin, ordmax, ordplotmin, ordplotmax = emu.get_daterange(date_counter,args.dates)
-    cum_counts = emu.get_cumulative_counts(date_counter, (ordmin, ordmax),
+
+    ord_range, ord_plot_range = emu.get_ord_daterange(date_counter,args.dates)
+    v.vprint("ordinal range:",ord_range,ord_plot_range)
+    cum_counts = emu.get_cumulative_counts(date_counter,ord_range,
                                            daysperweek=args.daily)
 
     for k,tcounts in total_counts.items():
@@ -131,10 +130,10 @@ def main(args):
             v.vvprint('pop key:',k)
             cum_counts.pop(k)
 
-
-    emu.make_emberstyle_plots(args,args.mutant,cum_counts,T.names,T.colors,ordmin,
-                              ordplotrange = (ordplotmin,ordplotmax),
-                              title = covid.get_title(args) + ": %d sequences" % (nmatches,),
+    emu.make_emberstyle_plots(args,args.mutant,cum_counts,T.names,T.colors,ord_range[0],
+                              ordplotrange = ord_plot_range,
+                              title = ": ".join([covid.get_title(args),
+                                                 f"{nmatches} sequences"]),
                               onsets=onsets)
 
 if __name__ == "__main__":

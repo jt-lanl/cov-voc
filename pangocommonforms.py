@@ -6,15 +6,13 @@ for that lineage, and show the most commmon forms.
 ## note, consensus is the most expensive part of the computation
 ## use --consensusnever to avoid that computation
 
-import sys
-import re
 from collections import Counter,defaultdict
 import argparse
 
 import sequtil
 import covid
 import mutant
-import wrapgen
+from verbose import verbose as v
 from hamming import hamming
 
 def getargs():
@@ -79,12 +77,12 @@ def main(args):
     print(f"We show {count_forms} forms{min_count}. {consensus_always}")
 
     seqs = covid.read_filter_seqfile(args)
+    seqs = sequtil.checkseqlengths(seqs)
+    
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
     seqlist = list(seqlist)
 
-    covid.summarizeseqlengths(seqlist,args)
-    
     last_days = f" in the last {args.days} days from our last update," if args.days else ""
     print(f"This output is based on sequences sampled{last_days} from %s to %s." \
           % covid.range_of_dates(seqlist))
@@ -94,7 +92,7 @@ def main(args):
         lin = covid.get_lineage_from_name(s.name)
         seqlist_by_lineage[lin].append(s)
 
-    cnt_lin = {lin: len(seqlist_by_lineage[lin]) for lin in seqlist_by_lineage} 
+    cnt_lin = {lin: len(seqlist_by_lineage[lin]) for lin in seqlist_by_lineage}
     lineages = sorted(cnt_lin,key=cnt_lin.get,reverse=True)
 
     maxlinlen = max(len(lin) for lin in lineages)
@@ -158,17 +156,6 @@ def main(args):
 if __name__ == "__main__":
 
     _args = getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
-    def vcount(seqs,*p,**kw):
-        '''if verbose, count seqs as they go by'''
-        return wrapgen.keepcount(seqs,*p,**kw) if _args.verbose else seqs
+    v.verbosity(_args.verbose)
 
     main(_args)

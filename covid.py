@@ -1,19 +1,21 @@
 '''covid-specific utilities and hardcoded values'''
 
-import sys
+
 import os
 import re
 import datetime
-import itertools
 from pathlib import Path
-from collections import Counter,namedtuple
-import pickle
 import warnings
 
 import wrapgen
 import readseq
 import sequtil
 import intlist
+
+MAX_TITLE_LENGTH=60 ## truncate long title names
+ISO_DATE_REGEX = re.compile(r'\d\d\d\d-\d\d-\d\d')
+EPI_ISL_REGEX = re.compile(r'EPI_ISL_\d+')
+LINEAGE_REGEX = re.compile(r'EPI_ISL_\d+\.(.*)')
 
 DEFAULTSEQFILE="Latest.ipkl"
 
@@ -36,7 +38,7 @@ def default_seqfile(seqfilename=DEFAULTSEQFILE):
         seqfile = Path(d) / (seqfilename + ".gz")
         if seqfile.exists():
             return seqfile
-        
+
     return None
 
 def datestring(yyyymmdd):
@@ -49,9 +51,9 @@ def datestring(yyyymmdd):
     return yyyymmdd
 
 def corona_args(ap):
-    ''' 
-    call this in the getargs() function, 
-    and these options will be added in 
+    '''
+    call this in the getargs() function,
+    and these options will be added in
     '''
     paa = ap.add_argument
     #faa = ap.add_argument_group('File input options').add_argument
@@ -78,12 +80,10 @@ def corona_args(ap):
     paa("--title",
         help="use this TITLE in plots")
 
-    return
-
 #### Routines for parsing sequence names
 
 
-xpand_names = {
+xpand_WHO_Pangolin = {
     ## dict to convert WHO lineage names to pango pattern
     'Alpha':  r'(B\.1\.1\.7)|(Q\.[1-9].*)',
     'Beta':   r'B\.1\.351',
@@ -93,17 +93,23 @@ xpand_names = {
     'Mu':     r'B\.1\.621(\.1)?',
     'Omicron': r'(B\.1\.1\.529)|(BA\.[1-9].*)',
 }
+def expand_who_name_to_pangolin_pattern(patt):
+    '''
+    if patt is one of the WHO names, then
+    replace it with its associated pangolin
+    pattern
+    '''
+    return xpand_WHO_Pangolin.get(patt,patt)
 
 def get_isl(fullname):
     '''return EPI_ISL number from the sequence name'''
-    epi_patt = re.compile(r"EPI_ISL_\d+")
-    g = epi_patt.search(fullname)
-    return g[0] if g else "X"
+    epi_match = EPI_ISL_REGEX.search(fullname)
+    return epi_match[0] if epi_match else "X"
 
 def get_lineage_from_name(name):
     '''get pango lineage by parsing the sequence name'''
-    #re.sub is maybe more robust...but slower
-    linpatt = re.sub(r".*EPI_ISL_\d+\.","",name)
+    m = LINEAGE_REGEX.search(name)
+    linpatt = m[1] if m else None
     #try:
     #    tokens = name.split('.',6)
     #    lintok = tokens[6]
@@ -114,7 +120,12 @@ def get_lineage_from_name(name):
     return linpatt
 
 def date_fromiso(s):
-    if type(s) == datetime.date:
+    '''return datetime.date object from date string in yyyy-mm-dd format'''
+    ## if "." or invalid (quite different cases!), return None
+    ## problem with raising error is that many badly formatted dates out there
+    if not s:
+        return None
+    if isinstance(s, datetime.date):
         return s
     try:
         yyyy,mm,dd = s.split("-")
@@ -125,21 +136,25 @@ def date_fromiso(s):
             return None
         return None #raise RuntimeError(f"Invalid Date {s}")
 
-def date_from_seqname(s):
+def date_from_seqname(sname):
+    '''extract date string from sequence name'''
     #try:
-    #    tokens = s.name.split('.')
-    #    datestring = tokens[4]
+    #    tokens = sname.split('.')
+    #    datestr = tokens[4]
     #except IndexError:
-    #    datestring = s.name
+    #    datestr = sname
     ## the following statement is more robust ... but slower!
-    datestring = re.sub(".*(\d\d\d\d-\d\d-\d\d).*",r"\1",s.name)
-    return date_fromiso(datestring)
-    
+    m = ISO_DATE_REGEX.search(sname)
+    datestr = m[0] if m else None
+    return date_fromiso(datestr)
+
 def count_bad_dates(seqlist):
-    return(sum(date_from_seqname(s) is None for s in seqlist))
+    return sum(date_from_seqname(s.name) is None for s in seqlist)
 
 def range_of_dates(seqlist):
-    dates = [date_from_seqname(s) for s in seqlist]
+    '''return tuple of iso-formatted dates'''
+    assert isinstance(seqlist,list)
+    dates = [date_from_seqname(s.name) for s in seqlist]
     dates = [d for d in dates if d is not None]
     return min(dates).isoformat(),max(dates).isoformat()
 
@@ -153,7 +168,7 @@ def filter_by_date(seqs,fromdate,todate,keepfirst=False):
         if keepfirst and n == 0:
             yield s
             continue
-        d = date_from_seqname(s)
+        d = date_from_seqname(s.name)
         if not d:
             continue
         if f_date and f_date > d:
@@ -173,7 +188,7 @@ def mstring_brackets(mstring):
 
 def mstring_fix(mstring):
     '''
-    1. fix G-- vs --G 
+    1. fix G-- vs --G
     2. remove 'ancestral' string
     3. make a new mstring that treats G142x as G142.
     '''
@@ -204,7 +219,7 @@ def mstring_fix(mstring):
     #        newmut.append(mutant.SingleSiteMutation.from_ref_site_mut('G',142,'.'))
     #    else:
     #        newmut.append(ssm)
-    #return str(mutant.Mutation(newmut))        
+    #return str(mutant.Mutation(newmut))
 
 site_specifications = {
     "RBD"         : "330-521",
@@ -222,7 +237,7 @@ def spike_sites(sitespec):
     '''return list of integers, site numbers, corresponding to sitespec string'''
     ## sitespec may be of the form:
     ##   '13-20,140-158' -- integer list
-    ##   'RBD' -- receptor binding domain 
+    ##   'RBD' -- receptor binding domain
     ##   'NTD', 'NTDss' -- N-terminal domain (supersite)
     ##   Combinations of the above using "+" and "-"
     ##   'RBD+NTD' -- include sites in either domain
@@ -254,7 +269,7 @@ def spike_sites(sitespec):
             xsite.update( get_intlist(sx) )
     sites -= xsite
     return sorted(sites)
-        
+
 
 CONTINENTS = ["United-Kingdom",
               "Europe-minus-United-Kingdom",
@@ -264,41 +279,47 @@ CONTINENTS = ["United-Kingdom",
               "South-America",
               "Oceania",
 ]
-ABBREV_CONTINENTS = {"United-Kingdom"           : "UK",
+ABBREV_CONTINENTS = {"United-Kingdom"             : "UK",
                      "Europe-minus-United-Kingdom": "Eu-UK",
-                     "North-America"            : "NAmer",
-                     "Asia"                     : "Asia",
-                     "Africa"                   : "Africa",
-                     "South-America"            : "SAmer",
-                     "Oceania"                  : "Ocean",
+                     "North-America"              : "NAmer",
+                     "Asia"                       : "Asia",
+                     "Africa"                     : "Africa",
+                     "South-America"              : "SAmer",
+                     "Oceania"                    : "Ocean",
 }
-    
+
 def parse_continents(withglobal=False):
-    ConExclude=[]
+    '''
+    returns a list of three-element tuples (cx,c,x)
+    cx: full name of region, possibly including '-minus-'
+    c: included part of region, before the '-minus-'
+    x: excluded part of region, after the '-minus-'
+    [in most cases, cx=c and x=None]
+    '''
+    cx_c_x=[]
     if withglobal:
-        ConExclude.append(("Global","Global",None))
+        cx_c_x.append(("Global","Global",None))
     for cx in CONTINENTS:
         if "-minus-" in cx:
             c,x = cx.split("-minus-")
         else:
             c,x = cx,None
-        ConExclude.append((cx,c,x))
-    return ConExclude
+        cx_c_x.append((cx,c,x))
+    return cx_c_x
 
 def filename_prepend(pre,file):
     '''prepend a string to a file name; eg
        "pre","file" -> "prefile", but also
-       "pre","dir/file" -> "dir/prefile"
+       "pre","directory/file" -> "directory/prefile"
     '''
     ## alt: re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
     if not file:
         return file
-    dir,base = os.path.split(file)
-    return os.path.join(dir,pre+base)
+    directory,base = os.path.split(file)
+    return os.path.join(directory,pre+base)
 
 def get_title(args):
-    ## Get title for plots and tables
-    MAX_TITLE_LENGTH = 60
+    '''produce default title for plots and tables'''
     if args.title:
         return "Global" if args.title=='.' else args.title
     if args.filterbyname:
@@ -313,30 +334,30 @@ def get_title(args):
         title = title[:MAX_TITLE_LENGTH-3]+"..."
     return title
 
-def summarizeseqlengths(seqlist,args):
-    #assert isinstance(seqlist,list)
-    clen = Counter([len(s.seq) for s in seqlist])
-    if args.verbose:
-        for l in clen:
-            print(clen[l],"sequences of length",l,file=sys.stderr)
-    if len(clen)>1:
-        warnings.warn("Not all sequences are the same length")
-
-
 def get_first_item(items,keepfirst=True):
     '''
     get first item in iterable, and and put it back;
     works when the iterable is a list or an iterator
+    if keepfirst==False, then don't put it back
     '''
     warnings.warn("use sequtil.get not covid.get")
     return sequtil.get_first_item(items,keepfirst=keepfirst)
 
 def read_filter_seqfile(args,**kwargs):
+    '''
+    read sequence file from args.input,
+    and filter according to args,
+    return a generator of sequences
+    '''
     seqs = read_seqfile(args,**kwargs)
     seqs = filter_seqs(seqs,args)
-    return seqs    
-        
+    return seqs
+
 def read_seqfile(args,**kwargs):
+    '''
+    read sequences file from args.input
+    return a generator of sequences
+    '''
     seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
     if args.verbose:
         seqs = wrapgen.keepcount(seqs,"Sequences read:")
@@ -344,14 +365,22 @@ def read_seqfile(args,**kwargs):
 
 
 def fix_seqs(seqs,args):
+    '''
+    seqs = fix_seqs(seqs,args)
+    will return sequences with stripdashcols (obsolete)
+    and with last character (if it's $) stripped
+    and
+    '''
+    ## ...a bit heavy-handed, and assumes first seq is still there
 
+    ## we peek at first sequence, but do not remove it from seqs
     first,seqs = sequtil.get_first_item(seqs)
 
     if "-" in first.seq and args.stripdashcols:
         seqs = sequtil.stripdashcols(first.seq,seqs)
 
     if not args.keeplastchar and "$" in first.seq:
-        first.seq = re.sub('\$[^\$]*$','',first.seq)
+        first.seq = re.sub(r'\$[^\$]*$','',first.seq)
         seqs = striplastchars(seqs,len(first.seq))
 
     if not args.keepx:
@@ -360,9 +389,10 @@ def fix_seqs(seqs,args):
     return seqs
 
 def striplastchars(seqs,seqlen):
+    '''truncate all sequences to length seqlen; replace '$' with 'X' '''
     for s in seqs:
         s.seq = s.seq[:seqlen]
-        s.seq = re.sub('\$','X',s.seq)
+        s.seq = re.sub(r'\$','X',s.seq)
         yield s
 
 def filter_seqs(seqs,args):
@@ -391,10 +421,13 @@ def xrepair(seqs,X='X'):
         yield s
 
 def lastdate_byfile(file,seqs=None):
+    '''return the last date in the range of dates'''
     ## to get last date
     ## 1/ get modification date of input file
-    ## 2/ if that doesn't work (eg, if file not found) get today's date
-    ## 3/ if that doesn't work, get last date in dataset
+    ## 2/ if that doesn't work (eg, if file not found), get today's date
+    ## 3/ if that doesn't work (but why wouldn't it?), get last date in dataset
+    ## 4/ if that doesn't work, raise RuntimeError
+    ## Note, if seqs is None, then skip step 3
 
     lastdate=None ## in case nothing works!
     try:
@@ -403,15 +436,48 @@ def lastdate_byfile(file,seqs=None):
     except FileNotFoundError:
         try:
             lastdate = datetime.date.today().isoformat()
-        except:
+        except: ## don't think this will ever happen
             if seqs:
                 seqs = list(seqs)
                 _,lastdate = range_of_dates(seqs)
+
+    if lastdate is None:
+        raise RuntimeError('Cannot find last date for date range')
+
     return lastdate
-        
+
+def date_range_from_args(args):
+    '''return list of two iso-formatted dates (start and stop);
+    obtain what /should/ be in args.dates, but if it is not set,
+    then infer what it should be from args.days'''
+    if args.dates:
+        return list(args.dates)
+    if args.days:
+        lastdate = lastdate_byfile(args.input)
+        t = date_fromiso(lastdate)
+        f = t - datetime.timedelta(days=args.days)
+        return [f.isoformat(),t.isoformat()]
+    return [None,None]
+
+def expand_date_range(daterange,daysperweek=7):
+    '''pad the date range by a few (or many) days out front
+    so that weekly and/or cumulative counts are mainteined
+    correctly'''
+    start_date,stop_date = daterange
+    if start_date is None:
+        return daterange
+    if daysperweek == 0:
+        start_date = None
+    elif daysperweek > 1:
+        start_date = date_fromiso(start_date)
+        start_date = start_date - datetime.timedelta(days=daysperweek-1)
+        start_date = start_date.isoformat()
+    return [start_date,stop_date]
+
+
 def filter_seqs_by_date(seqs,args,keepfirst=True):
     '''passes through seq's whose date is in range specified by args;
-    also, ensures that args.dates is set to range of dates (eg, if range 
+    also, ensures that args.dates is set to range of dates (eg, if range
     specified by --days, then set args.dates to be consistent with that)
     '''
 
@@ -421,47 +487,42 @@ def filter_seqs_by_date(seqs,args,keepfirst=True):
         raise RuntimeError("Cannot specify both --days AND --dates")
 
     if args.days:
-        lastdate = lastdate_byfile(args.input,seqs)
-        t = date_fromiso(lastdate) 
-        f = t - datetime.timedelta(days=args.days)
-        args.dates = [f.isoformat(),t.isoformat()]
-        
+        args.dates = date_range_from_args(args)
+
     if args.dates:
         seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=keepfirst)
-        
+
     return seqs
 
-def filter_seqs_by_pattern(seqs,args):
+def filter_seqs_by_pattern(seqs,args,keepfirst=True):
     '''input is iterable seqs; output is generator seqs'''
 
     keepers = []
     xcludes = []
     if args.filterbyname:
         for name in args.filterbyname:
-            patt,wo,xpat = name.partition("-minus-")
-            if patt in xpand_names:
-                patt = xpand_names[patt]
+            patt,_,xpat = name.partition("-minus-")
+            patt = expand_who_name_to_pangolin_pattern(patt)
             if patt != "Global":
                 keepers.append(patt)
             if xpat:
                 xcludes.append(xpat)
     if args.xfilterbyname:
         for name in args.xfilterbyname:
-            if name in xpand_names:
-                name = xpand_names[name]
+            name = expand_who_name_to_pangolin_pattern(name)
             xcludes.append(name)
 
-    ## Use r"\."+ to ensure that names have to be preceeded by a dot
+    ## Use r"\."+ to ensure that names have to be preceded by a dot
     keepers = [r"\."+patt for patt in keepers]
     xcludes = [r"\."+xpat for xpat in xcludes]
 
     if keepers:
-          seqs = sequtil.filter_by_patternlist(seqs,keepers,
-                                               keepfirst=True)
+        seqs = sequtil.filter_by_patternlist(seqs,keepers,
+                                             keepfirst=keepfirst)
     if xcludes:
-          seqs = sequtil.filter_by_patternlist_exclude(seqs,xcludes,
-                                                       keepfirst=True)
-            
+        seqs = sequtil.filter_by_patternlist_exclude(seqs,xcludes,
+                                                     keepfirst=keepfirst)
+
     return seqs
 
 SARS_REGIONS = '''
@@ -489,10 +550,10 @@ RBM     483     566
 SD1     595     656
 SD2     657     747
 #S1/S2   748     749     The cleavage site
-UH      816     851     
-FP      880     900     
+UH      816     851
+FP      880     900
 CR      901     991
-HR1     992     1054   
+HR1     992     1054
 CH      1055    1109
 BH      1110    1149
 SD3     1150    1206
@@ -522,13 +583,9 @@ def get_srlist(virus="SARS"):
 #        f = max(e)/2
 #        dy = -0.04*f
 #        dyl = -0.12*f
-#                
+#
 #        for srx,sry,srn in zip(srlistx,srlisty,srlistn):
 #            plt.plot([srx,sry],[dy,dy],label=srn,linewidth=4)
 #            delta = 8 if sry-srx < 15 else 3 if sry-srx < 25 else 0
 #            plt.text(srx-delta,dyl,srn)
 #        plt.legend(loc="upper left",title="Regions",bbox_to_anchor=(1,1))
-
-
-
-

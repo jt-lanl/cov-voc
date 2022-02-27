@@ -76,11 +76,14 @@ def date_from_seqname(sname):
         date = None
     return date
 
-def get_daterange(datecounter,argsdates):
-    ''' find range of dates, in ordinal numbers, based on:
+def get_ord_daterange(datecounter,argsdates):
+    '''
+    find range of dates, in ordinal numbers, based on:
     datecounter[mutant][date] = count of mutants in date, and
-    argsdates is basically args.dates '''
-
+    argsdates is basically args.dates;
+    returns a tuple of two two-element tuples: (ord_range,ord_plot_range)
+    with each range containing a (ord_min,ord_max) pair
+    '''
     all_dateset=set()
     for p in datecounter:
         all_dateset.update(datecounter[p])
@@ -98,16 +101,32 @@ def get_daterange(datecounter,argsdates):
 
     ordmin = min([ordmin,ordplotmin])
     ordmax = max([ordmax,ordplotmax])
-    return ordmin, ordmax, ordplotmin, ordplotmax
 
+    return (ordmin, ordmax), (ordplotmin, ordplotmax)
+
+def filter_seqs_by_padded_dates(seqs,args,keepfirst=False):
+    '''
+    filter input data to keep only data in date range specified...except
+    pad the date range so that weekly or cumulative plots are still correct
+    side effect: args.dates potentially gets modified
+    '''
+    start_date,stop_date = covid.date_range_from_args(args)
+    args.dates = [start_date,stop_date]
+    start_date,stop_date = covid.expand_date_range([start_date,stop_date],args.daily)
+    seqs = covid.filter_by_date(seqs,start_date,stop_date,keepfirst=keepfirst)
+    return seqs
 
 def get_running_weekly(cumulative_counts,num_days,daysperweek=7):
     '''convert cumulative counts into running weekly counts'''
+    if daysperweek==0:
+        return cumulative_counts
+
     running_weekly=dict()
     for m in cumulative_counts:
         running_weekly[m] = cumulative_counts[m][:]
         for n in range(daysperweek,num_days):
-            running_weekly[m][n] = cumulative_counts[m][n] - cumulative_counts[m][n-daysperweek]
+            running_weekly[m][n] = cumulative_counts[m][n] \
+                - cumulative_counts[m][n-daysperweek]
     return running_weekly
 
 def get_cumulative_counts(date_counter,ord_range,daysperweek=7):
@@ -125,6 +144,24 @@ def get_cumulative_counts(date_counter,ord_range,daysperweek=7):
 
     running_weekly = get_running_weekly(cumulative_counts,num_days,daysperweek=daysperweek)
     return running_weekly
+
+
+def mk_counts_table(date_counter,names):
+    '''useful diagnostic; a table of names, counts, onsets, and patterns'''
+    ## Uses 'yield' to return lines one at a time
+    ## Usage:
+    ## for line in mk_counts_table(...):
+    ##     print(line)
+    ##
+    maxnamelen = max(len(names[p]) for p in date_counter)
+    fmt = f'%{maxnamelen}s %7s %10s %s'
+    yield fmt % ('Name','Count','Onset','Pattern')
+    for p in date_counter:
+        name = names[p]
+        count = sum(date_counter[p].values())
+        onset = min(date_counter[p]) if date_counter[p] else ''
+        yield fmt % (name,str(count),onset,p)
+
 
 def get_plot_filename(args,fraction,xtra=None):
     '''return name of file in which to save plot'''
@@ -166,7 +203,7 @@ def embersplot(counts,
                title=None,legendtitle=None,legend=0,onsets=False,
                fraction=False,lineplot=False,show=False):
     '''
-    embersplot is an embers-style (stacked bar or line) plot of counts vs date for multiple variants
+    embersplot is an embers-style plot of counts vs date for multiple variants
     counts: dictionary of arrays; each array is counts vs date;
             keys of dictionary correspond to different variants
     fullnames: dictionary of names associated with dictionary keys (=None if keys are names)
@@ -181,9 +218,9 @@ def embersplot(counts,
     namefmt = "%%-%ds" % maxnamelen
     mnames = {m : namefmt % fullnames[m] for m in patterns}
 
-    Ndays = len(counts[patterns[0]])
+    num_days = len(counts[patterns[0]])
     for m in patterns: ## should make sure len is same for all patterns
-        assert Ndays == len(counts[m])
+        assert num_days == len(counts[m])
 
     if legend == 0:
         plt.figure(figsize=(6,3))
@@ -210,7 +247,7 @@ def embersplot(counts,
     ## at this point counts_total is array (vs date) of total counts over all patterns
 
     if legendtitle and legend>1 and not lineplot:
-        plt.bar(range(Ndays),[0]*Ndays,width=1,
+        plt.bar(range(num_days),[0]*num_days,width=1,
                 label=legendtitle,color="white")
 
     name_color_sofar = set()
@@ -239,13 +276,13 @@ def embersplot(counts,
             bm = counts_bottom[m]
 
         if lineplot:
-            dy = np.array(range(Ndays))
+            dy = np.array(range(num_days))
             fm = np.array(fm)
             dy = dy[fm>0]
             fm = fm[fm>0]
             plt.semilogy(dy,fm,lw=2, **kwargs)
         else:
-            plt.bar(range(Ndays),fm,bottom=bm,width=1,**kwargs)
+            plt.bar(range(num_days),fm,bottom=bm,width=1,**kwargs)
 
     if fraction and not lineplot:
         plt.ylim([0,1.05])
@@ -266,7 +303,7 @@ def embersplot(counts,
 
     if not ordplotrange:
         ordplotmin = ordmin+1
-        ordplotmax = ordmin+Ndays
+        ordplotmax = ordmin+num_days
     else:
         ordplotmin, ordplotmax = ordplotrange
 
@@ -318,6 +355,16 @@ def embersplot(counts,
 def make_emberstyle_plots(args,extra_id,cum_counts,names,colors,ordmin,ordplotrange,
                           title=None, onsets=None):
     '''plot both fraction and counts against time for variants of interest'''
+
+    ## restrict data to within the plot range
+    ## then, auto scaling on the y-axis will be based on available data
+    ordplotmin,ordplotmax = ordplotrange
+    assert ordmin <= ordplotmin
+    for m in cum_counts:
+        cum_counts[m] = cum_counts[m][ordplotmin-ordmin: ordplotmax-ordmin+1]
+    ordmin = ordplotmin
+
+    ## Now make two plots, one w/ fractions and one w/ counts
     for fraction in (False,True):
         embersplot(cum_counts,names,colors,ordmin,
                    ordplotrange = ordplotrange,
