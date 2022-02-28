@@ -1,6 +1,7 @@
 '''Template doc string'''
-import sys
+
 import argparse
+from verbose import verbose as v
 
 def _getargs():
     '''parse options from command line'''
@@ -13,18 +14,10 @@ def _getargs():
 
 def _main(args):
     '''main'''
-    vprint(args)
+    v.vprint(args)
 
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     _main(_args)
