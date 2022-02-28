@@ -1,6 +1,5 @@
 '''covid-specific utilities and hardcoded values'''
 
-
 import os
 import re
 import datetime
@@ -451,7 +450,8 @@ def date_range_from_args(args):
     obtain what /should/ be in args.dates, but if it is not set,
     then infer what it should be from args.days'''
     if args.dates:
-        return list(args.dates)
+        return [(None if date=='.' else date)
+                for date in args.dates]
     if args.days:
         lastdate = lastdate_byfile(args.input)
         t = date_fromiso(lastdate)
@@ -464,7 +464,7 @@ def expand_date_range(daterange,daysperweek=7):
     so that weekly and/or cumulative counts are mainteined
     correctly'''
     start_date,stop_date = daterange
-    if start_date is None:
+    if start_date is None or start_date == '.':
         return daterange
     if daysperweek == 0:
         start_date = None

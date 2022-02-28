@@ -37,7 +37,7 @@ DefaultLineageTable=[
 
 ##______________________________________________________________________
 
-OTHER='other'
+OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
 
 def rd_lineage_table(filename):
     '''read file with columns: color, name, pattern'''
@@ -65,22 +65,25 @@ class LineageTablePatterns:
         self.regexpatt = {patt: re.compile(r'\.('+patt+r')$') for color,name,patt in table}
 
     def _match_generator(self,seqname):
-        return (patt for patt in self.patterns[1:]
+        return (patt for patt in self.patterns
                 if self.regexpatt[patt].search(seqname))
 
-    def first_match(self,seqname):
+    def first_match(self,seqname,notfound=OTHER):
         '''return the first pattern found whose regexp matches the sequence name'''
-        return next(self._match_generator(seqname),OTHER)
+        return next(self._match_generator(seqname),notfound)
 
     def all_matches(self,seqname):
         '''return a list of all patterns whose regexp matches the sequence name'''
         return list(self._match_generator(seqname))
 
-def get_lineage_table(lineagetable_file=None):
+def get_lineage_table(lineagetable_file=None,other=None):
     '''return a lineage table; specifically, a LineageTablePatterns class instance'''
     table = DefaultLineageTable
     if lineagetable_file:
         ## if file exists, over-ride default
         table = rd_lineage_table(lineagetable_file)
-    table.insert(0,('Gainsboro', 'other', OTHER))
+
+    color,name,posn = other or ('Gainsboro','other',0)
+    table.insert(int(posn), (color,name,OTHER) )
+
     return LineageTablePatterns(table)
