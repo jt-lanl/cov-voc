@@ -41,6 +41,11 @@ class verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
 
     @classmethod
+    def print(cls,*p,**kw):
+        '''print'''
+        cls.vnprint(0,*p,**kw)
+
+    @classmethod
     def vprint(cls,*p,**kw):
         '''verbose print'''
         cls.vnprint(1,*p,**kw)
