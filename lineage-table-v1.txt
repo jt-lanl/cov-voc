@@ -1,4 +1,6 @@
-
+## Lineage Table
+## Columns are: color, name, and pattern to match pangolin lineage
+##
 Orange		Alpha	(B\.1\.1\.7)|(Q\..*)
 ForestGreen	Lambda	C\.37(\..*)?
 LightPink	Beta	B\.1\.351(\..*)?

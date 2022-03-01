@@ -28,7 +28,7 @@ def _getargs():
         help="verbosity")
     ap.set_defaults(legend=0)
     args = ap.parse_args()
-
+    emu.check_dates_order(args.dates)
     return args
 
 def relativepattern(master,mutant,dittochar='_',noditto='-'):

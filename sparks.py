@@ -20,28 +20,16 @@ def _getargs():
     paa = ap.add_argument
     paa("--lineagetable","-l",
         help="read lineage table from file")
-    paa("--other",
+    paa("--writeother",
         help="write out the lineages in the 'other' class to this file")
-    paa("--cnpo",nargs=3,
-        metavar=('COLOR','NAME','POSN'),
-        help="color, name, and position (0=bottom) to be used for OTHER")
-    ## typical use: --cnpo Yellow D614G 1
-    ## treats all 'other' as D614G and then moves it up one notch in the plot,
-    ## so that it comes after the 'Ancestral'
-    ## or if 'Black None None' is in the lineage table as well,
-    ## you might do --cnpo Yellow D614G 2, to put it above None and Ancestral
     paa("--skipnone",action="store_true",
         help="sequences labeled 'None' are totally ignored, not put in OTHER")
+    paa("--skipother",action="store_true",
+        help="skip all sequences in OTHER category")
     paa("--verbose","-v",action="count",default=0,
         help="verbosity")
     args = ap.parse_args()
-
-    ## should we check that args.dates is in correct order?
-    if args.dates:
-        if not any(bool("." in date) for date in args.dates):
-            if args.dates[0] > args.dates[1]:
-                raise RuntimeError(f'out of order --dates {args.dates}')
-
+    emu.check_dates_order(args.dates)
     return args
 
 def print_other_lineages(filename,other_lineages):
@@ -50,8 +38,8 @@ def print_other_lineages(filename,other_lineages):
         return
     otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
     with open(filename,'w') as fout:
-        for otherlin in otherlist:
-            print("%6d %s" % (other_lineages[otherlin],otherlin),file=fout)
+        for lin in otherlist:
+            print("%6d %s" % (other_lineages[lin],lin),file=fout)
 
 def main(args):
     '''sparks main'''
@@ -60,14 +48,12 @@ def main(args):
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
     seqs = emu.filter_seqs_by_padded_dates(seqs,args)
-    v.vprint(args)
+    v.vvprint(args)
 
-    T = lineagetable.get_lineage_table(args.lineagetable,
-                                       other=args.cnpo)
+    T = lineagetable.get_lineage_table(args.lineagetable)
 
-    v.vprint('T',T)
-    v.vprint('patterns',T.patterns)
-    v.vprint('names',list(T.names.values()))
+    v.vvprint('patterns',T.patterns)
+    v.vvprint('names',list(T.names.values()))
 
     date_counter = {m: Counter() for m in T.patterns}
     other_lineages = Counter()
@@ -83,26 +69,32 @@ def main(args):
             continue
 
         if args.skipnone and "None" in s.name:
-            v.vprint_only(5,"None:",f'[{s.name}]')
+            v.vprint_only(5,"skip None:",f'[{s.name}]')
             continue
 
         voc = T.first_match(s.name)
-        date_counter[voc][seqdate] += 1
 
-        if args.other and voc == OTHER:
-            lineage = covid.get_lineage_from_name(s.name)
-            other_lineages[lineage] += 1
-            v.vvprint_only(10,'Other:',s.name)
+        if voc == OTHER:
+            if args.writeother:
+                lineage = covid.get_lineage_from_name(s.name)
+                other_lineages[lineage] += 1
+                v.vvprint_only(10,'Other:',s.name)
+            if args.skipother:
+                v.vprint_only(5,"skip other:",voc,s.name)
+                continue
+        
+        date_counter[voc][seqdate] += 1
 
     v.vprint_only_summary("No seqdate:","warnings triggered")
     v.vprint_only_summary("Bad seqdate:","warnings triggered")
     v.vprint_only_summary("Other:","sequences in OTHER category")
-    v.vprint_only_summary("None:","sequences skipped")
+    v.vprint_only_summary("skip None:","sequences skipped")
+    v.vprint_only_summary("skip other:","sequences skipped")
 
     v.vprint('Other lineages:',sum(other_lineages.values()))
     v.vprint('OTHER lineages:',sum(date_counter[OTHER].values()))
 
-    print_other_lineages(args.other,other_lineages)
+    print_other_lineages(args.writeother,other_lineages)
 
     nmatches = sum(sum(date_counter[p].values()) for p in T.patterns)
     v.vprint("matched sequences:",nmatches)
@@ -126,6 +118,10 @@ def main(args):
     cum_counts = emu.get_cumulative_counts(date_counter,ord_range,
                                            daysperweek=args.daily)
 
+    if args.skipother:
+        del cum_counts[OTHER]
+        T.del_pattern(OTHER)
+        
     emu.make_emberstyle_plots(args,'bynames',cum_counts,T.names,T.colors,ord_range[0],
                               ordplotrange = ord_plot_range,
                               title=": ".join([covid.get_title(args),

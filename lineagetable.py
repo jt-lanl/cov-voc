@@ -4,6 +4,8 @@ import re
 import warnings
 import colornames
 
+OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
+
 DefaultLineageTable=[
 
     ('Orange',     'Alpha',   r'(B\.1\.1\.7)|(Q\..*)'),
@@ -37,7 +39,6 @@ DefaultLineageTable=[
 
 ##______________________________________________________________________
 
-OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
 
 def rd_lineage_table(filename):
     '''read file with columns: color, name, pattern'''
@@ -76,14 +77,34 @@ class LineageTablePatterns:
         '''return a list of all patterns whose regexp matches the sequence name'''
         return list(self._match_generator(seqname))
 
+    def add_pattern(self,color,name,patt):
+        '''add a (color,name,pattern) to the table'''
+        self.patterns.append(patt)
+        self.colors[patt] = colornames.tohex(color)
+        self.names[patt] = name
+        self.regexpatt[patt] = re.compile(r'\.('+patt+r')$')
+
+    def del_pattern(self,patt):
+        if patt not in self.patterns:
+            warnings.warn(f'pattern {patt} not in lineage table, cannot delete')
+            return
+        self.patterns.remove(patt)
+        del self.colors[patt]
+        del self.names[patt]
+        del self.regexpatt[patt]
+
 def get_lineage_table(lineagetable_file=None,other=None):
     '''return a lineage table; specifically, a LineageTablePatterns class instance'''
+
     table = DefaultLineageTable
     if lineagetable_file:
-        ## if file exists, over-ride default
         table = rd_lineage_table(lineagetable_file)
 
-    color,name,posn = other or ('Gainsboro','other',0)
-    table.insert(int(posn), (color,name,OTHER) )
+    if other:
+        color,name,posn = other
+        table.insert(int(posn), (color,name,OTHER) )
+
+    if OTHER not in [items[2] for items in table]:
+        table.insert(0,('Gainsboro','other',OTHER))
 
     return LineageTablePatterns(table)

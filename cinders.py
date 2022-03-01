@@ -33,7 +33,7 @@ def getargs():
         help="verbosity")
     ap.set_defaults(keepx=True) ## no reason to exclude X's here
     args = ap.parse_args()
-
+    emu.check_dates_order(args.dates)
     return args
 
 def main(args):
