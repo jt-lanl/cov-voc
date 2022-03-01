@@ -13,7 +13,7 @@ import sequtil
 import covid
 import colornames
 
-from lineagetable import LineageTable
+import lineagetable
 
 def _getargs():
     '''get arguments from command line'''
@@ -22,6 +22,8 @@ def _getargs():
     covid.corona_args(ap)
     paa("-N",type=int,default=0,
         help="show at most this many sequences")
+    paa("--lineagetable","-l",
+        help="read lineage table from file")
     paa("--usehex",action="store_true",
         help="use six-character hex-codes instead of X11 colornames")
     paa("--verbose","-v",action="count",default=0,
@@ -31,7 +33,7 @@ def _getargs():
 
 
 def main(args):
-    '''main parsecolormut'''
+    '''main parselineagetable'''
 
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs(seqs,args)
@@ -40,30 +42,12 @@ def main(args):
         seqs = it.islice(seqs,args.N+1)
 
     first,seqs = sequtil.get_first_item(seqs)
-
-    table = [
-        ('Gainsboro', 'other', 'other'),
-        ] + LineageTable
-
-    patterns = []
-    colors = dict()
-    fullnames = dict()
-
-    for color,name,patt in table:
-        colors[patt] = colornames.tohex(color) if args.usehex else color
-        patterns.append(patt)
-        fullnames[patt] = name
+ 
+    T = lineagetable.get_lineage_table(args.lineagetable)
     
     for s in seqs:
-
-        vocmatch = [voc for voc in patterns[1:]
-                    if re.search(r'\.'+voc+'$',s.name)]
-
-        voc = vocmatch[0] if vocmatch else 'other'
-        col = colors[voc]
-        nom = fullnames[voc]
-
-        print(s.name,nom,col)
+        voc = T.first_match(s.name)
+        print(s.name,T.names[voc],T.colors[voc])
 
 if __name__ == "__main__":
 
