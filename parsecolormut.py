@@ -3,14 +3,11 @@ parse the color mutation table to provide a table for Werner
 that has three columns: sequence name, mutant designation, color
 '''
 
-import sys
 import itertools as it
 import argparse
 
-import warnings
-
+from verbose import verbose as v
 from spikevariants import SpikeVariants
-import wrapgen
 import sequtil
 import covid
 import colornames
@@ -24,15 +21,13 @@ def _getargs():
         help="name of color mutation file")
     paa("-N",type=int,default=0,
         help="show at most this many sequences")
-    paa("--usehex",action="store_true",
-        help="use six-character hex-codes instead of X11 colornames")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     return args
 
 
-def mk_table(svar,seqs,usehex=False):
+def mk_table(svar,seqs):
     '''yield lines of the table: seq_name, variant_name, color'''
     for s in seqs:
         vocs = svar.vocmatch(s.seq)
@@ -41,22 +36,22 @@ def mk_table(svar,seqs,usehex=False):
             voc_color = vocs[0].color
         elif len(vocs) == 0:
             voc_name = "other"
-            voc_color = "Gray"
+            voc_color = "#808080" #corresponds to Gray om X11
         else:
             voc_names = [voc.name for voc in vocs]
             if any(vname != voc_names[0] for vname in voc_names):
-                for voc in vocs:
-                    print(voc,voc.name,file=sys.stderr)
-                warnings.warn("multiple patterns matched!")
+                v.vprint_only(10,'multiple matches:',voc_names)
             voc_name = vocs[0].name
             voc_color = vocs[0].color
 
-        if usehex:
-            voc_color = colornames.tohex(voc_color) or voc_color
-            if voc_name == "other":
-                voc_color = "#DDDDDD"  #a slightly different shade of Gray
+        ## color names should already be hex strings,
+        ## but just to make sure:
+        voc_color = colornames.tohex(voc_color)
 
         yield (s.name,voc_name,voc_color)
+
+    v.vprint_only_summary('multiple matches:',
+                          'sequences with multiple matches')
 
 def main(args):
     '''main parsecolormut'''
@@ -71,19 +66,11 @@ def main(args):
 
     svar = SpikeVariants.from_colormut(args.colormut,refseq=first.seq)
 
-    for seqname,n,c in mk_table(svar,seqs,usehex=args.usehex):
-        print(seqname,n,c)
+    for seqname,name,color in mk_table(svar,seqs):
+        print(seqname,name,color)
 
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     main(_args)

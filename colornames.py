@@ -1,5 +1,5 @@
-## Here are the so-called "x11" color names
-## You can see the colors at https://en.wikipedia.org/wiki/X11_color_names
+'''colornames module for converting common X11 color names to hex strings'''
+## See the colors at https://en.wikipedia.org/wiki/X11_color_names
 
 import re
 
@@ -144,55 +144,48 @@ COLORNAMES='''#F0F8FF AliceBlue
 #FFFF00 Yellow
 #9ACD32 YellowGreen'''
 
-import random
-
 ## upon import, create ColorTable dict
 ColorTable = dict()
-for hn in COLORNAMES.splitlines():
-    hexname,commonname = hn.strip().split()
-    ColorTable[commonname.lower()] = hexname
+for _hn in COLORNAMES.splitlines():
+    _hexname,_commonname = _hn.strip().split()
+    ColorTable[_commonname.lower()] = _hexname
 
-def tohex(commonname):
-    '''convert commonname (eg, YellowGreen) to hex string;
+def tohex(common_name):
+    '''convert common_name (eg, YellowGreen) to hex string;
     if common name is given as a hexstring already, then return the hexstring.
     valid input hexstrings of form #9ACD32 or 9ACD32
     output hexstring will always be preceeded by #
     '''
-    name = commonname.lower()
+    name = common_name.lower()
     try:
         return ColorTable[name]
-    except KeyError:
-        if re.match(r'\#[0-9a-f]{6}$',name):
-            return name
-        elif re.match(r'[0-9a-f]{6}$',name):
-            return "#"+name
+    except KeyError as err:
+        if re.match(r'\#[0-9a-fA-F]{6}$',name):
+            return name.upper()
+        elif re.match(r'[0-9a-fA-F]{6}$',name):
+            return "#"+name.upper()
         else:
-            raise KeyError(f'Invalid color: {name}')
+            raise KeyError(f'Invalid color: {common_name}') from err
 
-def torgb(commonname):
-    hex = tohex(commonname)
-    rgb = [int("0x" + c, 16) for c in (hex[1:3],hex[3:5],hex[5:7])]
+def torgb(common_name):
+    '''convert common_name to RGB as a list of integers'''
+    hx = tohex(common_name)
+    rgb = [int("0x" + c, 16) for c in (hx[1:3],hx[3:5],hx[5:7])]
     return rgb
 
-def lighter(commonname):
+def lighter(common_name):
     '''return a lighter color than the input color'''
-    r,g,b = torgb(commonname)
+    r,g,b = torgb(common_name)
     r = (r + 255) // 2
     g = (g + 255) // 2
     b = (b + 255) // 2
     return '#' + "".join([format(v,"02x") for v in (r,g,b)])
 
-def darker(commonname):
+def darker(common_name):
     '''return a darker color than the input color'''
-    r,g,b = torgb(commonname)
-    r,g,b = [3*v//4 for v in (r,g,b)] 
+    r,g,b = torgb(common_name)
+    r,g,b = [3*v//4 for v in (r,g,b)]
     return '#' + "".join([format(v,"02x") for v in (r,g,b)])
-    
-def random_hex():
-    return random.choice(list(ColorTable.values()))
-
-def random_color():
-    return random.choice(list(ColorTable.keys()))
 
 if __name__ == "__main__":
 
@@ -202,13 +195,10 @@ if __name__ == "__main__":
     for t in ['Yellow', '06A6f6', '#06a6F6']:
         print(f"{t:20s} {tohex(t)}")
 
-    name = 'YellowOrange'
-    name = '#06a6F77'
+    the_name = 'YellowOrange'
+    the_name = '#06a6F77'
     try:
-        hex=tohex(name)
-        print(f"{name:20s} {hex}")
-    except Exception as e:
-        print(f"Failed, as it should have with name={name}:",e)
-        
-        
-        
+        hxx=tohex(the_name)
+        print(f"{the_name:20s} {hxx}")
+    except KeyError as e:
+        print(f"Failed, as it should have with name={the_name}:",e)
