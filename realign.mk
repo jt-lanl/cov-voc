@@ -5,7 +5,7 @@
 ## make -j3 -f src/realign.mk ID=20211024  makes re-aligned sequences based on date 20211024
 ## make -f src/realign.mk Latest           makes a new Latest.ipkl
 
-ID := 20220219
+ID := 20220225
 INITALIGN := data/REG_COMP.SPIKE.protein.Human.$(ID).fasta.gz
 KEEPX := --keepx
 ifeq ($(KEEPX),--keepx)
