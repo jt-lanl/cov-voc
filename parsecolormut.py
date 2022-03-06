@@ -19,8 +19,6 @@ def _getargs():
     covid.corona_args(ap)
     paa("--colormut","-c",required=True,
         help="name of color mutation file")
-    paa("-N",type=int,default=0,
-        help="show at most this many sequences")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -58,9 +56,6 @@ def main(args):
 
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs(seqs,args)
-
-    if args.N:
-        seqs = it.islice(seqs,args.N+1)
 
     first,seqs = sequtil.get_first_item(seqs)
 

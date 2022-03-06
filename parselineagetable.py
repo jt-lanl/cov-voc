@@ -12,6 +12,7 @@ import warnings
 import sequtil
 import covid
 import colornames
+from verbose import verbose as v
 
 import lineagetable
 
@@ -20,8 +21,6 @@ def _getargs():
     ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("-N",type=int,default=0,
-        help="show at most this many sequences")
     paa("--lineagetable","-l",
         help="read lineage table from file")
     paa("--usehex",action="store_true",
@@ -38,9 +37,6 @@ def main(args):
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs(seqs,args)
 
-    if args.N:
-        seqs = it.islice(seqs,args.N+1)
-
     first,seqs = sequtil.get_first_item(seqs)
  
     T = lineagetable.get_lineage_table(args.lineagetable)
@@ -52,13 +48,5 @@ def main(args):
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     main(_args)

@@ -19,6 +19,7 @@ import warnings
 
 import sequtil
 import covidfast as covid
+from verbose import verbose as v
 import mutant
 import pseq
 
@@ -31,8 +32,6 @@ def _getargs():
         help="file with list of mutant strings")
     paa("-j",
         help="sequence file with reference (eg, DNA) sequences")
-    paa("-N",type=int,default=0,
-        help="just look at the first N sequences in input file")
     paa("--output","-o",
         help="output fasta file with reference sequences")
     paa("--verbose","-v",action="count",default=0,
@@ -73,17 +72,14 @@ def _main(args):
     nomlist,mutlist = read_mutantfile(args.mutfile)
     mutfmt = "%%%ds" % max(len(mstring) for mstring in mutlist)
     for nom,mstring in zip(nomlist,mutlist):
-        vprint(mutfmt % mstring,nom)
+        v.vprint(mutfmt % mstring,nom)
 
     seqs = covid.read_filter_seqfile(args)
-    if args.N:
-        ## just grab the first N (for debugging w/ shorter runs)
-        seqs = it.islice(seqs,args.N+1)
 
-    seqs = list(seqs)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     m_mgr = mutant.MutationManager(first.seq)
 
+    #seqs = list(seqs)
     seqs = [pseq.ProcessedSequence(m_mgr,s) for s in seqs]
 
     isl_matches = dict() ## list of isl names for seq's that match pattern
@@ -96,7 +92,7 @@ def _main(args):
         islnames = sorted(islnames)
         if len(islnames)==0:
             warnings.warn(f"No matches found for {nom}: {mstring}")
-        vprint(mutfmt % mstring," ".join(islnames[:3]),
+        v.vprint(mutfmt % mstring," ".join(islnames[:3]),
                "..." if len(islnames)>3 else "")
         isl_matches[mstring] = islnames
         isl_setofall.update(islnames)
@@ -111,7 +107,7 @@ def _main(args):
         isl_name = covid.get_isl(s.name)
         if isl_name in isl_setofall:
             refseqdict[isl_name] = s
-    vprint("Read",len(refseqdict),"reference sequences")
+    v.vprint("Read",len(refseqdict),"reference sequences")
     if not refseqdict:
         return
 
@@ -152,13 +148,5 @@ def _main(args):
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     _main(_args)

@@ -14,6 +14,7 @@ import argparse
 import warnings
 
 import sequtil
+from verbose import verbose as v
 #import covidfast as covid
 import covid
 import mutant
@@ -34,8 +35,6 @@ def _getargs():
         help="name of Pango lineage; eg, B.1.1.7")
     paa("--nopango",action="store_true",
         help="do no pango lineage computation")
-    paa("-N",type=int,default=0,
-        help="for debugging purposes, only look at first N sequences in datafile")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -140,7 +139,7 @@ def sixtydays_seqs(seqs,days=60,file=None):
     lastdate = covid.lastdate_byfile(file,seqs)
     t = covid.date_fromiso(lastdate)
     f = t - datetime.timedelta(days=days)
-    vprint("Sixty days:",f,t)
+    v.vprint("Sixty days:",f,t)
     return covid.filter_by_date(seqs,f,t,keepfirst=False)
 
 def sixtydays_pseqs(pseqs,days=60,file=None):
@@ -148,7 +147,7 @@ def sixtydays_pseqs(pseqs,days=60,file=None):
     lastdate = covid.lastdate_byfile(file,pseqs)
     t = covid.date_fromiso(lastdate)
     f = t - datetime.timedelta(days=days)
-    vprint("Sixty days:",f,t)
+    v.vprint("Sixty days:",f,t)
     for ps in pseqs:
         if ps.date and ps.date > f:
             yield ps
@@ -156,13 +155,13 @@ def sixtydays_pseqs(pseqs,days=60,file=None):
 def mstring_seqs(seqs,MM,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
     mpatt = mutant.Mutation(mstring)
-    vvprint("mpatt:",mpatt)
+    v.vvprint("mpatt:",mpatt)
     return MM.filter_seqs_by_pattern(mpatt,seqs,exact=exact)
 
 def mstring_pseqs(pseqs,MM,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
     mpatt = mutant.Mutation(mstring)
-    vvprint("mpatt:",mpatt)
+    v.vvprint("mpatt:",mpatt)
     ## if exact==True, then assume we just did inclusive (back when exact was False)
     ## this helps a little, but not that much
     return pseq.filter_pseqs_by_pattern(MM,mpatt,pseqs,
@@ -202,16 +201,16 @@ def get_row(seqs,seqs_sixtydays,MM,pangofull,mstring):
     seqdict=dict()
     seqdict[Total] = seqs
     TotalCount = len(seqs)
-    vprint("Read",len(seqs),"sequences")
+    v.vprint("Read",len(seqs),"sequences")
     seqdict[Pango] = list(pango_pseqs(seqs,pango))
-    vprint("Of which,",len(seqdict[Pango]),"sequences matched pango form",pangofull)
+    v.vprint("Of which,",len(seqdict[Pango]),"sequences matched pango form",pangofull)
     row[TotalPangoCount] = len(seqdict[Pango])
     row[TotalPangoFraction] = row[TotalPangoCount]/TotalCount
     seqdict[Recent] = seqs_sixtydays
 
     mstring_adj = covid.mstring_fix(mstring)
     if mstring_adj != mstring:
-        vprint(f"M-String adjusted: {mstring} -> {mstring_adj}")
+        v.vprint(f"M-String adjusted: {mstring} -> {mstring_adj}")
 
     for seqtype in [Total,Pango,Recent]:
         seqs = seqdict[seqtype]
@@ -222,7 +221,7 @@ def get_row(seqs,seqs_sixtydays,MM,pangofull,mstring):
             column_name = "PatternFull" if exact else "PatternInclusive"
             column_name = seqtype + column_name
             matched_seqs = list(mstring_pseqs(matched_seqs,MM,mstring_adj,exact=exact))
-            vprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
+            v.vprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
 
             row[column_name + Count] = len(matched_seqs)
             row[column_name + Fraction] = len(matched_seqs)/len(seqs) if len(seqs) else 0
@@ -252,7 +251,7 @@ def get_row(seqs,seqs_sixtydays,MM,pangofull,mstring):
                                          for c in sorted_countries[:3])
                 row["Countries" + column_name] = str_countries
 
-    vvprint(list(row))
+    v.vvprint(list(row))
     return row
 
 def format_row(row,header=False,sepchar='\t'):
@@ -278,7 +277,7 @@ def _main(args):
         for pango,mstring in read_input_file(args.pmfile):
             if args.nopango:
                 pango=""
-            vprint(pango,'\t',mstring)
+            v.vprint(pango,'\t',mstring)
             plist.append(pango)
             mlist.append(mstring)
 
@@ -290,25 +289,20 @@ def _main(args):
     seqs = covid.filter_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 
-    if args.N:
-        ## just grab the first N (for debugging w/ shorter runs)
-        seqs = it.islice(seqs,args.N+1)
-
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
 
     MM = mutant.MutationManager(firstseq)
 
-    seqs = list(seqs)
-
+    #seqs = list(seqs)
     seqs = [pseq.ProcessedSequence(MM,s) for s in seqs]
 
-    vprint("Sequences processed:",len(seqs))
+    v.vprint("Sequences processed:",len(seqs))
 
     seqs_sixtydays = sixtydays_seqs(seqs,file=args.input)
     seqs_sixtydays = list(seqs_sixtydays)
-    vprint("Read",len(seqs),"sequences")
-    vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
+    v.vprint("Read",len(seqs),"sequences")
+    v.vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
             
     header_yet=False
     for pango,mstring in zip(plist,mlist):
@@ -324,13 +318,5 @@ def _main(args):
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     _main(_args)
