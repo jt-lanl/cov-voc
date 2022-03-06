@@ -3,6 +3,7 @@
 import os
 import re
 import datetime
+import itertools as it
 from pathlib import Path
 import warnings
 
@@ -10,9 +11,11 @@ import wrapgen
 import readseq
 import sequtil
 import intlist
+from verbose import verbose as v
 
 MAX_TITLE_LENGTH=60 ## truncate long title names
-ISO_DATE_REGEX = re.compile(r'\d\d\d\d-\d\d-\d\d')
+ISO_DATE_REGEX = re.compile(r'\d\d\d\d-\d\d(-\d\d)?')
+ISO_DATE_REGEX_DOTS = re.compile(r'\.(\d\d\d\d-\d\d-\d\d)\.')
 EPI_ISL_REGEX = re.compile(r'EPI_ISL_\d+')
 LINEAGE_REGEX = re.compile(r'EPI_ISL_\d+\.(.*)')
 
@@ -59,6 +62,8 @@ def corona_args(ap):
     paa("--input","-i",type=Path,
         default=default_seqfile(),
         help="input file with aligned sequences (first is reference)")
+    paa("--nseq",type=int,default=0,
+        help="read at most NSEQ sequences")
     paa("--filterbyname","-f",nargs='+',
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
@@ -137,14 +142,16 @@ def date_fromiso(s):
 
 def date_from_seqname(sname):
     '''extract date string from sequence name'''
-    #try:
-    #    tokens = sname.split('.')
-    #    datestr = tokens[4]
-    #except IndexError:
-    #    datestr = sname
-    ## the following statement is more robust ... but slower!
-    m = ISO_DATE_REGEX.search(sname)
-    datestr = m[0] if m else None
+    try:
+        tokens = sname.split('.')
+        datestr = tokens[4]
+    except IndexError:
+        v.vprint_only(5,"Invalid name:",sname)
+        datestr = sname
+    if not ISO_DATE_REGEX.match(datestr):
+        v.vprint_only(5,"Invalid date:",datestr,sname)
+        m = ISO_DATE_REGEX_DOTS.search(sname)
+        datestr = m[1] if m else None
     return date_fromiso(datestr)
 
 def count_bad_dates(seqlist):
@@ -155,7 +162,9 @@ def range_of_dates(seqlist):
     assert isinstance(seqlist,list)
     dates = [date_from_seqname(s.name) for s in seqlist]
     dates = [d for d in dates if d is not None]
-    return min(dates).isoformat(),max(dates).isoformat()
+    v.vprint("Range of dates bsed on",len(dates),"sequences")
+    return (min(dates).isoformat(),
+            max(dates).isoformat())
 
 def filter_by_date(seqs,fromdate,todate,keepfirst=False):
     '''input seqs is iterable (list or iterator); output is generator'''
@@ -350,6 +359,7 @@ def read_filter_seqfile(args,**kwargs):
     '''
     seqs = read_seqfile(args,**kwargs)
     seqs = filter_seqs(seqs,args)
+
     return seqs
 
 def read_seqfile(args,**kwargs):
@@ -388,7 +398,10 @@ def fix_seqs(seqs,args):
     return seqs
 
 def striplastchars(seqs,seqlen):
-    '''truncate all sequences to length seqlen; replace '$' with 'X' '''
+    '''
+    truncate all sequences to length seqlen;
+    replace any remaining '$' with 'X'
+    '''
     for s in seqs:
         s.seq = s.seq[:seqlen]
         s.seq = re.sub(r'\$','X',s.seq)
@@ -400,6 +413,8 @@ def filter_seqs(seqs,args):
     seqs = filter_seqs_by_date(seqs,args)
     seqs = filter_seqs_by_pattern(seqs,args)
     seqs = fix_seqs(seqs,args)
+    if args.nseq:
+        seqs = it.islice(seqs,args.nseq+1)
     if args.verbose:
         seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
 
