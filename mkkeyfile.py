@@ -1,10 +1,9 @@
 '''Make a keyfile that is used by mkkey to make a pdf key table'''
-## should probably combine this and mkkey.py into one routine
 
-import sys
 import argparse
 import matplotlib.pyplot as plt
 
+from verbose import verbose as v
 from spikevariants import SpikeVariants
 import sequtil
 import covid
@@ -52,7 +51,7 @@ def mk_key_figure(colors,names,output_pdf=None):
 
 def _main(args):
     '''main'''
-    vprint(args)
+    v.vprint(args)
 
     seqs = covid.read_filter_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs)
@@ -74,13 +73,5 @@ def _main(args):
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     _main(_args)
