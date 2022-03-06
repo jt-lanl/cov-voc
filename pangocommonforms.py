@@ -27,7 +27,9 @@ def getargs():
     paa("--consensusalways","-c",action="store_true",
         help="Always show consensus, even if not common")
     paa("--consensusnever",action="store_true",
-        help="Do not ever compute consensus for each form")
+        help="Do not compute consensus for each form [faster compute]")
+    paa("--protein",default="Spike",
+        help="Protein name to be used in the header")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -45,22 +47,22 @@ def consensus(seqlist):
     return "".join(mostcommonchar(clist)
                    for clist in sequtil.gen_columns_seqlist(seqlist))
 
-def main(args):
-    '''pangocommonforms main'''
-
-    print("COMMON FORMS OF SPIKE WITH A GIVEN PANGO LINEAGE DESIGNATION")
+def print_header(args):
+    '''print the header before the table itself'''
+    print(f"COMMON FORMS OF {args.protein.upper()} "
+          f"WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
-    print("For each lineage, we show the most common forms of Spike, "
+    print(f"For each lineage, we show the most common forms of {args.protein}, "
           "as well as their counts within (and percentages of) the lineage.  "
-          "[Note that if a lineage contains several divergent forms of Spike, "
+          "[Note that if a lineage contains several divergent forms, "
           "the consensus form might not be found among these common forms.] "
           "Also shown is the Hamming distance (HD) between each form "
           "and the most common form in that lineage. Deletions relative to "
           "the ancestral reference strain are indicated with a dash "
-          "(e.g. the two amino acid deletion in Delta variant are indicated as: "
-          "'E156-,F157-'), and insertions are denoted by a plus sign "
-          "(e.g. B.1.621 usually has an extra T at position 143, "
-          "it is written '+143T')."
+          "(e.g. the two amino acid deletion at positions 156-157 is "
+          "indicated with 'E156-,F157-'), "
+          "and insertions are denoted by a plus sign "
+          "(e.g. an extra T at position 143 is written '+143T')."
           "")
     print()
 
@@ -76,16 +78,23 @@ def main(args):
         if args.consensusalways else ""
     print(f"We show {count_forms} forms{min_count}. {consensus_always}")
 
+def main(args):
+    '''pangocommonforms main'''
+
+    print_header(args)
+
     seqs = covid.read_filter_seqfile(args)
     seqs = sequtil.checkseqlengths(seqs)
-    
+
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
     seqlist = list(seqlist)
+    v.vprint_only_summary('Invalid date:','skipped sequences')
 
-    last_days = f" in the last {args.days} days from our last update," if args.days else ""
-    print(f"This output is based on sequences sampled{last_days} from %s to %s." \
-          % covid.range_of_dates(seqlist))
+    last_days = f" in the last {args.days} days from our last update,"
+    last_days = last_days if args.days else ""
+    print(f"This output is based on sequences sampled{last_days} "
+          "from %s to %s." % covid.range_of_dates(seqlist))
 
     seqlist_by_lineage=defaultdict(list)
     for s in seqlist:
@@ -102,7 +111,7 @@ def main(args):
 
     print()
     print(fmt % "Pango","Lineage   Form   Form")
-    print(fmt % "Lineage","  Count  Count    Pct  HD [Spike form as mutation string]")
+    print(fmt % "Lineage","  Count  Count    Pct  HD [Form as mutation string]")
 
     mut_manager = mutant.MutationManager(firstseq)
 
