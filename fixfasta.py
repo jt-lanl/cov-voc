@@ -10,13 +10,14 @@
  - translating DNA sequence to amino-acids
 and writing the sequenecs to an output fasta file
 '''
-import sys
+
 import re
 from pathlib import Path
 import itertools as it
 import random
 import argparse
 
+from verbose import verbose as v
 import readseq
 import sequtil
 import wrapgen
@@ -29,8 +30,6 @@ def getargs():
     covid.corona_args(ap)
     paa("--random",action="store_true",
         help="randomize input data order")
-    paa("-N",type=int,default=0,
-        help="keep at most this many sequences")
     paa("--badisls",
         help="File with list of EPI_ISL numbers to exclude")
     paa("--translate",action="store_true",
@@ -161,6 +160,11 @@ def pad_to_length(seqs,length=None):
 
 def main(args):
     '''fixfasta main'''
+
+    def vcount(seqs,*p,**kw):
+        "count items in the generator as they go by"
+        return wrapgen.keepcount(seqs,*p,**kw) if args.verbose else seqs
+
     seqs = covid.read_filter_seqfile(args)
 
     if args.badisls:
@@ -172,10 +176,6 @@ def main(args):
     if args.random:
         seqs = list(seqs)
         seqs = seqs[:1] + random.sample(seqs[1:],k=len(seqs[1:]))
-
-    if args.N:
-        seqs = it.islice(seqs,args.N)
-        seqs = vcount(seqs,"Sequences after truncation:")
 
     if args.codonalign:
         seqs = codon_align_seqs(seqs)
@@ -193,7 +193,7 @@ def main(args):
         initlen = len(first.seq)
         seqs = sequtil.remove_gap_columns(seqs)
         first,seqs = sequtil.get_first_item(seqs)
-        vprint(f"Removed {initlen-len(first.seq)} dashes")
+        v.vprint(f"Removed {initlen-len(first.seq)} dashes")
 
     if args.output:
         readseq.write_seqfile(args.output,seqs)
@@ -201,17 +201,5 @@ def main(args):
 if __name__ == "__main__":
 
     _args = getargs()
-    def vprint(*p,**kw):
-        "verbose print"
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        "very verbose print"
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
-    def vcount(seqs,*p,**kw):
-        "count items in the generator as they go by"
-        return wrapgen.keepcount(seqs,*p,**kw) if _args.verbose else seqs
-
+    v.verbosity(_args.verbose)
     main(_args)
