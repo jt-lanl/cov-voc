@@ -5,9 +5,7 @@ of pango forms and associated mutant strings
 Input is two columns: pango lineage name, and m-string
 (it's ok if there's spaces in the m-string)
 '''
-import sys
 import re
-import itertools as it
 from collections import Counter
 import datetime
 import argparse
@@ -15,7 +13,6 @@ import warnings
 
 import sequtil
 from verbose import verbose as v
-#import covidfast as covid
 import covid
 import mutant
 import pseq
@@ -28,7 +25,7 @@ def _getargs():
     paa("--pmfile","--pm",
         help="file with pango lineages and mstrings")
     paa("--rows","-R",type=int,default=0,
-        help="Only compute this many rows")    
+        help="Only compute this many rows")
     paa("--mutant","-m",
         help="mutant mstring; eg, [Q414K,D614G,T716I]")
     paa("--pango","-p",
@@ -40,7 +37,8 @@ def _getargs():
     args = argparser.parse_args()
 
     if args.days:
-        warnings.warn("Probably you do not want to use --days; both full and days=60 are computed")
+        warnings.warn("Probably you do not want to use --days; "
+                      "both full and days=60 are computed")
 
     return args
 
@@ -93,8 +91,10 @@ ColumnHeaders = {
                                 "contain this pattern",
     'CountriesPatternFull': "Countries that exactly match this pattern",
     'CountriesPatternInclusive': "Countries that contain this pattern",
-    'CountriesSixtyDaysPatternFull': "Countries that exactly match this pattern, counts based on last 60 days",
-    'CountriesSixtyDaysPatternInclusive': "Countries that contain this pattern, counts based on last 60 days",
+    'CountriesSixtyDaysPatternFull': "Countries that exactly match this pattern, "\
+    "counts based on last 60 days",
+    'CountriesSixtyDaysPatternInclusive': "Countries that contain this pattern, "\
+    "counts based on last 60 days",
     ExampleISL: 'Example ISL number for this pattern',
 }
 
@@ -114,7 +114,7 @@ def get_country_from_name(name):
 def get_region_from_name(level,name):
     '''return the name of the region (based on level) in the full sequence name'''
     m = name.split(".")
-    return m[level] if m else None    
+    return m[level] if m else None
 
 def pango_seqs(seqs,pango):
     '''return an iterator of seqs whose names indicate the pango type'''
@@ -129,10 +129,10 @@ def pango_pseqs(pseqs,pango):
     if not pango:
         yield from []
     else:
-        pango = covid.xpand_names.get(pango,pango)
+        pango = covid.expand_who_name_to_pangolin_pattern(pango)
         for ps in pseqs:
             if re.match(pango,ps.lineage):
-                yield ps    
+                yield ps
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
@@ -151,23 +151,24 @@ def sixtydays_pseqs(pseqs,days=60,file=None):
     for ps in pseqs:
         if ps.date and ps.date > f:
             yield ps
-            
-def mstring_seqs(seqs,MM,mstring,exact=False):
+
+def mstring_seqs(seqs,m_mgr,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
     mpatt = mutant.Mutation(mstring)
     v.vvprint("mpatt:",mpatt)
-    return MM.filter_seqs_by_pattern(mpatt,seqs,exact=exact)
+    return m_mgr.filter_seqs_by_pattern(mpatt,seqs,exact=exact)
 
-def mstring_pseqs(pseqs,MM,mstring,exact=False):
+def mstring_pseqs(pseqs,m_mgr,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
     mpatt = mutant.Mutation(mstring)
     v.vvprint("mpatt:",mpatt)
     ## if exact==True, then assume we just did inclusive (back when exact was False)
     ## this helps a little, but not that much
-    return pseq.filter_pseqs_by_pattern(MM,mpatt,pseqs,
+    return pseq.filter_pseqs_by_pattern(m_mgr,mpatt,pseqs,
                                         exact=exact,assume_inclusive=exact)
 
 def read_input_file(filename):
+    '''return list of (pango,mstring) pairs'''
     items=[]
     with open(filename) as f_input:
         for line in f_input:
@@ -187,25 +188,26 @@ def read_input_file(filename):
     return items
 
 
-def get_row(seqs,seqs_sixtydays,MM,pangofull,mstring):
+def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     '''produce a single row of the spreadsheet as a dict()'''
-    
+
     row = dict()
 
     row[Pango] = pangofull ## give it the full name
     pango = re.sub(r'\s+.*','',pangofull) ## but use the truncated name
     pango = re.sub(r'_.*','',pango)
-    
+
     row[Pattern] = re.sub(r'[\[\]]','',mstring) ## brackets off
 
     seqdict=dict()
     seqdict[Total] = seqs
-    TotalCount = len(seqs)
+    total_count = len(seqs)
     v.vprint("Read",len(seqs),"sequences")
     seqdict[Pango] = list(pango_pseqs(seqs,pango))
-    v.vprint("Of which,",len(seqdict[Pango]),"sequences matched pango form",pangofull)
+    v.vprint("Of which,",len(seqdict[Pango]),
+             "sequences matched pango form",pangofull)
     row[TotalPangoCount] = len(seqdict[Pango])
-    row[TotalPangoFraction] = row[TotalPangoCount]/TotalCount
+    row[TotalPangoFraction] = row[TotalPangoCount]/total_count
     seqdict[Recent] = seqs_sixtydays
 
     mstring_adj = covid.mstring_fix(mstring)
@@ -217,22 +219,23 @@ def get_row(seqs,seqs_sixtydays,MM,pangofull,mstring):
 
         matched_seqs = seqs
         for exact in [False,True]:  ## do False first, then use True to further filter
-        
+
             column_name = "PatternFull" if exact else "PatternInclusive"
             column_name = seqtype + column_name
-            matched_seqs = list(mstring_pseqs(matched_seqs,MM,mstring_adj,exact=exact))
+            matched_seqs = list(mstring_pseqs(matched_seqs,m_mgr,mstring_adj,exact=exact))
             v.vprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
 
             row[column_name + Count] = len(matched_seqs)
             row[column_name + Fraction] = len(matched_seqs)/len(seqs) if len(seqs) else 0
 
-            if seqtype == Total and exact == True:
+            if seqtype == Total and exact is True:
                 if len(matched_seqs):
                     exampleseq = matched_seqs[-1]
                     row[ExampleISL] = exampleseq.ISL
                 else:
                     row[ExampleISL] = "NA"
-                    warnings.warn(f"For pango={pangofull}, no sequences exactly match: {mstring_adj}")
+                    warnings.warn(f"For pango={pangofull}, no sequences "
+                                  f"exactly match: {mstring_adj}")
 
             if seqtype == Total:
                 lineages = [ps.lineage for ps in matched_seqs]
@@ -272,7 +275,7 @@ def _main(args):
     if args.pango and args.mutant:
         plist.append(args.pango)
         mlist.append(args.mutant)
-        
+
     if args.pmfile:
         for pango,mstring in read_input_file(args.pmfile):
             if args.nopango:
@@ -292,10 +295,10 @@ def _main(args):
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
 
-    MM = mutant.MutationManager(firstseq)
+    m_mgr = mutant.MutationManager(firstseq)
 
     #seqs = list(seqs)
-    seqs = [pseq.ProcessedSequence(MM,s) for s in seqs]
+    seqs = [pseq.ProcessedSequence(m_mgr,s) for s in seqs]
 
     v.vprint("Sequences processed:",len(seqs))
 
@@ -303,17 +306,17 @@ def _main(args):
     seqs_sixtydays = list(seqs_sixtydays)
     v.vprint("Read",len(seqs),"sequences")
     v.vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
-            
+
     header_yet=False
     for pango,mstring in zip(plist,mlist):
-        row = get_row(seqs,seqs_sixtydays,MM,pango,mstring)
+        row = get_row(seqs,seqs_sixtydays,m_mgr,pango,mstring)
         if not header_yet:
             print(format_row(row,header=True))
             header_yet=True
         print(format_row(row))
         print(end="",flush=True)
 
-    print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences",file=sys.stderr)
+    v.print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences")
 
 if __name__ == "__main__":
 
