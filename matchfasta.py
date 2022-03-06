@@ -9,6 +9,7 @@ import random
 import itertools as it
 import argparse
 
+from verbose import verbose as v
 import readseq
 import sequtil
 import intlist
@@ -49,15 +50,15 @@ def getargs():
     return args
 
 
-def ndx_and_site_lists(MM,sites,compact=True):
+def ndx_and_site_lists(m_mgr,sites,compact=True):
     '''return list of indices and possibly-expanded sitelist'''
     ndxlist = []
     for site in sites:
         if compact:
-            ndxlist.append(MM.index_from_site(site))
+            ndxlist.append(m_mgr.index_from_site(site))
         else:
-            ndxlist.extend(MM.indices_from_site(site))
-    sitelist = [MM.site_from_index(ndx) for ndx in ndxlist]
+            ndxlist.extend(m_mgr.indices_from_site(site))
+    sitelist = [m_mgr.site_from_index(ndx) for ndx in ndxlist]
     return ndxlist,sitelist
 
 
@@ -104,7 +105,7 @@ def main(args):
     seqs = read_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs)
 
-    MM = mutant.MutationManager(first.seq)
+    m_mgr = mutant.MutationManager(first.seq)
 
     mpatt = None
     sites = []
@@ -119,12 +120,13 @@ def main(args):
         if args.seqpattern:
             ssms=[]
             for site,mut in zip(sites,args.seqpattern):
-                r = MM.refval(site)
-                ssms.append( mutant.SingleSiteMutation.from_ref_site_mut(r,site,mut) )
+                r = m_mgr.refval(site)
+                ssm = mutant.SingleSiteMutation.from_ref_site_mut(r,site,mut)
+                ssms.append(ssm)
             mpatt = mutant.Mutation(ssms)
 
     if mpatt:
-        seqs = MM.filter_seqs_by_pattern(mpatt,seqs,exact=args.exact)
+        seqs = m_mgr.filter_seqs_by_pattern(mpatt,seqs,exact=args.exact)
         if args.verbose:
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
         seqs = it.chain([first],seqs)
@@ -138,15 +140,15 @@ def main(args):
     if args.output:
         seqs = list(seqs)
         readseq.write_seqfile(args.output,seqs)
-    #else:
-    if 1:
-        ndxlist,sitelist = ndx_and_site_lists(MM,sites,compact=args.compact)
+    else:
+        ndxlist,sitelist = ndx_and_site_lists(m_mgr,sites,
+                                              compact=args.compact)
         for line in intlist.write_numbers_vertically(sitelist):
             print(line)
         for s in seqs:
             print( "".join(s.seq[n] for n in ndxlist), s.name, end=" ")
             if args.showmutants:
-                print(MM.get_mutation(s.seq),end="")
+                print(m_mgr.get_mutation(s.seq),end="")
             print()
 
 def _mainwrapper(args):
@@ -169,14 +171,7 @@ def _mainwrapper(args):
 if __name__ == "__main__":
 
     _args = getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''more verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
+    v.verbosity(_args.verbose)
 
     def vcount(seqs,*p,**kw):
         '''count items in generator as they go by'''
