@@ -1,6 +1,5 @@
 '''Find sequences that are far (in Hamming distance) from reference sequence'''
-import sys
-import itertools as it
+
 from operator import itemgetter
 from collections import defaultdict
 import argparse
@@ -8,6 +7,7 @@ import argparse
 import covid
 import sequtil
 import mutant
+from verbose import verbose as v
 from hamming import hamming
 
 def _getargs():
@@ -17,8 +17,6 @@ def _getargs():
     covid.corona_args(argparser)
     paa("-T",type=int,default=10,
         help="show the top T sequences, sorted by Hamming distance")
-    paa("-N",type=int,default=0,
-        help="only read N sequencesfrom file")
     paa("--ref","-r",
         help="mutant string to be used as reference sequence")
     paa("--nearby",action="store_true",
@@ -32,15 +30,11 @@ def _getargs():
 
 def _main(args):
     '''main'''
-    vprint(args)
-    
+    v.vprint(args)
+
     seqs = covid.read_filter_seqfile(args)
     seqs = sequtil.checkseqlengths(seqs)
-    
-    if args.N:
-        ## just grab the first N (for debugging w/ shorter runs)
-        seqs = it.islice(seqs,args.N+1)
-    
+
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     m_mgr = mutant.MutationManager(first.seq)
 
@@ -61,31 +55,22 @@ def _main(args):
                      reverse=False if args.nearby else True)
 
     count=0
-    for h in hamlist:
+    for (hamdist,seqlist) in hamlist:
         if count >= args.T:
             break
-        
-        hamdist,seqlist = h
-        n = len(seqlist)
+
+        seq_len = len(seqlist)
         s = seqlist[0]
-        if n < args.mincount:
+        if seq_len < args.mincount:
             continue
-        
-        print("%3d %4d %s" % (hamdist,n,s.name))
+
+        print("%3d %4d %s" % (hamdist,seq_len,s.name))
         print("        ",m_mgr.get_mutation(s.seq))
         count += 1
-        
+
 
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     _main(_args)
