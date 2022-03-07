@@ -29,7 +29,6 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbosity")
     args = ap.parse_args()
-    emu.check_dates_order(args.dates)
     return args
 
 def print_other_lineages(filename,other_lineages):
