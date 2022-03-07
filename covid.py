@@ -2,6 +2,7 @@
 
 import os
 import re
+import argparse
 import datetime
 import itertools as it
 from pathlib import Path
@@ -43,20 +44,32 @@ def default_seqfile(seqfilename=DEFAULTSEQFILE):
 
     return None
 
-def datestring(yyyymmdd):
-    ''' check format of dates; should be yyyy-mm-dd '''
-    ## (but '.' is also allowed to indicated a default)
-    if (not re.match(r'\d\d\d\d-\d\d-\d\d',yyyymmdd)
-        and yyyymmdd != '.'):
-        raise ValueError(f'Invalid date {yyyymmdd}; '
-                         f'should be in yyyy-mm-dd format')
-    return yyyymmdd
 
 def corona_args(ap):
     '''
     call this in the getargs() function,
     and these options will be added in
     '''
+
+    ### Check --dates option; is format okay? are they in order?
+    def datestring(yyyymmdd):
+        ''' check format of dates; should be yyyy-mm-dd '''
+        ## (but '.' is also allowed to indicated a default)
+        if (not re.match(r'\d\d\d\d-\d\d-\d\d',yyyymmdd)
+            and yyyymmdd != '.'):
+            raise ValueError(f'Invalid date {yyyymmdd}; '
+                             f'should be in yyyy-mm-dd format')
+        return yyyymmdd
+
+    class CheckDates(argparse.Action):
+        ''' check that the dates are good and that they are in order '''
+        def __call__(self,parser,namespace,dates,option_string=None):
+            dates = [datestring(date) for date in dates]
+            if not any(bool(date == ".") for date in dates):
+                if dates[0] > dates[1]:
+                    parser.error(f'Dates out of order: {dates}')
+            setattr(namespace,self.dest,dates)
+
     paa = ap.add_argument
     #faa = ap.add_argument_group('File input options').add_argument
     paa("--input","-i",type=Path,
@@ -68,7 +81,7 @@ def corona_args(ap):
         help="Only use sequences whose name matches this pattern")
     paa("--xfilterbyname","-x",nargs='+',
         help="Do not use sequences whose name matches this pattern")
-    paa("--dates","-d",nargs=2,type=datestring,
+    paa("--dates","-d",nargs=2,type=datestring,action=CheckDates,
         help="Only use seqs in range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
         help="Consider date range of DAYS days ending on the last sampled date")
@@ -85,7 +98,6 @@ def corona_args(ap):
         help="use this TITLE in plots")
 
 #### Routines for parsing sequence names
-
 
 xpand_WHO_Pangolin = {
     ## dict to convert WHO lineage names to pango pattern

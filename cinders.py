@@ -16,7 +16,8 @@ MUTATED = 'mutated'
 
 def getargs():
     '''get arguments from command line'''
-    ap = argparse.ArgumentParser(description=__doc__, conflict_handler='resolve')
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 conflict_handler='resolve')
     paa = ap.add_argument
     covid.corona_args(ap)  ## except want default to be names, not sequences!
     emu.embers_args(ap)
@@ -33,7 +34,6 @@ def getargs():
         help="verbosity")
     ap.set_defaults(keepx=True) ## no reason to exclude X's here
     args = ap.parse_args()
-    emu.check_dates_order(args.dates)
     return args
 
 def main(args):

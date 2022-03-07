@@ -37,16 +37,6 @@ def embers_args(ap):
         help="0: no legend, 1: legend, 2: big legend (with seq patterns)")
     gaa("--output","-o",help="write plot to file")
 
-def check_dates_order(dates):
-    '''make sure the two dates from --dates are in chronological order'''
-    ## if either of the dates are "." then don't need to check
-    if not dates:
-        return
-    if not any(bool("." in date) for date in dates):
-        ## make sure start comes before end
-        if dates[0] > dates[1]:
-            raise RuntimeError(f'out of order --dates {dates}')
-
 def days_in_month(yyyy,mm):
     '''return number of days in month yyyy-mm'''
     # https://stackoverflow.com/questions/42950/how-to-get-the-last-day-of-the-month
