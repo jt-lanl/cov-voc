@@ -156,8 +156,11 @@ the DNA sequences to be consistent with their newly-aligned amino-acid sequence 
 
 ## MKTABLE, MUTISL
 
-These are specialized routines that are used in the creation of the tables that appear in the
-LANL corner of the GISAID website.
+These are specialized routines that are used in the creation of the tables that appear in the LANL corner of the GISAID website.
+
+## BIGHAMMING
+
+Find sequences that are far (in hamming distance) from a reference sequence
 
 # SOME USEFUL LIBRARIES
 
