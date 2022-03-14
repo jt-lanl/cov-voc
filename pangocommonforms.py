@@ -99,6 +99,7 @@ def main(args):
     seqlist_by_lineage=defaultdict(list)
     for s in seqlist:
         lin = covid.get_lineage_from_name(s.name)
+        lin = lin or "None"
         seqlist_by_lineage[lin].append(s)
 
     cnt_lin = {lin: len(seqlist_by_lineage[lin]) for lin in seqlist_by_lineage}
