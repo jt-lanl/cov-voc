@@ -71,7 +71,7 @@ def print_header(args):
     min_count = \
         f" that have at least {args.mincount} counts " \
         "(but we always show the most common form)" \
-        if args.mincount else ""
+        if args.mincount>1 else ""
     consensus_always = \
         "And we always show the consensus form; " \
         "this form has the most common amino acid at each position. " \
