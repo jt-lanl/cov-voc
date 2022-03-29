@@ -10,6 +10,7 @@ import mutant
 from verbose import verbose as v
 from hamming import hamming
 
+
 def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
@@ -23,10 +24,23 @@ def _getargs():
         help="look for small instead of large Hamming distances")
     paa("--mincount","-m",type=int,default=1,
         help="only show seqs that appear at least m times")
+    paa("--output","-o",
+        help="put the large hamming distances sequences into a fasta file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
     return args
+
+def earliest_sequence(seqs):
+    '''from a list of sequences, return the one with the earliest date'''
+    slist = [(covid.date_from_seqname(s.name),s) for s in seqs]
+    slist = [(d,s) for d,s in slist if d]
+    if not slist:
+        ## if none of the sequences has a good date
+        ## then just return the first sequence in the original list
+        return seqs[0]
+    slist = sorted(slist,key=itemgetter(0))
+    return slist[0][1]
 
 def _main(args):
     '''main'''
@@ -54,19 +68,29 @@ def _main(args):
                      key=itemgetter(0),
                      reverse=False if args.nearby else True)
 
+    outseqs=[]
     count=0
     for (hamdist,seqlist) in hamlist:
         if count >= args.T:
             break
 
         seq_len = len(seqlist)
-        s = seqlist[0]
         if seq_len < args.mincount:
             continue
 
+        s = earliest_sequence(seqlist)
         print("%3d %4d %s" % (hamdist,seq_len,s.name))
         print("        ",m_mgr.get_mutation(s.seq))
+
+        if args.output:
+            for s in seqlist:
+                s.name = f'H={hamdist}:{s.name}'
+                outseqs.append(s)
+
         count += 1
+
+        if args.output:
+            sequtil.write_seqfile(args.output,outseqs)
 
 
 if __name__ == "__main__":
