@@ -16,6 +16,7 @@ from verbose import verbose as v
 import covid
 import mutant
 import pseq
+import mstringfix
 
 def _getargs():
     '''parse options from command line'''
@@ -32,6 +33,8 @@ def _getargs():
         help="name of Pango lineage; eg, B.1.1.7")
     paa("--nopango",action="store_true",
         help="do no pango lineage computation")
+    paa("--tweakfile",
+        help="Use tweakfile to fix mstrings")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -126,6 +129,7 @@ def pango_seqs(seqs,pango):
                 yield s
 
 def pango_pseqs(pseqs,pango):
+    '''iterator of pseqs that are consistent with pango'''
     if not pango:
         yield from []
     else:
@@ -169,7 +173,6 @@ def mstring_pseqs(pseqs,m_mgr,mstring,exact=False):
 
 def read_input_file(filename):
     '''return list of (pango,mstring) pairs'''
-    items=[]
     with open(filename) as f_input:
         for line in f_input:
             line = re.sub(r'#.*','',line)
@@ -179,13 +182,11 @@ def read_input_file(filename):
             try:
                 pango,mstring = line.split('\t',1)
                 pango = pango.strip()
-                mstring = covid.mstring_brackets(mstring)
-                mstring = covid.mstring_fix(mstring)
+                mstring = mstringfix.mstring_brackets(mstring)
             except ValueError:
                 warnings.warn("Problem reading line:",line)
                 continue
-            items.append((pango,mstring))
-    return items
+            yield (pango,mstring)
 
 
 def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
@@ -202,17 +203,13 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     seqdict=dict()
     seqdict[Total] = seqs
     total_count = len(seqs)
-    v.vprint("Read",len(seqs),"sequences")
+    v.vvprint("Read",len(seqs),"sequences")
     seqdict[Pango] = list(pango_pseqs(seqs,pango))
-    v.vprint("Of which,",len(seqdict[Pango]),
+    v.vvprint("Of which,",len(seqdict[Pango]),
              "sequences matched pango form",pangofull)
     row[TotalPangoCount] = len(seqdict[Pango])
     row[TotalPangoFraction] = row[TotalPangoCount]/total_count
     seqdict[Recent] = seqs_sixtydays
-
-    mstring_adj = covid.mstring_fix(mstring)
-    if mstring_adj != mstring:
-        v.vprint(f"M-String adjusted: {mstring} -> {mstring_adj}")
 
     for seqtype in [Total,Pango,Recent]:
         seqs = seqdict[seqtype]
@@ -222,8 +219,8 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
 
             column_name = "PatternFull" if exact else "PatternInclusive"
             column_name = seqtype + column_name
-            matched_seqs = list(mstring_pseqs(matched_seqs,m_mgr,mstring_adj,exact=exact))
-            v.vprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
+            matched_seqs = list(mstring_pseqs(matched_seqs,m_mgr,mstring,exact=exact))
+            v.vvprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
 
             row[column_name + Count] = len(matched_seqs)
             row[column_name + Fraction] = len(matched_seqs)/len(seqs) if len(seqs) else 0
@@ -235,7 +232,7 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
                 else:
                     row[ExampleISL] = "NA"
                     warnings.warn(f"For pango={pangofull}, no sequences "
-                                  f"exactly match: {mstring_adj}")
+                                  f"exactly match: {mstring}")
 
             if seqtype == Total:
                 lineages = [ps.lineage for ps in matched_seqs]
@@ -283,6 +280,12 @@ def _main(args):
             v.vprint(pango,'\t',mstring)
             plist.append(pango)
             mlist.append(mstring)
+
+    fixer = mstringfix.MStringFixer(args.tweakfile)
+    fixer.append(r'\s*ancestral\s*','')
+    fixer.append(r'G142[GD_]','G142.')
+    v.vprint(f"FIXER:\n{fixer}")
+    mlist = [fixer.fix(mstring) for mstring in mlist]
 
     if args.rows:
         plist = plist[:args.rows]

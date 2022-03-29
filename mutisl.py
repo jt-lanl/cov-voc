@@ -9,10 +9,8 @@ Output an example (with mstring pattern + sequence name, including ISL number)
 of a seqeunce that exhibits that most common variant.
 Final output is a fasta file with a sequence for each mutant string
 '''
-import sys
 import re
 from collections import Counter
-import itertools as it
 import argparse
 
 import warnings
@@ -22,6 +20,7 @@ import covidfast as covid
 from verbose import verbose as v
 import mutant
 import pseq
+import mstringfix
 
 def _getargs():
     '''get arguments from command line'''
@@ -32,6 +31,8 @@ def _getargs():
         help="file with list of mutant strings")
     paa("-j",
         help="sequence file with reference (eg, DNA) sequences")
+    paa("--tweakfile",
+        help="use file for tweaking mstrings")
     paa("--output","-o",
         help="output fasta file with reference sequences")
     paa("--verbose","-v",action="count",default=0,
@@ -53,8 +54,7 @@ def read_mutantfile(filename):
             try:
                 nom,mstring = line.split('\t')
 
-                mstring = covid.mstring_brackets(mstring)
-                mstring = covid.mstring_fix(mstring)
+                mstring = mstringfix.mstring_brackets(mstring)
                 mutlist.append(mstring)
 
                 nom = nom.strip()
@@ -70,6 +70,14 @@ def _main(args):
     '''mutlineage main'''
 
     nomlist,mutlist = read_mutantfile(args.mutfile)
+
+    fixer = mstringfix.MStringFixer(args.tweakfile)
+    fixer.append(r'\s*ancestral\s*','')
+    fixer.append(r'G142[GD_]','G142.')
+    v.vprint(f"FIXER:\n{fixer}")
+    mutlist = [fixer.fix(mstring) for mstring in mutlist]
+
+
     mutfmt = "%%%ds" % max(len(mstring) for mstring in mutlist)
     for nom,mstring in zip(nomlist,mutlist):
         v.vprint(mutfmt % mstring,nom)
