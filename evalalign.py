@@ -14,8 +14,6 @@ def _getargs():
     argparser = argparse.ArgumentParser(description=__doc__)
     paa = argparser.add_argument
     covid.corona_args(argparser)
-    paa("-N",type=int,default=0,
-        help="Only read N sequences")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -45,9 +43,6 @@ def _main(args):
     seqs = covid.read_filter_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs)
     m_mgr = mutant.MutationManager(first.seq)
-
-    if args.N:
-        seqs = it.islice(seqs,args.N+1)
 
     dcnt,rcnt = count_dashes(first.seq)
     vprint("Ref:",dcnt,rcnt)
