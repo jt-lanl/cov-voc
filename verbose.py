@@ -42,7 +42,7 @@ class verbose:
 
     @classmethod
     def print(cls,*p,**kw):
-        '''print'''
+        '''print (to stderr)'''
         cls.vnprint(0,*p,**kw)
 
     @classmethod
