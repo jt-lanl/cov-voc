@@ -1,7 +1,7 @@
 '''embers-style analysis/plotting based only on names of sequences'''
 from collections import Counter
 import argparse
-
+import re
 import covid
 from verbose import verbose as v
 import embersutil as emu
@@ -9,6 +9,7 @@ import lineagetable
 
 
 OTHER = lineagetable.OTHER
+EMPTY_LINEAGE_REGEX = re.compile('EPI_ISL_\d+\.$')
 DEFAULTNAMESFILE="Latest-names.nm"
 
 def _getargs():
@@ -67,9 +68,10 @@ def main(args):
             v.vprint_only(5,"Bad seqdate:",seqdate,s.name)
             continue
 
-        if args.skipnone and "None" in s.name:
-            v.vprint_only(5,"skip None:",f'[{s.name}]')
-            continue
+        if args.skipnone:
+            if "None" in s.name or EMPTY_LINEAGE_REGEX.search(s.name):
+                v.vprint_only(5,"skip None:",f'[{s.name}]')
+                continue
 
         voc = T.first_match(s.name)
 
