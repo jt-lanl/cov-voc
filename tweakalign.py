@@ -10,6 +10,7 @@ import covid
 import readseq
 import sequtil
 import mutant
+import mstringfix
 
 def _getargs():
     '''parse options from command line'''
@@ -33,7 +34,7 @@ def de_gap(seq):
     '''remove '-'s from sequence'''
     return re.sub('-','',seq)
 
-def mstrings_to_ndx_seqs(MM,mstring_a,mstring_b):
+def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
 
     mut_a = mutant.Mutation.from_mstring(mstring_a)
     mut_b = mutant.Mutation.from_mstring(mstring_b)
@@ -43,15 +44,15 @@ def mstrings_to_ndx_seqs(MM,mstring_a,mstring_b):
     ## sure there are three extra spaces after 123; if not
     ## somehow create them !?
 
-    
+
     sites = sorted(set(ssm.site for ssm in it.chain(mut_a,mut_b)))
     lo,hi = sites[0],sites[-1]+1
-    ndxlo = min(MM.indices_from_site(lo))
-    ndxhi = max(MM.indices_from_site(hi-1))+1
+    ndxlo = min(mut_mgr.indices_from_site(lo))
+    ndxhi = max(mut_mgr.indices_from_site(hi-1))+1
 
-    seq_r = MM.refseq
-    seq_a = MM.seq_from_mutation(mut_a)
-    seq_b = MM.seq_from_mutation(mut_b)
+    seq_r = mut_mgr.refseq
+    seq_a = mut_mgr.seq_from_mutation(mut_a)
+    seq_b = mut_mgr.seq_from_mutation(mut_b)
 
     seq_r = seq_r[ndxlo:ndxhi]
     seq_a = seq_a[ndxlo:ndxhi]
@@ -106,7 +107,12 @@ def _main(args):
         mstringpairs.append(args.mstrings)
     if args.mfile:
         mstringpairs.extend( read_mstring_pairs(args.mfile) )
+    if not mstringpairs:
+        mstringpairs = list( mstringfix.default_mstring_pairs() )
 
+    ## ensure mstrings have brackets around them
+    mstringpairs = [ (mstringfix.mstring_brackets(a),
+                      mstringfix.mstring_brackets(b)) for a,b in mstringpairs ]
 
     ## characterize extra chars: xtras[site] = number of extra chars after site
     xtras = dict()
@@ -117,41 +123,41 @@ def _main(args):
                 xtras[ssm.site] = max( [xtras.get(ssm.site,0), len(ssm.mut)] )
 
     print("xtras:",xtras)
-                
+
     ## Read full sequences
     seqs = covid.read_filter_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs)
 
-    MM = mutant.MutationManager(first.seq)
+    mut_mgr = mutant.MutationManager(first.seq)
     print("len(first):",len(first.seq))
 
     xxtras = dict() ## xx is ndx based instead of site based
     for site in sorted(xtras):
-        mm_xtras = len(MM.indices_from_site(site))-1
+        mm_xtras = len(mut_mgr.indices_from_site(site))-1
         if mm_xtras < xtras[site]:
             print("xtras:",site,mm_xtras,"->",xtras[site])
-            ndx = MM.index_from_site(site)
+            ndx = mut_mgr.index_from_site(site)
             xxtras[ndx] = xtras[site] - mm_xtras
 
     if len(xxtras):
         seqs = add_xtra_dashes(seqs,xxtras)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-    MM = mutant.MutationManager(first.seq)
+    mut_mgr = mutant.MutationManager(first.seq)
     print("len(first):",len(first.seq))
 
     ndx_seqs_tuples = []
     for ma,mb in mstringpairs:
-        ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(MM,ma,mb)
+        ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
         ndx_seqs_tuples.append( (ndxlo,ndxhi,seq_a,seq_b) )
         vprint(f"{seq_a} -> {seq_b}")
-    
+
 
     changed_sequences=[]
     seqs = list(seqs)
     for s in seqs:
         ## Normalize sequence (seq -> mut -> seq)
-        nmut = MM.get_mutation(s.seq)
-        s.seq = MM.seq_from_mutation(nmut)
+        nmut = mut_mgr.get_mutation(s.seq)
+        s.seq = mut_mgr.seq_from_mutation(nmut)
         for ndxlo,ndxhi,seq_a,seq_b in ndx_seqs_tuples:
             if s.seq[ndxlo:ndxhi] == seq_a:
                 s.seq = s.seq[:ndxlo] + seq_b + s.seq[ndxhi:]
@@ -159,7 +165,7 @@ def _main(args):
 
     print("Made",len(changed_sequences),"changes, affecting",
           len(set(changed_sequences)),"distinct sequences")
-    
+
     ## After tweaking, are there any indices with dashes in /all/ sequences?
     if args.rmgapcols:
         seqs = sequtil.remove_gap_columns(seqs)
