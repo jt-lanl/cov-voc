@@ -7,7 +7,6 @@
 
 ID := 20220323
 INITALIGN := data/REG_COMP.SPIKE.protein.Human.$(ID).fasta.gz
-MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 KEEPX := --keepx
 ifeq ($(KEEPX),--keepx)
 XID := xx$(ID)
@@ -17,46 +16,19 @@ endif
 XIDGZ := $(XID).fasta.gz
 
 .DEFAULT_GOAL := ztkfx-$(XIDGZ)
-#.DEFAULT_GOAL := ztkfx-sk-$(XIDGZ)
 
 .PHONY: Latest
-
-tweakfile.txt: $(MKFILE_PATH)
-	echo '[E156G,F157-,R158-] [E156-,F157-,R158G]' > $@
-	echo '[+214AAG,D215Y] [D215A,+215AGY]' >> $@
-	echo '[Y144_,Y145-] [Y144-,Y145_]' >> $@
-	echo '[N211I,L212-] [N211-,L212I]' >> $@
-	echo '[L244Y,H245-] [L244-,H245Y]' >> $@
-	echo '[L24S,P25-,P26-,A27-] [L24-,P25-,P26-,A27S]' >> $@
-	echo '[Y248S,L249-,T250-,P251-,G252-,D253-,S254-] [Y248-,L249-,T250-,P251-,G252-,D253-]' >> $@
-	echo '[V213S,R214G,+214RGR] [+212SGR,V213G]' >> $@
 
 fx-$(XIDGZ): $(INITALIGN)
 	python -m fixalign $(KEEPX) -i $(INITALIGN) --fix $@
 
-tkfx-$(XIDGZ): fx-$(XIDGZ) tweakfile.txt
-	python -m tweakalign $(KEEPX) -i $< -M tweakfile.txt  -o $@
+tkfx-$(XIDGZ): fx-$(XIDGZ)
+	python -m tweakalign $(KEEPX) -i $<  -o $@
 
 ztkfx-$(XIDGZ): tkfx-$(XIDGZ)
-	python -m fixfasta $(KEEPX) --rmgapcols -i $< -o $@
-
-sk-$(XIDGZ): $(INITALIGN)
-	python -m xalign $(KEEPX) --dedash -i $(INITALIGN) -o $@
-
-tksk-$(XIDGZ): sk-$(XIDGZ) tweakfile.txt
-	python -m tweakalign $(KEEPX) -i $< -M tweakfile.txt -o $@
-
-tkfx-sk-$(XID).msp: tksk-$(XIDGZ) tkfx-$(XIDGZ)
-	python -m cfalign -a $^ --msp $@
-
-tkfx-sk-$(XIDGZ): tkfx-sk-$(XID).msp tkfx-$(XIDGZ) 
-	python -m tweakalign $(KEEPX) -M tkfx-sk-$(XID).msp -i tkfx-$(XIDGZ) -o $@
-
-ztkfx-sk-$(XIDGZ): tkfx-sk-$(XIDGZ)
 	python -m fixfasta $(KEEPX) --rmgapcols -i $< -o $@
 
 Latest: Latest.ipkl
 
 Latest.ipkl: $(.DEFAULT_GOAL)
 	python -m fixfasta $(KEEPX) --random -i $< -o $@
-
