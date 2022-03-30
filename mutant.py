@@ -11,13 +11,13 @@ A SingleSiteMutation has three components:
          . indicates any character
          _ indicates ref
          * indicates any character except ref
+         x inidcates a blank (only makes sense if ref == +, and means no insertion)
          multicharacter strings indicate either:
            if ref == +, then multiple characters are inserted
            otherwise, indicates any character in the multicharacter string
 
 '''
 
-import sys
 import re
 import itertools as it
 from collections import defaultdict
@@ -74,18 +74,15 @@ class SingleSiteMutation():
     ''' eg, D614G is a single site mutation, so is +614ABC '''
     def __init__(self,initializer=None):
         if isinstance(initializer,str):
-            self.init_from_mstring(initializer)
+            self.init_from_ssmstring(initializer)
         elif isinstance(initializer,tuple):
             self.init_from_ref_site_mut(*initializer)
 
     @classmethod
     def from_ref_site_mut(cls,ref,site,mut):
-        ssm = SingleSiteMutation()
-        ssm.ref = ref
-        ssm.site = site
-        ssm.mut = mut
-        return ssm
-        
+        '''initialize as SingleSiteMutation.from_ref_site_mut(...)'''
+        return SingleSiteMutation((ref,site,mut))
+
     def init_from_ref_site_mut(self,ref,site,mut):
         '''initialize from ref char, site number, and mutation char'''
         self.ref = ref
@@ -93,24 +90,27 @@ class SingleSiteMutation():
         self.mut = mut
         return self
 
-    def init_from_mstring(self,mstring):
-        '''initialize from mstring; eg "D614G" '''
-        mstring = mstring.strip()
-        m = re.match(r"(.)(\d+)(.[A-Z-_]*)",mstring)  ## what's that second '.' doing?
+    def init_from_ssmstring(self,ssmstring):
+        '''initialize from ssmstring; eg "D614G" '''
+        ssmstring = ssmstring.strip()
+        m = re.match(r"(.)(\d+)(.[A-Z-_]*)",ssmstring)  ## what's that second '.' doing?
         if not m:
-            raise RuntimeError(f"SingleSiteMutation string /{mstring}/ invalid")
+            raise RuntimeError(f"SingleSiteMutation string /{ssmstring}/ invalid")
         self.ref = m[1]
         self.site = int(m[2])
         self.mut = m[3]
 
-        if self.mut == self.ref:
-            ## this is really ok, do I need to complain about it?
-            ## print(self,self.mut,"==",self.ref,file=sys.stderr)
-            pass
-
         if "_" in self.mut:
             ## recognize that ssm.mut might have multiple characters
             self.mut = re.sub("_",self.ref,self.mut)
+
+        if self.mut == "x":
+            if self.ref == "+":
+                ## +123x means no insertion at 123
+                self.mut = ""
+            else:
+                ## D123x is not a valid formulation; use D123- for deletion at site 123
+                raise RuntimeError(f"SingleSiteMutation string /{ssmstring}/ invalid")
 
         return self
 
@@ -126,23 +126,6 @@ class SingleSiteMutation():
             return True
         return False
 
-    def xxx(self,other):
-        '''the rest of the __eq__ function, 
-        in case you want [R256.] and [R256A] considered equal
-        '''
-        if self.ref != other.ref:
-            return False
-        if self.site == other.site:
-            if self.mut == other.mut:
-                return True
-            if self.mut == "." or other.mut == ".":
-                return True
-            if self.mut == "*" and other.mut != other.ref:
-                return True
-            if self.mut != self.ref and other.mut == "*":
-                return True
-        return False
-
     def __lt__(self,other):
         ''' less-than function enables sorting of SSM's '''
         ## enables sorting lists of SSM's by site number
@@ -155,7 +138,7 @@ class SingleSiteMutation():
         return hash(self.as_tuple())
 
     def __str__(self):
-        '''mstring is, eg, 'D614G' '''
+        '''ssmstring is, eg, 'D614G' '''
         return self.ref+str(self.site)+self.mut
 
 class Mutation(list):
@@ -217,7 +200,7 @@ class Mutation(list):
     def from_mstring(cls,mstring,exact=None):
         ''' initialize Mutation from mstring, eg [A222V,D614G] '''
         return cls().init_from_mstring(mstring,exact=exact)
-        
+
     def init_from_mstring(self,mstring,exact=None):
         ''' initialize Mutation from mstring, eg [A222V,D614G] '''
         mat = re.match(r".*\[(.*)\](!?).*",mstring)
@@ -238,8 +221,8 @@ class Mutation(list):
             convert into a Mutation
         '''
         warnings.warn("not efficient, use MutationManager")
-        MM = MutationManager(refseq)
-        self.extend( MM.get_ssmlist(seq) )
+        mut_mgr = MutationManager(refseq)
+        self.extend( mut_mgr.get_ssmlist(seq) )
         self.exact = exact
         return self
 
@@ -295,9 +278,9 @@ class Mutation(list):
 
     def checkref(self,refseq):
         ''' return True if ssm.ref = refseq at all mutation sites '''
-        T = SiteIndexTranslator(refseq)
+        translator = SiteIndexTranslator(refseq)
         for ssm in self:
-            ndx = T.index_from_site(ssm.site)
+            ndx = translator.index_from_site(ssm.site)
             if ssm.ref == '+':
                 continue
             if ssm.ref != refseq[ndx]:
@@ -305,29 +288,9 @@ class Mutation(list):
                 return False
         return True
 
-    def pattern(self,refseq,exact=None):
-        '''
-        returns a string of same length as refseq,
-        but with substitutions, wildcards, etc noted
-        note, it's NOT a regex pattern matcher
-        '''
-        raise RuntimeError("Use MutationManager.pattern_from_mutation instead")
-
-
-    def regex_pattern(self,refseq,exact=None,nodash=False):
-        '''return pattern that can be used as regex to search for mutation'''
-        ## exact: needs to match refseq at all sites not in mutation
-        ## otherwise: only needs to match at mutation sites
-        raise RuntimeError("Not using regex's anymore, are we?")
-
-    def mutate_sequence(self,refseq,prescriptive=True):
-        '''return sequence that is mutated version of refseq'''
-        raise RuntimeError("Use MutationManager.seq_from_mutation")
-
-    
 class MutationManager(SiteIndexTranslator):
     '''
-    Object that helps manage Mutation() mstrings, 
+    Object that helps manage Mutation() mstrings,
     because it knows context; namely refseq
     '''
     def __init__(self,refseq):
@@ -355,7 +318,7 @@ class MutationManager(SiteIndexTranslator):
             mstr = "".join(clist)
             rr = "+" if r == "-" else r
             mutlist.append(SingleSiteMutation.from_ref_site_mut(rr,site,mstr))
-        return mutlist ## should already be sorted? 
+        return mutlist ## should already be sorted?
 
     def get_mutation(self,seq,exact=True):
         '''convert sequence into a mutation list'''
@@ -410,7 +373,8 @@ class MutationManager(SiteIndexTranslator):
                         mutseq[n] = ""
             else:
                 if ssm.ref != self.refseq[ndx]:
-                    raise RuntimeError(f"Error in mut={mut}, ssm={ssm}: {ssm.ref}!={self.refseq[ndx]}")
+                    raise RuntimeError(f"Error in mut={mut}, ssm={ssm}: "
+                                       f"{ssm.ref}!={self.refseq[ndx]}")
                 if len(ssm.mut) > 1:
                     mutseq[ndx] = "&"  ## indicates multiple choices at this site
                 else:
@@ -453,11 +417,11 @@ class MutationManager(SiteIndexTranslator):
             else:
                 try:
                     mutseq[ndx] = ssm.mut
-                except IndexError as e:
-                    print("ssm,site,topsite,ndx,len(mutseq)=",
-                          ssm,ssm.site,self.topsite,
-                          ndx,len(mutseq))
-                    raise IndexError(e)
+                except IndexError as err:
+                    errmsg = \
+                        f'ssm={ssm},site={ssm.site},topsite={self.topsite},' \
+                        f'nex={ndx},len(mutseq)={len(mutseq)}'
+                    raise Exception(errmsg) from err
         mutseq = "".join(mutseq)
         return mutseq
 
@@ -514,231 +478,7 @@ class MutationManager(SiteIndexTranslator):
         '''filter an iterable of seqs that match the pattern'''
         ## if input mpatt is string, this converts to Mutation object
         ## also, makes sure the ssm's in mpatt are sorted
-        mpatt = Mutation(sorted(Mutation(mpatt))) 
+        mpatt = Mutation(sorted(Mutation(mpatt)))
         for s in seqs:
             if self.seq_fits_pattern(mpatt,s.seq,exact=exact):
                 yield s
-        
-
-if __name__ == "__main__":
-
-    ma = Mutation.from_mstring("[S13S,S494P,N501N,D614G,P681H,T716I,S982S,D1118D]")
-    mb = Mutation.from_mstring("[S13S,L141-,G142-,V143-,A222A,L452R,D614G,T859T,D950D]")
-    mc = Mutation.merge(ma,mb)
-    print("A:",ma)
-    print("B:",mb)
-    print("C:",mc)
-    print("C inconsistent:",mc.inconsistent())
-    print("C:",mc.check(),mc)
-    print("C:",mc)
-    print("C:",
-          "Note, this is a list of ssms, not a Mutation:",
-          sorted(mc))
-
-    RefSeq = "ABC-D--EFG"
-    NewSeqList = [
-        "BBC-E-WEFF",
-        "BBC-EW-EFF",
-        "BBC-E--EFF",
-        "ABCWEXYEFG",
-        "ABCWDXYEFG",
-        "ABC-E--EFG",
-        "ABCWD--EFH",
-        "AB--D--EFG",
-    ]
-    MM = MutationManager(RefSeq)
-    for newseq in NewSeqList:
-        mu = MM.get_mutation(newseq)
-        fpatt = MM.pattern_from_mutation(mu)
-        print(RefSeq,newseq,fpatt,mu)
-
-    print()
-    MM = MutationManager(RefSeq)
-    for newseq in NewSeqList:
-        mu = MM.get_mutation(newseq)
-        print(RefSeq,newseq,mu)
-    print()
-    for patt in [
-            '[A1B,D4E,+4W,G7F]',
-            '[D4E]',
-            '[+3W,G7H]',
-            '[A1B,D4E,G7F]',
-            '[+3W,D4E,+4XY]',
-            '[+3W,+4XY]',
-            '[D4*]',
-            '[A1_,D4.]',
-            '[+3W,C3_,G7H]',
-            '[A1_,C3.]',
-            ]:
-        thepatt = Mutation().from_mstring(patt)
-        for newseq in NewSeqList:
-            fit = MM.seq_fits_pattern(thepatt,newseq)
-            fullfit = MM.seq_fits_pattern(thepatt,newseq,exact=True)
-            #print(thepatt,newseq,fit,fullfit)
-            #print(f"assert MM.seq_fits_pattern(Mutation().init_from_mstring('{thepatt}'),'{newseq}')            == {fit}")
-            #print(f"assert MM.seq_fits_pattern(Mutation().init_from_mstring('{thepatt}'),'{newseq}',exact=True) == {fullfit}")
-
-    def checkit(mstring,seq,**kw):
-        mpatt = Mutation.from_mstring(mstring)
-        return MM.seq_fits_pattern(mpatt,seq,**kw)
-    
-    assert checkit('[A1B,D4E,+4W,G7F]', 'BBC-E-WEFF')            == True
-    assert checkit('[A1B,D4E,+4W,G7F]', 'BBC-E-WEFF',exact=True) == True
-    assert checkit('[A1B,D4E,+4W,G7F]', 'BBC-EW-EFF')            == True
-    assert checkit('[A1B,D4E,+4W,G7F]', 'BBC-EW-EFF',exact=True) == True
-    assert checkit('[A1B,D4E,+4W,G7F]', 'BBC-E--EFF')            == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABCWEXYEFG')            == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABCWDXYEFG')            == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABC-E--EFG')            == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABCWD--EFH')            == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'AB--D--EFG')            == False
-    assert checkit('[A1B,D4E,+4W,G7F]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[D4E]', 'BBC-E-WEFF')            == True
-    assert checkit('[D4E]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[D4E]', 'BBC-EW-EFF')            == True
-    assert checkit('[D4E]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[D4E]', 'BBC-E--EFF')            == True
-    assert checkit('[D4E]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[D4E]', 'ABCWEXYEFG')            == True
-    assert checkit('[D4E]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[D4E]', 'ABCWDXYEFG')            == False
-    assert checkit('[D4E]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[D4E]', 'ABC-E--EFG')            == True
-    assert checkit('[D4E]', 'ABC-E--EFG',exact=True) == True
-    assert checkit('[D4E]', 'ABCWD--EFH')            == False
-    assert checkit('[D4E]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[D4E]', 'AB--D--EFG')            == False
-    assert checkit('[D4E]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[+3W,G7H]', 'BBC-E-WEFF')            == False
-    assert checkit('[+3W,G7H]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[+3W,G7H]', 'BBC-EW-EFF')            == False
-    assert checkit('[+3W,G7H]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[+3W,G7H]', 'BBC-E--EFF')            == False
-    assert checkit('[+3W,G7H]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[+3W,G7H]', 'ABCWEXYEFG')            == False
-    assert checkit('[+3W,G7H]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[+3W,G7H]', 'ABCWDXYEFG')            == False
-    assert checkit('[+3W,G7H]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[+3W,G7H]', 'ABC-E--EFG')            == False
-    assert checkit('[+3W,G7H]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[+3W,G7H]', 'ABCWD--EFH')            == True
-    assert checkit('[+3W,G7H]', 'ABCWD--EFH',exact=True) == True
-    assert checkit('[+3W,G7H]', 'AB--D--EFG')            == False
-    assert checkit('[+3W,G7H]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'BBC-E-WEFF')            == True
-    assert checkit('[A1B,D4E,G7F]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'BBC-EW-EFF')            == True
-    assert checkit('[A1B,D4E,G7F]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'BBC-E--EFF')            == True
-    assert checkit('[A1B,D4E,G7F]', 'BBC-E--EFF',exact=True) == True
-    assert checkit('[A1B,D4E,G7F]', 'ABCWEXYEFG')            == False
-    assert checkit('[A1B,D4E,G7F]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'ABCWDXYEFG')            == False
-    assert checkit('[A1B,D4E,G7F]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'ABC-E--EFG')            == False
-    assert checkit('[A1B,D4E,G7F]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'ABCWD--EFH')            == False
-    assert checkit('[A1B,D4E,G7F]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[A1B,D4E,G7F]', 'AB--D--EFG')            == False
-    assert checkit('[A1B,D4E,G7F]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'BBC-E-WEFF')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'BBC-EW-EFF')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'BBC-E--EFF')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'ABCWEXYEFG')            == True
-    assert checkit('[+3W,D4E,+4XY]', 'ABCWEXYEFG',exact=True) == True
-    assert checkit('[+3W,D4E,+4XY]', 'ABCWDXYEFG')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'ABC-E--EFG')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'ABCWD--EFH')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[+3W,D4E,+4XY]', 'AB--D--EFG')            == False
-    assert checkit('[+3W,D4E,+4XY]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'BBC-E-WEFF')            == False
-    assert checkit('[+3W,+4XY]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'BBC-EW-EFF')            == False
-    assert checkit('[+3W,+4XY]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'BBC-E--EFF')            == False
-    assert checkit('[+3W,+4XY]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'ABCWEXYEFG')            == True
-    assert checkit('[+3W,+4XY]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'ABCWDXYEFG')            == True
-    assert checkit('[+3W,+4XY]', 'ABCWDXYEFG',exact=True) == True
-    assert checkit('[+3W,+4XY]', 'ABC-E--EFG')            == False
-    assert checkit('[+3W,+4XY]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'ABCWD--EFH')            == False
-    assert checkit('[+3W,+4XY]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[+3W,+4XY]', 'AB--D--EFG')            == False
-    assert checkit('[+3W,+4XY]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[D4*]', 'BBC-E-WEFF')            == True
-    assert checkit('[D4*]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[D4*]', 'BBC-EW-EFF')            == True
-    assert checkit('[D4*]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[D4*]', 'BBC-E--EFF')            == True
-    assert checkit('[D4*]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[D4*]', 'ABCWEXYEFG')            == True
-    assert checkit('[D4*]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[D4*]', 'ABCWDXYEFG')            == False
-    assert checkit('[D4*]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[D4*]', 'ABC-E--EFG')            == True
-    assert checkit('[D4*]', 'ABC-E--EFG',exact=True) == True
-    assert checkit('[D4*]', 'ABCWD--EFH')            == False
-    assert checkit('[D4*]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[D4*]', 'AB--D--EFG')            == False
-    assert checkit('[D4*]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[A1A,D4.]', 'BBC-E-WEFF')            == False
-    assert checkit('[A1A,D4.]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[A1A,D4.]', 'BBC-EW-EFF')            == False
-    assert checkit('[A1A,D4.]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[A1A,D4.]', 'BBC-E--EFF')            == False
-    assert checkit('[A1A,D4.]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[A1A,D4.]', 'ABCWEXYEFG')            == True
-    assert checkit('[A1A,D4.]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[A1A,D4.]', 'ABCWDXYEFG')            == True
-    assert checkit('[A1A,D4.]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[A1A,D4.]', 'ABC-E--EFG')            == True
-    assert checkit('[A1A,D4.]', 'ABC-E--EFG',exact=True) == True
-    assert checkit('[A1A,D4.]', 'ABCWD--EFH')            == True
-    assert checkit('[A1A,D4.]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[A1A,D4.]', 'AB--D--EFG')            == True
-    assert checkit('[A1A,D4.]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'BBC-E-WEFF')            == False
-    assert checkit('[+3W,C3C,G7H]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'BBC-EW-EFF')            == False
-    assert checkit('[+3W,C3C,G7H]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'BBC-E--EFF')            == False
-    assert checkit('[+3W,C3C,G7H]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'ABCWEXYEFG')            == False
-    assert checkit('[+3W,C3C,G7H]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'ABCWDXYEFG')            == False
-    assert checkit('[+3W,C3C,G7H]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'ABC-E--EFG')            == False
-    assert checkit('[+3W,C3C,G7H]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[+3W,C3C,G7H]', 'ABCWD--EFH')            == True
-    assert checkit('[+3W,C3C,G7H]', 'ABCWD--EFH',exact=True) == True
-    assert checkit('[+3W,C3C,G7H]', 'AB--D--EFG')            == False
-    assert checkit('[+3W,C3C,G7H]', 'AB--D--EFG',exact=True) == False
-    assert checkit('[A1A,C3.]', 'BBC-E-WEFF')            == False
-    assert checkit('[A1A,C3.]', 'BBC-E-WEFF',exact=True) == False
-    assert checkit('[A1A,C3.]', 'BBC-EW-EFF')            == False
-    assert checkit('[A1A,C3.]', 'BBC-EW-EFF',exact=True) == False
-    assert checkit('[A1A,C3.]', 'BBC-E--EFF')            == False
-    assert checkit('[A1A,C3.]', 'BBC-E--EFF',exact=True) == False
-    assert checkit('[A1A,C3.]', 'ABCWEXYEFG')            == True
-    assert checkit('[A1A,C3.]', 'ABCWEXYEFG',exact=True) == False
-    assert checkit('[A1A,C3.]', 'ABCWDXYEFG')            == True
-    assert checkit('[A1A,C3.]', 'ABCWDXYEFG',exact=True) == False
-    assert checkit('[A1A,C3.]', 'ABC-E--EFG')            == True
-    assert checkit('[A1A,C3.]', 'ABC-E--EFG',exact=True) == False
-    assert checkit('[A1A,C3.]', 'ABCWD--EFH')            == True
-    assert checkit('[A1A,C3.]', 'ABCWD--EFH',exact=True) == False
-    assert checkit('[A1A,C3.]', 'AB--D--EFG')            == True
-    assert checkit('[A1A,C3.]', 'AB--D--EFG',exact=True) == True
