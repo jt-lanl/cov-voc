@@ -164,9 +164,9 @@ Find sequences that are far (in hamming distance) from a reference sequence
 
 # SOME USEFUL LIBRARIES
 
-### readseq/sequtil 
+### readseq/sequtil
 
-for reading fasta sequence files 
+for reading fasta sequence files
 
 * also tbl, mase, and seq (raw);
 the routine `readseq.read_seqfile(...)` will determine the format of the file based on the file extension.
@@ -187,7 +187,7 @@ if you want a literal list be sure to use a command like `seqs=list(seqs)` becau
 and filtering routines return python *iterators*, which [depending on the usage scenario] can be much more
 memory efficient.
 
-### mutants/spikevariants 
+### mutants/spikevariants
 
 manipulates single-site and multiple-site mutations and parses mutation strings of the form
 `[S13I,W152C,L452R,D614G]`
@@ -204,7 +204,7 @@ simple module for translating common color names into hash-hexcodes
 generic utilities for dealing with lists of integers; for instance, can create headers such as the following,
 which indicate that the sites being displayed are 19, 20, 142, ..., 501.  If it's not obvious, you read *down* each
 column to get the number of the site.
-    
+
       1111111222222344444445
     124455555444556613577890
     902423678234362779278441
@@ -240,9 +240,11 @@ table is a list of variants, with one variant per line.
       <mutation> is of form [<ssm>,<ssm>,...<ssm>], possibly followed by an '!'
           <ssm> is a single site mutation of form <rchar><site><mchar>, where
                 <rchar> = character in reference sequence
+		          ('+' indicates an insertion after the site)
                 <site> = integer site number
                 <mchar> = character in mutated sequence
-		          ('.' indicates any, '*' indicates any except <rchar>, '_' indicates <rchar>)
+		          ('.' indicates any, '*' indicates any except <rchar>,
+			   '_' indicates <rchar>, 'x' indicates blank [only allowed if <rchar> is '+'])
           '!' indicates an "exact" match; that means that except for the sites indicated by the mutation, the
               mutant sequence must agree with the reference sequence at every "relevant" site, where a "relevant"
               site is among the union of all the sites in all the mutation strings
@@ -253,7 +255,8 @@ For example, two typical lines look like:
 
     Orange  [H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H] B.1.1.7 UK VOC
     Fuchsia [D614G,Q677*]!                                               Near-Furin
-    
+    Green   [+214x]                                                      No-Insertion
+
 Each line contains a `ColorName`, a `[MutationString]`, possibly a `!`
 symbol, and then a `VariantName`.  These components are separated by
 arbitrary whitespace.  In the first line above, the "UK
@@ -262,14 +265,16 @@ mutation can have any character except Q at site 677.  The '!'
 (after the ']') indicates that only mutations at sites 614 and 677 are
 permitted; a sequence that disagrees with the reference sequence at
 any other site will not be consistent with this pattern.
+In the Green line, any sequence will match as long as there is no
+insertion after site 214.
 
 # LINEAGE TABLE
 
 Typical lines in the lineage table looks like:
 
     Orange          Alpha   (B\.1\.1\.7)|(Q\..*)
-    BlueViolet      Delta   (B\.1\.617\.2)|(AY\..*) 
-  
+    BlueViolet      Delta   (B\.1\.617\.2)|(AY\..*)
+
 with three columns corresponding to color, name, and a regexp that matches the
 various pango names associated with the name.  For instance, B.1.1.7 or Q.anything
 will correspond to the Alpha variant, and will be plotted in orange.
@@ -285,7 +290,7 @@ if you type
     python shiver.py -h
 
 then you'll get something like the following:
-    
+
     usage: shiver.py [-h] [--input INPUT]
                      [--filterbyname FILTERBYNAME [FILTERBYNAME ...]]
                      [--xfilterbyname XFILTERBYNAME [XFILTERBYNAME ...]]
@@ -293,9 +298,9 @@ then you'll get something like the following:
                      [--days DAYS] [--fixsiteseventy] [--keepx] [--output OUTPUT]
                      [-n N] [--strategy STRATEGY] [--region REGION]
                      [--colormut COLORMUT] [--verbose]
-    
+
     SHIVER: SARS CoV-2 Historically Identified Variants in Epitope Regions
-    
+
     optional arguments:
       -h, --help            show this help message and exit
       --input INPUT, -i INPUT
@@ -324,7 +329,7 @@ then you'll get something like the following:
       --colormut COLORMUT   name of color mutation file
                             (mutation_string,lineage_name) are 2nd,3rd columns
       --verbose, -v         verbose
-      
+
 
 
 # COPYRIGHT (for SHIVER and XSPIKE)
@@ -379,4 +384,3 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 C21022 SHIVER was approved for Open Source Assertion on 03/15/2021
 
 C21029 xSpike was approved for Open Source Assertion on 06/15/2021
-
