@@ -198,9 +198,9 @@ def main(args):
                 warn_msg += " and\n".join(f"{relpattern(v.flat_pattern)} {v.name} {v}"
                                           for v in vocmatch)
                 warn_msg += f"\n{svar.master} Master"
-                v.vprint_only(10,'overlap:',warn_msg)
+                v.print_only(10,'overlap:',warn_msg)
 
-    v.vprint_only_summary('overlap:')
+    v.print_only_summary('overlap:')
     v.vprint("Unmatched sequences:",sum(xpatt.values()))
 
     write_counts_file(args.ctable,sitelist,master,voclist,cpatt,xpatt,n_sequences)
