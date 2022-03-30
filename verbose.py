@@ -93,7 +93,7 @@ class verbose:
     def vnprint_only_summary(cls,vlevel,msg,*p,**kw):
         '''
         summarize how many times vprint_only was called
-        with msg as first arguemnt
+        with msg as first arguemnt; keep quiet if count was zero
         '''
         if cls.count[msg]:
             cls.vnprint(vlevel,msg,cls.count[msg],*p,**kw)
@@ -104,6 +104,19 @@ class verbose:
         cls.count[msg] += 1
         if cls.count[msg] <= maxcount:
             cls.vnprint(vlevel,msg,*p,*kw)
+
+    @classmethod
+    def print_only(cls,maxcount,msg,*p,**kw):
+        '''vprint, but only maxcount times, at most'''
+        cls.vnprint_only(0,maxcount,msg,*p,**kw)
+
+    @classmethod
+    def print_only_summary(cls,msg,*p,**kw):
+        '''
+        summarize how many times vprint_only was called
+        with msg as first arguemnt
+        '''
+        cls.vnprint_only_summary(0,msg,*p,**kw)
 
     @classmethod
     def vprint_only(cls,maxcount,msg,*p,**kw):
