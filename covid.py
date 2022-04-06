@@ -356,9 +356,11 @@ def fix_seqs(seqs,args):
     if "-" in first.seq and args.stripdashcols:
         seqs = sequtil.stripdashcols(first.seq,seqs)
 
-    if not args.keeplastchar and "$" in first.seq:
-        first.seq = re.sub(r'\$[^\$]*$','',first.seq)
-        seqs = striplastchars(seqs,len(first.seq))
+    if not args.keeplastchar:
+        if first.seq[-1] in "$*X":
+            stop_codon = first.seq[-1]
+            first.seq = first.seq[:-1]
+            seqs = striplastchars(seqs,len(first.seq))
 
     if not args.keepx:
         seqs = (s for s in seqs if "X" not in s.seq)
@@ -368,11 +370,9 @@ def fix_seqs(seqs,args):
 def striplastchars(seqs,seqlen):
     '''
     truncate all sequences to length seqlen;
-    replace any remaining '$' with 'X'
     '''
     for s in seqs:
         s.seq = s.seq[:seqlen]
-        s.seq = re.sub(r'\$','X',s.seq)
         yield s
 
 def filter_seqs(seqs,args):

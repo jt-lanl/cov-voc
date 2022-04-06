@@ -228,7 +228,7 @@ def filter_seqs(seqs,
     ## seqs = itertools.islice(seqs,maxseqs) if maxseqs else seqs
 
     re_dash = re.compile('-')
-    re_badchar = re.compile('[\#\*Xx]') ## \$ no longer considered a bad character
+    re_badchar = re.compile('[\$\#\*Xx]')
     if pattern:
         re_pattern = re.compile(pattern)
     if xpattern:
