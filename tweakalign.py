@@ -1,11 +1,11 @@
 '''Tweak alignment according to specifed mutant strings'''
-import sys
 import re
 import itertools as it
 import argparse
 
 import warnings
 
+from verbose import verbose as v
 import covid
 import readseq
 import sequtil
@@ -17,10 +17,10 @@ def _getargs():
     argparser = argparse.ArgumentParser(description=__doc__)
     paa = argparser.add_argument
     covid.corona_args(argparser)
-    paa("--mstrings","-m",nargs=2,
-        help="pair of bad/good mstrings")
-    paa("--mfile","-M",
-        help="read bad/good mstrings from a file")
+    paa("--mstrings","-m",nargs=2,action="append",
+        help="pair of from/to mstrings")
+    paa("--mfile","-M",action="append",
+        help="read from/to mstring pairs from a file")
     paa("--rmgapcols",action="store_true",
         help="Remove gap-only columns as the final step")
     paa("--output","-o",
@@ -35,7 +35,10 @@ def de_gap(seq):
     return re.sub('-','',seq)
 
 def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
-
+    '''
+    convert mstrings into short sequence-alignment fragments
+    along with the indices of where those sequences start/end
+    '''
     mut_a = mutant.Mutation.from_mstring(mstring_a)
     mut_b = mutant.Mutation.from_mstring(mstring_b)
 
@@ -43,7 +46,6 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     ## will 'fit' in the refseq (viz, for mut_b = [...,+123XYZ,...] make
     ## sure there are three extra spaces after 123; if not
     ## somehow create them !?
-
 
     sites = sorted(set(ssm.site for ssm in it.chain(mut_a,mut_b)))
     lo,hi = sites[0],sites[-1]+1
@@ -62,9 +64,9 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     if seq_r == seq_a:
         raise RuntimeError(f"Edit {mstring_a} will be inconsistent with ref sequence!")
     if seq_a == seq_b:
-        vprint(f"Edit {mstring_a}->{mstring_b} will do nothing!")
+        v.vprint(f"Edit {mstring_a}->{mstring_b} will do nothing!")
     if de_gap(seq_a) != de_gap(seq_b):
-        print(".".join(a+b for a,b in zip(de_gap(seq_a),de_gap(seq_b))))
+        v.print(".".join(a+b for a,b in zip(de_gap(seq_a),de_gap(seq_b))))
         warnings.warn(f"Edit {mstring_a}->{mstring_b} will change actual sequence!"
                            " not just the alignment")
         ## this shouldn't happen...but if it does, then don't do any replacing
@@ -73,18 +75,11 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     return ndxlo,ndxhi,seq_a,seq_b
 
 def read_mstring_pairs(filename):
-    mstringpairs=[]
-    with open(filename) as f_in:
-        for line in f_in:
-            line = line.strip()
-            line = re.sub('#.*','',line)
-            m = re.match(r'.*(\[.*\]).+(\[.*\]).*',line)
-            if not m:
-                if line:
-                    vprint("Could not read line:",line)
-                continue
-            mstringpairs.append( (m[1],m[2]) )
-    return mstringpairs
+    '''
+    wrapper of the mstringfix.read_mstring_pairs
+    that returns a list instead of an iterator
+    '''
+    return list(mstringfix.read_mstring_pairs(filename))
 
 def add_xtra_dashes(seqs,xxtras):
     '''xxtras is dict keyed by indices of s.seq strings;
@@ -100,19 +95,45 @@ def add_xtra_dashes(seqs,xxtras):
 def _main(args):
     '''tweakalign main'''
 
-    ## Get bad and good mutations
+    ## Get pairs of mutation strings
+    ## each pair has a from_mstring and a to_mstring
     mstringpairs = []
-    if args.mstrings:
-        assert len(args.mstrings)==2
-        mstringpairs.append(args.mstrings)
-    if args.mfile:
-        mstringpairs.extend( read_mstring_pairs(args.mfile) )
+
+    ## first: read the file(s) indicated by '-M file'
+    ## A file named '.' indicates that one should use the defaults
+    ## Note that '-M' can be invoked more than once
+    ##   That is: '-M file1 -M file2' is okay
+    ##   Invalid: '-M file1 file2'
+    for mfile in args.mfile or []:
+        if mfile == '.':
+            mfile = None
+        mstringpairs.extend( read_mstring_pairs(mfile) )
+
+    ## second: read from the strings on the command line
+    ## these are of the from -m from_mstring to_mstring
+    ## and multiple invocations of '-m' are allowed
+    for mspair in args.mstrings or []:
+        assert len(mspair)==2
+        mstringpairs.append(mspair)
+
+    ## finally: if after all that, there are no mstring pairs
+    ## in the mstringpairs list, then use the defaults
     if not mstringpairs:
-        mstringpairs = list( mstringfix.default_mstring_pairs() )
+        mstringpairs.extend( read_mstring_pairs(None) )
 
     ## ensure mstrings have brackets around them
     mstringpairs = [ (mstringfix.mstring_brackets(a),
                       mstringfix.mstring_brackets(b)) for a,b in mstringpairs ]
+
+    ## are there any duplicates?
+    if len(mstringpairs) != len(set(mstringpairs)):
+        mspairs_sofar = set()
+        for mspair in mstringpairs:
+            if mspair in mspairs_sofar:
+                v.print('Duplicated pair:',mspair[0],mspair[1])
+            mspairs_sofar.add(mspair)
+        raise RuntimeError('Duplicated pair(s) of mstrings specified')
+
 
     ## characterize extra chars: xtras[site] = number of extra chars after site
     xtras = dict()
@@ -122,7 +143,7 @@ def _main(args):
             if ssm.ref == "+":
                 xtras[ssm.site] = max( [xtras.get(ssm.site,0), len(ssm.mut)] )
 
-    print("xtras:",xtras)
+    v.print("xtras:",xtras)
 
     ## Read full sequences
     seqs = covid.read_filter_seqfile(args)
@@ -143,14 +164,13 @@ def _main(args):
         seqs = add_xtra_dashes(seqs,xxtras)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     mut_mgr = mutant.MutationManager(first.seq)
-    print("len(first):",len(first.seq))
+    v.print("len(first):",len(first.seq))
 
     ndx_seqs_tuples = []
     for ma,mb in mstringpairs:
         ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
         ndx_seqs_tuples.append( (ndxlo,ndxhi,seq_a,seq_b) )
-        vprint(f"{seq_a} -> {seq_b}")
-
+        v.vprint(f"{seq_a} -> {seq_b}")
 
     changed_sequences=[]
     seqs = list(seqs)
@@ -177,13 +197,5 @@ def _main(args):
 if __name__ == "__main__":
 
     _args = _getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if _args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''very verbose print'''
-        if _args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
+    v.verbosity(_args.verbose)
     _main(_args)
