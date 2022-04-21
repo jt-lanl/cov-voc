@@ -8,6 +8,7 @@
  - applying any name-based filter (eg, country or lineage)
  - codon aligning DNA sequence
  - translating DNA sequence to amino-acids
+ - snipping out a specified range of sites
 and writing the sequenecs to an output fasta file
 '''
 
@@ -21,6 +22,7 @@ from verbose import verbose as v
 import readseq
 import sequtil
 import wrapgen
+import intlist
 import covid
 
 def getargs():
@@ -40,6 +42,8 @@ def getargs():
         help="Pad seqs with dashes so all are the same length")
     paa("--rmgapcols",action="store_true",
         help="Remove gap-only columns")
+    paa("--snipsites",
+        help="List of sites (eg 1-4,7,9-240) to be sent to output")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -158,6 +162,14 @@ def pad_to_length(seqs,length=None):
         s.seq = s.seq + "-"*(length-len(s.seq))
     return seqs
 
+def snipsites(seqs,sitestring,offset=1):
+    '''replace sequence with shorter sequence including only sites in list'''
+    ## offset=1 for 1-based counting, eg 1'st site is 1
+    sitelist = intlist.string_to_intlist(sitestring)
+    for s in seqs:
+        s.seq = "".join(s.seq[offset+n] for n in sitelist)
+        yield s
+
 def main(args):
     '''fixfasta main'''
 
@@ -187,6 +199,9 @@ def main(args):
 
     if args.padlength:
         seqs = pad_to_length(seqs)
+
+    if args.snipsites:
+        seqs = snipsites(seqs,args.snipsites)
 
     if args.rmgapcols:
         first,seqs = sequtil.get_first_item(seqs)
