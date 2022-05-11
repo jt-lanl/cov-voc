@@ -4,6 +4,7 @@ import re
 import itertools
 from collections import Counter
 import numpy as np
+from scipy import stats
 
 
 from seqsample import SequenceSample
@@ -47,6 +48,37 @@ def numpy_from_seqlist(seqlist):
     #x = np.asarray(np.vectorize(ord)(x),dtype=np.byte)
     return x
 
+def xentropy(clist,keepx=False):
+    '''entropy from a list of characters'''
+    cnt = Counter(clist)
+    if not keepx:
+        cnt.pop('X',None)
+    return stats.entropy(list(cnt.values()))
+
+def zentropy(clist,wlist=None,keepx=False):
+    '''entropy from a list of characters and a list of weights'''
+    cnt = Counter()
+    wlist = wlist or [1]*len(clist)
+    for c,w in zip(clist,wlist):
+        cnt[c] += w
+    if not keepx:
+        cnt.pop('X',None)
+    return stats.entropy(list(cnt.values()))
+
+def chunked_entropy(seqs,chunk=500,keepx=False):
+    '''compute entropy one chunk at a time'''
+    ## a chunk is /all/ the sequences, and /some/ of the sites
+    ## use Counter() the reduce list of subseq's to
+    ## a shorter list of unique subseq's 
+    E = []
+    L = len(seqs[0].seq)
+    for k in range(0,L,chunk):
+        subseqs = [s.seq[k:k+chunk] for s in seqs]
+        cnt = Counter(subseqs)
+        substrs,wts = zip(*cnt.items())
+        E.extend(zentropy(chars,wts,keepx=keepx)
+                 for chars in zip(*substrs))
+    return E
 
 def mostcommonchar(clist):
     '''return the most common item in the list'''

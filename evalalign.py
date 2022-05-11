@@ -31,39 +31,6 @@ def count_dashes(seq,dash='-'):
             rcount += 1
     return dcount,rcount
 
-def xentropy(clist,keepx=False):
-    '''entropy from a list of characters'''
-    cnt = Counter(clist)
-    if not keepx:
-        cnt.pop('X',None)
-    return stats.entropy(list(cnt.values()))
-
-def zentropy(clist,wlist=None,keepx=False):
-    '''entropy from a list of characters and a list of weights'''
-    cnt = Counter()
-    wlist = wlist or [1]*len(clist)
-    for c,w in zip(clist,wlist):
-        cnt[c] += w
-    if not keepx:
-        cnt.pop('X',None)
-    return stats.entropy(list(cnt.values()))
-
-def chunked_entropy(seqs,chunk=500,keepx=False):
-    '''compute entropy one chunk at a time'''
-    ## a chunk is /all/ the sequences, and /some/ of the sites
-    ## use Counter() the reduce list of subseq's to
-    ## a shorter list of unique subseq's 
-    E = []
-    L = len(seqs[0].seq)
-    for k in range(0,L,chunk):
-        subseqs = [s.seq[k:k+chunk] for s in seqs]
-        cnt = Counter(subseqs)
-        substrs,wts = zip(*cnt.items())
-        E.extend(zentropy(chars,wts,keepx=keepx)
-                 for chars in zip(*substrs))
-    return E
-
-
 def _main(args):
     '''main'''
     vprint(args)
@@ -75,7 +42,7 @@ def _main(args):
     vprint("Ref:",dcnt,rcnt)
 
     seqs = list(seqs)
-    E = chunked_entropy(seqs,keepx=False)
+    E = sequtil.chunked_entropy(seqs,keepx=False)
     
     sitelist = range(1,1+m_mgr.topsite)
     ndxsites = [m_mgr.index_from_site(site) for site in sitelist]

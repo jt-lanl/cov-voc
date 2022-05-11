@@ -8,13 +8,14 @@ from collections import Counter,defaultdict
 import numpy as np
 import random
 import itertools as it
-import scipy.stats as sst
+from scipy import stats
 
 import matplotlib.pyplot as plt
 import argparse
 
 import warnings
 
+from verbose import verbose as v
 import readseq
 from spikevariants import SpikeVariants
 from hamming import hamming
@@ -59,13 +60,8 @@ def getargs():
     args = ap.parse_args()
     return args
 
-def xentropy(clist):
-    cnt = Counter(clist)
-    cnt.pop('X',None)
-    return sst.entropy(list(cnt.values()))
-
 def stripxs_orig(alist,blist,badchar='X'):
-    '''given a pair of lists (or strings), strip element n where 
+    '''given a pair of lists (or strings), strip element n where
     either alist[n]=='X' or blist[n]=='X'
     return pair of tuples
     '''
@@ -89,7 +85,7 @@ def stripxs(alist,blist,badchar='X'):
 def contingency_table(alist,blist,thresh=3):
     '''convert pair of lists (alist,blist) into a contingency table'''
     alist,blist = stripxs(alist,blist)
-        
+
     acnt = Counter(alist); avals=list(acnt); A=len(acnt)
     bcnt = Counter(blist); bvals=list(bcnt); B=len(bcnt)
     table = np.empty((A,B),dtype=np.int32)
@@ -132,26 +128,26 @@ def contingency_table(alist,blist,thresh=3):
             printerr("Original Table:")
             printerr(otable)
 
-    return table    
+    return table
 
 def cramerv(table):
     k = min(table.shape)
     N = np.sum(table)
     try:
-        chisq,_,_,_ = sst.chi2_contingency(table,lambda_='pearson')
+        chisq,_,_,_ = stats.chi2_contingency(table,lambda_='pearson')
     except ValueError:
         chisq=0
         print(f"Warning: in chisq k={k}, N={N}",file=sys.stderr)
         print("Table:\n",table,file=sys.stderr)
-    
+
     return np.sqrt(chisq/(N*max([1,(k-1)])))
 
 def mutinfo(table):
     return \
-        sst.entropy(np.sum(table,axis=1)) + \
-        sst.entropy(np.sum(table,axis=0)) - \
-        sst.entropy(table.flatten())
-    
+        statsentropy(np.sum(table,axis=1)) + \
+        statsentropy(np.sum(table,axis=0)) - \
+        statsentropy(table.flatten())
+
 
 #############################################################
 
@@ -187,15 +183,15 @@ def pairwise(args,esites,charsatsite,mutname,title=None):
             cvtable[i,j] = cvtable[j,i] = cramerv(table)
             mitable[i,j] = mitable[j,i] = mutinfo(table)
 
-            vvprint()
-            vvprint("ei,ej:",ei+1,ej+1)
-            vvprint("cv:",cvtable[i,j])
-            vvprint("mi:",mitable[i,j])
-            vvprint("ei:",Counter(charsatsite[ei]))
-            vvprint("ej:",Counter(charsatsite[ej]))
-            vvprint("ij:",Counter(zip(charsatsite[ei],
+            v.vvprint()
+            v.vvprint("ei,ej:",ei+1,ej+1)
+            v.vvprint("cv:",cvtable[i,j])
+            v.vvprint("mi:",mitable[i,j])
+            v.vvprint("ei:",Counter(charsatsite[ei]))
+            v.vvprint("ej:",Counter(charsatsite[ej]))
+            v.vvprint("ij:",Counter(zip(charsatsite[ei],
                                       charsatsite[ej])))
-            vvprint(table)
+            v.vvprint(table)
 
     ## Make plots of pairwise correlations
     mnames = [mutname[e] for e in esites]
@@ -244,7 +240,7 @@ def main(args):
     seqs = list(seqs)
     firstseq = seqs[0].seq
     seqs = seqs[1:]
-    
+
     if len(seqs)==0:
         raise RuntimeError("No sequences match pattern")
 
@@ -258,12 +254,11 @@ def main(args):
         print("Specified Date Range:",args.dates)
 
     #### SINGLE-SITE ENTROPY
-    vprint("Single-site entropy...",end="")
+    v.vprint("Single-site entropy...",end="")
     ## If args.entropysamples, then use subsampling of the sequences to estimate entropy
     sampleseqs = random.choices(seqs,k=args.entropysamples) if N>args.entropysamples>0 else seqs
-    E = [xentropy(clist)
-         for clist in sequtil.gen_columns_seqlist(sampleseqs)]
-    vprint("ok")
+    E = sequtil.chunked_entropy(sampleseqs)
+    v.vprint("ok")
 
     T = mutant.MutationManager(firstseq)
 
@@ -281,10 +276,10 @@ def main(args):
         ## sites of the largest entropy
         esites.extend(etopsites[:args.sites])
         esites = list(dict.fromkeys(esites)) ## removes dups while maintaining order
-        
-    vprint("Observing",len(esites),title)
-    vprint("Observing",len(esites),"sites:",esites)
-    vprint("Observing",len(esites),"sites:",sorted(esites))
+
+    v.vprint("Observing",len(esites),title)
+    v.vprint("Observing",len(esites),"sites:",esites)
+    v.vprint("Observing",len(esites),"sites:",sorted(esites))
 
     ## Make entropy plot
     if args.plot or args.writeplot:
@@ -300,7 +295,7 @@ def main(args):
         for e in esites:
             ndx = T.index_from_site(e)
             plt.plot([e,e],[0,E[ndx]],'r-')
-        
+
         if args.writeplot:
             plt.savefig(filename_prepend("entrpy-",args.writeplot))
 
@@ -317,7 +312,7 @@ def main(args):
         for e in esites:
             ## don't strip x's quite yet
             n = T.index_from_site(e)
-            charsatsite[e] = sequtil.getcolumn(seqs,n,keepx=True) 
+            charsatsite[e] = sequtil.getcolumn(seqs,n,keepx=True)
             mutname[e] = str(e)
         pairwise(args,esites,charsatsite,mutname,title=title)
 
@@ -342,7 +337,7 @@ def main(args):
             cnt[patt]=0
 
     patternlist = sorted(cnt, key=cnt.get, reverse=True)
-    vvprint("Sums:",args.filterbyname,len(seqs),sum(cnt.values()))
+    v.vvprint("Sums:",args.filterbyname,len(seqs),sum(cnt.values()))
 
     #### Get counts for the various continents
     #### Use all the sequences, not just those that fit pattern
@@ -362,8 +357,8 @@ def main(args):
         cont_cnt[c] = Counter(sequtil.multicolumn(cseqs,ndxsites,
                                                   keepx=True))
         cont_sum[c] = len(cseqs)
-        vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
-    
+        v.vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
+
     master =  "".join(firstseq[n] for n in ndxsites)
     print(master," Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
@@ -382,7 +377,7 @@ def main(args):
     def get_lineage(seq):
         vocs = svar.vocmatch(seq)
         return ", ".join(v.name for v in vocs)
-    
+
     ## dict indexes list of full sequences based on pattseq
     pattseqdict=defaultdict(list)
     for ps,s in zip(pattseqs,seqs):
@@ -404,32 +399,25 @@ def main(args):
             print()
         else:
             ## count full seq's consistent with pattern p
-            pcnt = Counter(s.seq for s in pattseqdict[p]) 
+            pcnt = Counter(s.seq for s in pattseqdict[p])
             [(pcommonseq,npcs)] = pcnt.most_common(1)
             mutantstr = T.get_mutation(pcommonseq)
             lineage_name = get_lineage(pcommonseq)
             print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr} {lineage_name}")
-        
-        
+
+
 
 if __name__ == "__main__":
 
     args = getargs()
-    def vprint(*p,**kw):
-        if args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        if args.verbose and args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
+    v.verbosity(args.verbose)
 
     def vcount(seqs,*p,**kw):
         if args.verbose:
             return wrapgen.keepcount(seqs,*p,**kw,file=sys.stderr)
         else:
             return seqs
-        
+
     main(args)
     if args.plot:
         plt.show()
-  
-
