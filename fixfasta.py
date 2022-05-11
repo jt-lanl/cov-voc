@@ -44,6 +44,9 @@ def getargs():
         help="Remove gap-only columns")
     paa("--snipsites",
         help="List of sites (eg 1-4,7,9-240) to be sent to output")
+    paa("--sniprange",type=int,nargs=2,
+        ## like snipsites, less flexible, but maybe faster?
+        help="site range given as two integers, lo and hi")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -170,8 +173,18 @@ def snipsites(seqs,sitestring,offset=1):
         s.seq = "".join(s.seq[offset+n] for n in sitelist)
         yield s
 
+def sniprange(seqs,lohi,offset=1):
+    '''replace sequence with shorter sequence in range lo:hi+1'''
+    v.vprint('lohi:',lohi)
+    lo,hi = lohi
+    lo,hi = lo+offset,hi+offset
+    for s in seqs:
+        s.seq = s.seq[lo:hi+1]
+        yield s
+
 def main(args):
     '''fixfasta main'''
+    v.vprint(args)
 
     def vcount(seqs,*p,**kw):
         "count items in the generator as they go by"
@@ -202,6 +215,9 @@ def main(args):
 
     if args.snipsites:
         seqs = snipsites(seqs,args.snipsites)
+
+    if args.sniprange:
+        seqs = sniprange(seqs,args.sniprange)
 
     if args.rmgapcols:
         first,seqs = sequtil.get_first_item(seqs)
