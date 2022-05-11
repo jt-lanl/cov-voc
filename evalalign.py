@@ -2,7 +2,7 @@
 import sys
 import itertools as it
 from collections import Counter
-import scipy.stats as sst
+from scipy import stats
 import argparse
 
 import covid
@@ -32,10 +32,37 @@ def count_dashes(seq,dash='-'):
     return dcount,rcount
 
 def xentropy(clist,keepx=False):
+    '''entropy from a list of characters'''
     cnt = Counter(clist)
     if not keepx:
         cnt.pop('X',None)
-    return sst.entropy(list(cnt.values()))
+    return stats.entropy(list(cnt.values()))
+
+def zentropy(clist,wlist=None,keepx=False):
+    '''entropy from a list of characters and a list of weights'''
+    cnt = Counter()
+    wlist = wlist or [1]*len(clist)
+    for c,w in zip(clist,wlist):
+        cnt[c] += w
+    if not keepx:
+        cnt.pop('X',None)
+    return stats.entropy(list(cnt.values()))
+
+def chunked_entropy(seqs,chunk=500,keepx=False):
+    '''compute entropy one chunk at a time'''
+    ## a chunk is /all/ the sequences, and /some/ of the sites
+    ## use Counter() the reduce list of subseq's to
+    ## a shorter list of unique subseq's 
+    E = []
+    L = len(seqs[0].seq)
+    for k in range(0,L,chunk):
+        subseqs = [s.seq[k:k+chunk] for s in seqs]
+        cnt = Counter(subseqs)
+        substrs,wts = zip(*cnt.items())
+        E.extend(zentropy(chars,wts,keepx=keepx)
+                 for chars in zip(*substrs))
+    return E
+
 
 def _main(args):
     '''main'''
@@ -48,8 +75,7 @@ def _main(args):
     vprint("Ref:",dcnt,rcnt)
 
     seqs = list(seqs)
-    E = [xentropy(clist,keepx=False) #args.keepx)
-         for clist in sequtil.gen_columns_seqlist(seqs)]
+    E = chunked_entropy(seqs,keepx=False)
     
     sitelist = range(1,1+m_mgr.topsite)
     ndxsites = [m_mgr.index_from_site(site) for site in sitelist]
