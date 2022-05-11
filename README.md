@@ -6,11 +6,14 @@ sequence alignments that are built at the [LANL
 cov.lanl.gov](https://cov.lanl.gov) website, which in turn are based
 on the sequences provided by GISAID (<https://www.gisaid.org/>).
 
-The emphasis is on the spike protein, though some of the routines can be applied
-as well to other proteins in the SARS-CoV-2 genome.
+The emphasis is on the spike protein, though some of the routines can
+be applied as well to other proteins in the SARS-CoV-2 genome.
 
-For most of these routines, the input is an aligned amino-acid sequence file (usually, but not necessarily, in fasta format) whose
-first sequence is taken as the *reference* sequence, typically `NC_045512_spike_surface_glycoprotein` which is the ancestral Wuhan strain.
+For most of these routines, the input is an aligned amino-acid
+sequence file (usually, but not necessarily, in fasta format) whose
+first sequence is taken as the *reference* sequence, typically
+`NC_045512_spike_surface_glycoprotein` which is the ancestral Wuhan
+strain.
 
 
 # MAIN ANALYSIS PROGRAMS
@@ -36,43 +39,56 @@ XSPIKE (eXplore the SPIKE protein) does three main tasks:
 
 # SECONDARY PROGRAMS
 
-A small ecosystem of python scripts has been developed to support and display the analysis done in
-the main routines `shiver` and `xspike`.
+A small ecosystem of python scripts has been developed to support and
+display the analysis done in the main routines `shiver` and `xspike`.
 
-Note that I often refer to sequence files as "fasta files" since that is the format I most often use. But all
-of these routines read sequence files using the `readseq.py` module, and this permits a number of file types
-(including fasta, mase, tbl, and raw sequences, and gzip'd versions of these as well); the file type is inferred
-from the extension of the file name.
+Note that I often refer to sequence files as "fasta files" since that
+is the format I most often use. But all of these routines read
+sequence files using the `readseq.py` module, and this permits a
+number of file types (including fasta, mase, tbl, and raw sequences,
+and gzip'd versions of these as well); the file type is inferred from
+the extension of the file name.
 
 ## EMBERS, SPARKS, and CINDERS
 
-EMBERS is a display tool that creates colorful stacked barplots showing how variant counts change over time.
-These are like the "blue wave" plots in our original D614G paper, but with many more variants and many more colors.
-The routine can also create simple line plots on a logarithmic axis, which is useful for tracking variants that
-are much rarer than the dominant variants (but that may be increasing in time).
+`embers` is a display tool that creates colorful stacked barplots
+showing how variant counts change over time.  These are like the "blue
+wave" plots in our original D614G paper, but with many more variants
+and many more colors.  The routine can also create simple line plots
+on a logarithmic axis, which is useful for tracking variants that are
+much rarer than the dominant variants (but that may be increasing in
+time).
 
-The variants used in `embers` are defined in a "color mutation" file, described below
+The variants used in `embers` are defined in a "color mutation" file,
+described below
 
-SPARKS was formerly called 'EMBERS_BYNAMES' -- it maked the same kind of stacked barplots (or lineplots) that
-embers makes, but based on
-the pango lineage names that are encoded in the sequence names.
-In fact, it works with both sequence files (.fasta, .tbl, etc) and with simple name files (.nm) which are just
-the list of sequence names without the sequences.
+`sparks` was formerly called `embers_bynames` -- it maked the same kind
+of stacked barplots (or lineplots) that embers makes, but based on the
+pango lineage names that are encoded in the sequence names.  In fact,
+it works with both sequence files (.fasta, .tbl, etc) and with simple
+name files (.nm) which are just the list of sequence names without the
+sequences.
 
-Because the pango lineage names are somewhat Byzantine in their structure, `sparks` reads a "lineage table" which
-has colors, names, and regular expressions describing the range of pango names that correspond to the given name.
+Because the pango lineage names are somewhat Byzantine in their
+structure, `sparks` reads a "lineage table" which has colors, names,
+and regular expressions describing the range of pango names that
+correspond to the given name.
 
-CINDERS is an experimental code that uses both pango names and sequences; currently it only considers how
-single site mutations (eg, A222V) affect the various pango lineage evolution over time.
+CINDERS is an experimental code that uses both pango names and
+sequences; currently it only considers how single site mutations (eg,
+A222V) affect the various pango lineage evolution over time.
 
 ## PANGOCOMMONFORMS
 
-Alignements from the LANL `cov-dev.lanl.gov` database now include pango lineages (see `cov-lineages.org`);
-The `pangocommonforms` code produces a report that identifies the common sequence patterns associated with
-these lineages.  In addition to the most common forms, a consensus form is also identified.  The consensus
-is defined site-by-site, and constructs a sequences by taking the most common amino-acid at each site. Usually
-the consensus is also the most common form, but that is not always the case, and in some cases, the consensus
-itself does not even appear in the database.
+Alignements from the LANL `cov-dev.lanl.gov` database now include
+pango lineages (see `cov-lineages.org`); The `pangocommonforms` code
+produces a report that identifies the common sequence patterns
+associated with these lineages.  In addition to the most common forms,
+a consensus form is also identified.  The consensus is defined
+site-by-site, and constructs a sequences by taking the most common
+amino-acid at each site. Usually the consensus is also the most common
+form, but that is not always the case, and in some cases, the
+consensus itself does not even appear in the database.
 
 ## FIXFASTA
 
@@ -136,15 +152,18 @@ and different number of components.
 
 ## FIXALIGN, TWEAKALIGN, and COALIGN
 
-`fixalign` takes an alignment of either DNA or amino acid sequences and identifies inconsistencies
-among the sequences.  Two subsequences are inconsistent if their dash-removed strings are
-identical, but their dash-included strings differ.  For amino-acid sequences it also invokes some
-heuristics to improve manifestly poor sub-alignments.  The `fixalign` code and provide a list of
-tweaks that can by used (by `tweakalign` to actually fix the sequences; or it can just go ahead
+`fixalign` takes an alignment of either DNA or amino acid sequences
+and identifies inconsistencies among the sequences.  Two subsequences
+are inconsistent if their dash-removed strings are identical, but
+their dash-included strings differ.  For amino-acid sequences it also
+invokes some heuristics to improve manifestly poor sub-alignments.
+The `fixalign` code and provide a list of tweaks that can by used (by
+`tweakalign` to actually fix the sequences; or it can just go ahead
 and apply those tweaks directly.
 
-*Note that `fixalign` does not make alignments from unaligned sequences, and poorly aligned
-sequences (especially if the poor alignments are consistent) will not be improved.*
+*Note that `fixalign` does not make alignments from unaligned
+sequences, and poorly aligned sequences (especially if the poor
+alignments are consistent) will not be improved.*
 
 `tweakalign` reads alignment tweaks either from the command line or from a file and applies them
 to the input sequences.  You can use the tweaks suggested by fixalign, but you can also edit
@@ -168,24 +187,34 @@ Find sequences that are far (in hamming distance) from a reference sequence
 
 for reading fasta sequence files
 
-* also tbl, mase, and seq (raw);
-the routine `readseq.read_seqfile(...)` will determine the format of the file based on the file extension.
+* also tbl, mase, and seq (raw); the routine
+  `readseq.read_seqfile(...)` will determine the format of the file
+  based on the file extension.
 
-* Note that gzip'd files also work so `-i sequencefile.fasta.gz` on the command line will also be automatically understood as a compressed fasta-formatted file, and it will be read without explicitly decompressing the file.
+* Note that gzip'd files also work so `-i sequencefile.fasta.gz` on
+  the command line will also be automatically understood as a
+  compressed fasta-formatted file, and it will be read without
+  explicitly decompressing the file.  (Recently, `*.xz` files
+  are similarly supported.)
 
-* Output files are also written according to their name, with output to `*.gz` files also implemented.
+* Output files are also written according to their name, with output
+  to `*.gz` and `*.xz` files also implemented.
 
-* A recent addition is the 'pkl' and 'ipkl' filetypes -- this is a python pickle (and incremental pickle)
-file; the 'pkl' is a direct serialization of
-the `SequenceSample` array as one object; the 'ipkl' serializes each sample separately.
+* A recent addition is the 'pkl' and 'ipkl' filetypes -- this is a
+  python pickle (and incremental pickle) file; the 'pkl' is a direct
+  serialization of the `SequenceSample` array as one object; the
+  'ipkl' serializes each sample separately.
 
-* More recent addition is 'nm' filetype -- this is a list of the sequence names only, no actual sequences.
-Since sequences names have a lot of meta-information, you can often do analysis using only the names.
+* Another recent addition is the 'nm' filetype -- this is a list of the
+  sequence names only, no actual sequences.  Since sequences names
+  have a lot of meta-information, you can often do analysis using only
+  the names.
 
-* The sequences are read into a list of `SequenceSample` data types (containing a name and a sequence), but
-if you want a literal list be sure to use a command like `seqs=list(seqs)` because by default the reading
-and filtering routines return python *iterators*, which [depending on the usage scenario] can be much more
-memory efficient.
+* The sequences are read into a list of `SequenceSample` data types
+  (containing a name and a sequence), but if you want a literal list
+  be sure to use a command like `seqs=list(seqs)` because by default
+  the reading and filtering routines return python *iterators*, which
+  [depending on the usage scenario] can be much more memory efficient.
 
 ### mutants/spikevariants
 
@@ -201,9 +230,11 @@ also contains a lot of miscellaneous routines that happen to be used by multiple
 simple module for translating common color names into hash-hexcodes
 
 ### intlist
-generic utilities for dealing with lists of integers; for instance, can create headers such as the following,
-which indicate that the sites being displayed are 19, 20, 142, ..., 501.  If it's not obvious, you read *down* each
-column to get the number of the site.
+generic utilities for dealing with lists of integers; for instance,
+can create headers such as the following, which indicate that the
+sites being displayed are 19, 20, 142, ..., 501.  If it's not obvious,
+you read *down* each column to get the number of the site. (In the
+example below 'W' is at site 152.)
 
       1111111222222344444445
     124455555444556613577890
@@ -211,20 +242,21 @@ column to get the number of the site.
     TTGYWMEFRLALDSAVKNLSTESN
 
 ### verbose
-encapsulates vprint functions that write messages based on user-set level of verbosity; typical use:
+encapsulates vprint functions that write messages based on user-set
+level of verbosity; typical use:
 
        from verbose import verbose as v
        ...
        v.verbosity(1)
        ...
-       v.vprint("read",n_sequences,"seqeunces from file")
+       v.vprint("read",n_sequences,"sequences from file")
 
 as an alternative to:
 
        verbosity_level=1
        ...
        if verbosity_level > 0:
-           print("read",n_sequences,"sequences from file")
+           print("read",n_sequences,"sequences from file",file=sys.stderr)
        ...
 ___
 
