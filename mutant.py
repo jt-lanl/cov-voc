@@ -24,6 +24,8 @@ from collections import defaultdict
 from functools import lru_cache
 import warnings
 
+from verbose import verbose as v
+
 class SiteIndexTranslator():
     '''provide functions to translate between string index and site number
        refseq: ABC--D
@@ -288,6 +290,17 @@ class Mutation(list):
                 return False
         return True
 
+    def relative_to(self,baseline):
+        '''write the current mutation 'relative to' a baseline mutation'''
+        ssms_add = [ssm for ssm in self if ssm not in baseline]
+        ssms_cut = [ssm for ssm in baseline if ssm not in self]
+        mutstr = ""
+        if ssms_add:
+            mutstr += "+" + str(Mutation(ssms_add))
+        if ssms_cut:
+            mutstr += "-" + str(Mutation(ssms_cut))
+        return mutstr        
+    
 class MutationManager(SiteIndexTranslator):
     '''
     Object that helps manage Mutation() mstrings,
