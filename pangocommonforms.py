@@ -32,6 +32,8 @@ def getargs():
         help="Protein name to be used in the header")
     paa("--baseline",default=None,choices=("Wuhan","BA.2"),
         help="Use this sequence as basline for mutation strings")
+    paa("--lineagebaseline",action="store_true",
+        help="Use each lineage most common form as mstring baseline for that lineage")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -64,9 +66,11 @@ def print_header(args):
           "(e.g. the two amino acid deletion at positions 156-157 is "
           "indicated with 'E156-,F157-'), "
           "and insertions are denoted by a plus sign "
-          "(e.g. an extra T at position 143 is written '+143T'). "
-          f"[Note: Baseline reference strain is {args.baseline}]."
-          "")
+          "(e.g. an extra T at position 143 is written '+143T'). ")
+    if args.baseline:
+        print(f"[Note: Mutation strings are relative to baseline {args.baseline}].")
+    if args.lineagebaseline:
+        print("[Note: Mutation strings are relative to the most common variant in each lineage.]")
     print()
 
     count_forms = f"the {args.npatterns} most common" if args.npatterns \
@@ -84,6 +88,9 @@ def print_header(args):
 def main(args):
     '''pangocommonforms main'''
 
+    if args.baseline and args.lineagebaseline:
+        raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
+
     print_header(args)
 
     seqs = covid.read_filter_seqfile(args)
@@ -95,6 +102,10 @@ def main(args):
     
     ## baseline mutation for mstrings
     base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
+    if args.baseline:
+        print()
+        print("Baseline:",str(base_mut))
+        print()
     
     seqlist = list(seqlist)
     v.vprint_only_summary('Invalid date:','skipped sequences')
@@ -155,7 +166,13 @@ def main(args):
                 cons_string = "(consensus)"
             m = mut_manager.get_mutation(comm)
             mstring = m.relative_to(base_mut) if args.baseline else str(m)
-                
+
+            if args.lineagebaseline:
+                if n==0:
+                    lineage_baseline = m
+                else:
+                    mstring = m.relative_to(lineage_baseline)
+                    
             if n == 0:
                 top_comm = comm
                 h = 0
