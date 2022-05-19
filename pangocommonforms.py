@@ -30,6 +30,8 @@ def getargs():
         help="Do not compute consensus for each form [faster compute]")
     paa("--protein",default="Spike",
         help="Protein name to be used in the header")
+    paa("--baseline",default=None,choices=("Wuhan","BA.2"),
+        help="Use this sequence as basline for mutation strings")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -58,11 +60,12 @@ def print_header(args):
           "the consensus form might not be found among these common forms.] "
           "Also shown is the Hamming distance (HD) between each form "
           "and the most common form in that lineage. Deletions relative to "
-          "the ancestral reference strain are indicated with a dash "
+          "the baseline reference strain are indicated with a dash "
           "(e.g. the two amino acid deletion at positions 156-157 is "
           "indicated with 'E156-,F157-'), "
           "and insertions are denoted by a plus sign "
-          "(e.g. an extra T at position 143 is written '+143T')."
+          "(e.g. an extra T at position 143 is written '+143T'). "
+          f"[Note: Baseline reference strain is {args.baseline}]."
           "")
     print()
 
@@ -88,13 +91,23 @@ def main(args):
 
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
+
+    
+    ## baseline mutation for mstrings
+    base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
+    
     seqlist = list(seqlist)
     v.vprint_only_summary('Invalid date:','skipped sequences')
 
     last_days = f" in the last {args.days} days from our last update,"
     last_days = last_days if args.days else ""
+    try:
+        (f_date,t_date) = covid.range_of_dates(seqlist)
+    except ValueError:
+        (f_date,t_date) = ('Unknown','Unknown')
+        
     print(f"This output is based on sequences sampled{last_days} "
-          "from %s to %s." % covid.range_of_dates(seqlist))
+          "from %s to %s." % (f_date,t_date))
 
     seqlist_by_lineage=defaultdict(list)
     for s in seqlist:
@@ -118,10 +131,8 @@ def main(args):
 
     for lin in lineages:
 
-        if lin == "None":
-            continue
-        if not lin:
-            continue
+        #if lin == "None": continue
+        #if not lin: continue
 
         seqlin = seqlist_by_lineage[lin]
 
@@ -143,24 +154,27 @@ def main(args):
                 cflag = True
                 cons_string = "(consensus)"
             m = mut_manager.get_mutation(comm)
+            mstring = m.relative_to(base_mut) if args.baseline else str(m)
+                
             if n == 0:
                 top_comm = comm
                 h = 0
                 print("%s %7d %6d %5.1f%% %3d %s %s" %
                       (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
-                       h,str(m),cons_string))
+                       h,mstring,cons_string))
             else:
                 h = hamming(top_comm,comm)
                 print("%s %7d %6d %5.1f%% %3d %s %s" %
                       (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
-                       h,str(m),cons_string))
+                       h,mstring,cons_string))
         if args.consensusalways and not cflag:
             h = hamming(top_comm,cons)
             m = mut_manager.get_mutation(cons)
+            mstring = m.relative_to(base_mut) if args.baseline else str(m)
             cnt = cntr[cons]
             print("%s %7d %6d %5.1f%% %3d %s %s" %
                   (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
-                   h,str(m),"(consensus)"))
+                   h,mstring,"(consensus)"))
         print()
 
 if __name__ == "__main__":

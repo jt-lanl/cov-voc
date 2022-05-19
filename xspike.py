@@ -2,7 +2,6 @@
 XSPIKE: eXplore the SPIKE protein sequence in the SARS CoV-2 virus
 '''
 
-import sys
 import re
 from collections import Counter,defaultdict
 import numpy as np
@@ -39,6 +38,8 @@ def getargs():
         help="prepend this (comma-separated) list of sites to those being observed")
     paa("--sites",type=int,default=50,
         help="Number of highest-entropy sites to use")
+    paa("--baseline",choices=('Wuhan','BA.2'), default=None,
+        help="Baseline sequences (default is Wuhan)")
     paa("--thresh",type=int,default=2,
         help="Only include patterns that appear at least this many times")
     paa("--entropysamples","-E",type=int,default=0,
@@ -112,21 +113,19 @@ def contingency_table(alist,blist,thresh=3):
     hzero = [np.sum(table[:,j])==0 for j in range(table.shape[1])]
     vzero = [np.sum(table[i,:])==0 for i in range(table.shape[0])]
     if (np.any( hzero ) or np.any( vzero )): # or min(table.shape)<2 ):
-        def printerr(*parg):
-            print(*parg,file=sys.stderr)
         ## This should never happen
-        printerr("warning: possible issues with contingency table")
-        printerr("len a,b:",len(alist),len(blist))
-        printerr(acnt)
-        printerr(bcnt)
-        printerr(ab)
-        printerr(hzero)
-        printerr(vzero)
-        printerr("Table;")
-        printerr(table)
+        v.print("warning: possible issues with contingency table")
+        v.print("len a,b:",len(alist),len(blist))
+        v.print(acnt)
+        v.print(bcnt)
+        v.print(ab)
+        v.print(hzero)
+        v.print(vzero)
+        v.print("Table;")
+        v.print(table)
         if thresh:
-            printerr("Original Table:")
-            printerr(otable)
+            v.print("Original Table:")
+            v.print(otable)
 
     return table
 
@@ -137,16 +136,16 @@ def cramerv(table):
         chisq,_,_,_ = stats.chi2_contingency(table,lambda_='pearson')
     except ValueError:
         chisq=0
-        print(f"Warning: in chisq k={k}, N={N}",file=sys.stderr)
-        print("Table:\n",table,file=sys.stderr)
+        v.print(f"Warning: in chisq k={k}, N={N}")
+        v.print("Table:\n",table)
 
     return np.sqrt(chisq/(N*max([1,(k-1)])))
 
 def mutinfo(table):
     return \
-        statsentropy(np.sum(table,axis=1)) + \
-        statsentropy(np.sum(table,axis=0)) - \
-        statsentropy(table.flatten())
+        stats.entropy(np.sum(table,axis=1)) + \
+        stats.entropy(np.sum(table,axis=0)) - \
+        stats.entropy(table.flatten())
 
 
 #############################################################
@@ -226,7 +225,7 @@ def main(args):
 
     ## Get title for plots and tables
     title = get_title(args)
-    print("Running xspike",title,file=sys.stderr,flush=True)
+    v.print("Running xspike",title)
 
     allseqs = covid.read_seqfile(args)
     allseqs = vcount(allseqs,"All sequences:")
@@ -317,7 +316,14 @@ def main(args):
         pairwise(args,esites,charsatsite,mutname,title=title)
 
     #### COMMON PATTERNS
-    print("\nMost common patterns for local area, where Local =",title)
+
+    ## baseline mutation for mstrings
+    base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
+
+    print()
+    print("Most common patterns for local area, where Local =",title)
+    if not args.nomutlist and args.baseline:
+        print(f"Context is relative to baseline sequence = {args.baseline}: {base_mut}")
     esites = sorted(esites)
     for lines in intlist.write_numbers_vertically(esites,plusone=0):
         print(lines)
@@ -360,6 +366,7 @@ def main(args):
         v.vvprint("Sums:",c,cont_sum[c],sum(cont_cnt[c].values()))
 
     master =  "".join(firstseq[n] for n in ndxsites)
+    
     print(master," Global",
           " ".join("%6s" % covid.ABBREV_CONTINENTS[cx] for cx,_,_ in Cxcx),
           "  Local",
@@ -401,9 +408,10 @@ def main(args):
             ## count full seq's consistent with pattern p
             pcnt = Counter(s.seq for s in pattseqdict[p])
             [(pcommonseq,npcs)] = pcnt.most_common(1)
-            mutantstr = T.get_mutation(pcommonseq)
             lineage_name = get_lineage(pcommonseq)
-            print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mutantstr} {lineage_name}")
+            mut = T.get_mutation(pcommonseq)
+            mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
+            print(f" {npcs:6d} {100*npcs//cnt[p]:3d}% {mstring} {lineage_name}")
 
 
 
@@ -414,7 +422,7 @@ if __name__ == "__main__":
 
     def vcount(seqs,*p,**kw):
         if args.verbose:
-            return wrapgen.keepcount(seqs,*p,**kw,file=sys.stderr)
+            return wrapgen.keepcount(seqs,*p,**kw)
         else:
             return seqs
 

@@ -94,7 +94,10 @@ def _getargs():
     paa("--region",default="NTDss-18-142+RBD+furin",
         help="region of spike sequence over which patterns are defined")
     paa("--colormut",
-        help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
+        help="name of color mutation file "
+        "(mutation_string,lineage_name) are 2nd,3rd columns")
+    paa("--baseline",default=None,choices=("Wuhan","BA.2"),
+        help="Use this sequence as basline for mutation strings")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -138,7 +141,7 @@ def main(args):
     fullseqs = list(fullseqs)
     vprint("Read",len(fullseqs),"sequences after filtering")
     firstseq = fullseqs[0].seq
-
+    
     ## patt seqs is a copy of full seqs,
     ## but with just the sites in restricted region (NTD+RBD)
     sitenums = covid.spike_sites(args.region)
@@ -309,6 +312,10 @@ def main(args):
         raise RuntimeError("No altered sites: must be an error!")
 
 
+    ## baseline mutation for mstrings
+    if args.baseline:
+        base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
+    
     rows = []
     srseq = dict()
     if altered_sitenums:
@@ -362,7 +369,8 @@ def main(args):
             v_fullseq = "".join("X" for _ in firstseq)
 
         ## make full list of mutations
-        mutliststr = str( MM.get_mutation(v_fullseq,exact=False) )
+        mut = MM.get_mutation(v_fullseq,exact=False)
+        mutliststr = mut.relative_to(base_mut) if args.baseline else str(mut)
         vvprint(v,mutliststr)
 
         ## find best lineage name:
@@ -389,6 +397,10 @@ def main(args):
 
     print(DESCRIPTION)
     print(TABLE_VARIANTS)
+    if args.baseline:
+        print(f"Mutation string patterns are relative to lineage "
+              f"{args.baseline}: {base_mut}\n")
+
     TabVar_Heading="Name                    LPM    GPM    GSM  GSM/GPM [Mutations] %s" \
         % ("(Lineage)" if args.colormut else "")
     for line in vertlines[:-1]:
@@ -418,7 +430,7 @@ def main(args):
             cov = sum(cnt[v] for v in cocktail_array)
             if tot>0:
                 f = cov/tot
-                yield "%25s %-4s   %.4f" % (cx,CocktailName,f)
+                yield "%27s %-4s   %.4f" % (cx,CocktailName,f)
 
     print(POST_DESCRIPTION)
 
