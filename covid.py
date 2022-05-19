@@ -8,11 +8,13 @@ import itertools as it
 from pathlib import Path
 import warnings
 
+from verbose import verbose as v
+import intlist
 import wrapgen
 import readseq
 import sequtil
-import intlist
-from verbose import verbose as v
+import mstringfix
+import mutant
 
 MAX_TITLE_LENGTH=60 ## truncate long title names
 ISO_DATE_REGEX = re.compile(r'\d\d\d\d-\d\d(-\d\d)?')
@@ -116,6 +118,26 @@ def expand_who_name_to_pangolin_pattern(patt):
     pattern
     '''
     return xpand_WHO_Pangolin.get(patt,patt)
+
+BASELINE_MSTRINGS = {
+    'Wuhan' : "",
+    'BA.2' : "T19I,L24-,P25-,P26-,A27S,G142D,V213G,G339D,S371F,S373P,S375F,T376A,D405N,R408S,K417N,N440K,S477N,T478K,E484A,Q493R,Q498R,N501Y,Y505H,D614G,H655Y,N679K,P681H,N764K,D796Y,Q954H,N969K",
+}
+
+def get_baseline_mstring(lineage='Wuhan'):
+    mstring = BASELINE_MSTRINGS.get(lineage,"")
+    mstring = mstringfix.mstring_brackets(mstring)
+    return mstring
+
+def reset_baseline(firstseq,lineage):
+    '''use lineage instead of Wuhan as baseline "first" sequence'''
+    mut_mgr = mutant.MutationManager(firstseq)
+    base_mstring = get_baseline_mstring(lineage)
+    if not base_mstring:
+        return firstseq
+    base_mutant = mutant.Mutation(base_mstring)
+    base_seq = mut_mgr.seq_from_mutation(base_mutant)
+    return base_seq    
 
 def get_isl(fullname):
     '''return EPI_ISL number from the sequence name'''
