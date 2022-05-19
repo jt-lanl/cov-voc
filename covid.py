@@ -43,6 +43,9 @@ def default_seqfile(seqfilename=DEFAULTSEQFILE):
         seqfile = Path(d) / (seqfilename + ".gz")
         if seqfile.exists():
             return seqfile
+        seqfile = Path(d) / (seqfilename + ".xz")
+        if seqfile.exists():
+            return seqfile
 
     return None
 
