@@ -101,8 +101,7 @@ def main(args):
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
     seqs = emu.filter_seqs_by_padded_dates(seqs,args)
-    if not args.keepx:
-        seqs = (s for s in seqs if "X" not in s.seq)
+    seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 
     if args.colormut:
