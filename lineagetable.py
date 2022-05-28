@@ -6,35 +6,33 @@ import colornames
 
 OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
 
-DefaultLineageTable=[
+DefaultLineageTable = [
 
-    ('Orange',     'Alpha',   r'(B\.1\.1\.7)|(Q\..*)'),
-    ('ForestGreen','Lambda',  r'C\.37(\..*)?'),
-    ('LightPink',  'Beta',    r'B\.1\.351(\..*)?'),
-    ('LimeGreen',  'Mu',      r'B\.1\.621(\..*)?'),
-    ('FireBrick',  'Gamma',   r'P\.1(\..*)?'),
-    ('Cyan',       'Epsilon', r'B\.1\.42[97](\..*)?'),
-    ('DodgerBlue', 'Iota',    r'B\.1\.526(\..*)?'),
-    ('Gold',       'Eta',     r'B\.1\.525(\..*)?'),
-    ('OliveDrab',  'Kappa',   r'B\.1\.617\.1(\..*)?'),
-    ('Goldenrod',  'R.1',     r'R\.1(\..*)?'),
+    (      'Black',                'Unassigned', r'(None|Unassigned)'),
+    (   'DarkGray',                 'Ancestral', r'(A)|(A.1)|(A.11)|(A.12)|(A.15)|(A.16)|(A.17)|(A.2)|(A.2.2)|(A.2.3)|(A.2.4)|(A.21)|(A.22)|(A.23)|(A.23.1)|(A.24)|(A.25)|(A.26)|(A.27)|(A.28)|(A.29)|(A.3)|(A.30)|(A.4)|(A.5)|(A.6)|(A.7)|(A.9)|(B)|(B.1.1.161)|(B.1.14)|(B.1.260)|(B.10)|(B.11)|(B.12)|(B.13)|(B.15)|(B.18)|(B.19)|(B.20)|(B.23)|(B.26)|(B.27)|(B.28)|(B.29)|(B.3)|(B.3.1)|(B.30)|(B.31)|(B.32)|(B.33)|(B.34)|(B.35)|(B.36)|(B.37)|(B.38)|(B.39)|(B.4)|(B.4.1)|(B.4.2)|(B.4.4)|(B.4.5)|(B.4.6)|(B.4.7)|(B.40)|(B.41)|(B.42)|(B.43)|(B.44)|(B.45)|(B.46)|(B.47)|(B.49)|(B.5)|(B.50)|(B.51)|(B.52)|(B.53)|(B.55)|(B.56)|(B.57)|(B.58)|(B.6)|(B.6.1)|(B.6.2)|(B.6.3)|(B.6.4)|(B.6.5)|(B.6.6)|(B.6.8)|(B.60)|(B.61)'),
+    (     'Yellow',                     'D614G', r'$OTHER'),
+    (     'Orange',                     'Alpha', r'(B\.1\.1\.7)|(Q\..*)'),
+    ('ForestGreen',                    'Lambda', r'C\.37(\..*)?'),
+    (  'LightPink',                      'Beta', r'B\.1\.351(\..*)?'),
+    (  'LimeGreen',                        'Mu', r'B\.1\.621(\..*)?'),
+    (  'FireBrick',                     'Gamma', r'P\.1(\..*)?'),
+    (       'Cyan',                   'Epsilon', r'B\.1\.42[97](\..*)?'),
+    ( 'DodgerBlue',                      'Iota', r'B\.1\.526(\..*)?'),
+    (       'Gold',                       'Eta', r'B\.1\.525(\..*)?'),
+    (  'OliveDrab',                     'Kappa', r'B\.1\.617\.1(\..*)?'),
+    (  'Goldenrod',                       'R.1', r'R\.1(\..*)?'),
+    ( 'BlueViolet',                     'Delta', r'(B\.1\.617\.2)|(AY\..*)'),
+    (      'Khaki',                     'C.1.2', r'C\.1\.2(\..*)?'),
+    (        'Red',             'Omicron_other', r'(B\.1\.1\.529)|(BA\..*)'),
+    (       'Pink',            'Omicron_BA.1.1', r'BA\.1\.1(\..*)?'),
+    (     'Maroon',              'Omicron_BA.2', r'BA\.2(\..*)?'),
+    (    'Magenta',         'Omicron_BA.2.12.1', r'BA\.2\.12\.1'),
+    (  'Burlywood',           'Omicron_BA.2.11', r'BA\.2\.11'),
+    ( 'LightGreen', 'Omicron_BA.2.13/9.1_L452M', r'(BA\.2\.13)|(BA\.2\.9\.1)'),
+    (  'ALiceBlue',     'Omicron_BA.2.18_K417T', r'BA\.2\.18'),
+    (       'Blue',              'Omicron_BA.4', r'BA\.4(\..*)?'),
+    ( 'DarkOrange',              'Omicron_BA.5', r'BA\.5(\..*)?'),
 
-    #('Lavender',  'Delta_AY.25',    r'AY\.25(\..*)?'),
-    #('Purple',    'Delta_AY.26',    r'AY\.26(\..*)?'),
-    #('Lavender',  'Delta_AY.33',    r'AY\.33(\..*)?'),
-    #('SkyBlue',   'Delta_AY.98.1',  r'AY\.98\.1(\..*)?'),
-    #('Cornsilk',  'Delta_AY.47',    r'AY\.47(\..*)?'),
-    #('HotPink',   'Delta_AY.35',    r'AY\.35(\..*)?'),
-    #('Magenta',   'Delta_AY.4.2',   r'AY\.4\.2'),
-    #('Tan',       'Delta_AY.4.2.1', r'AY\.4\.2\.1(\..*)?'),
-    ('BlueViolet', 'Delta',          r'(B\.1\.617\.2)|(AY\..*)'),
-
-    #('Yellow',       'C.1.2', r'C\.1\.2(\..*)?'),
-    #('Khaki',        'B.1.1.318', r'B\.1\.1\.318(\..*)?'),
-    #('DarkTurquoise','B.1.640', r'B\.1\.640(\..*)?'),
-    ('Red',        'Omicron', r'(B\.1\.1\.529)|(BA\.1)|(BA\.[^12](\..*)?)'),
-    ('Pink',       'Omicron_BA.1.1',r'BA\.1\..*'),
-    ('Maroon',     'Omicron_BA.2',r'BA\.2(\..*)?'),
 ]
 
 ##______________________________________________________________________
@@ -56,6 +54,23 @@ def rd_lineage_table(filename):
                 warnings.warn(f'Bad line in lineage file: {line}')
     return lineage_table
 
+def write_lineage_table_python(lineage_table):
+    '''write out the lineage table as a python list of tuples'''
+    print("DefaultLineageTable = [")
+    print()
+    maxlen_color = maxlen_name = 0
+    for color,name,pattern in lineage_table:
+        maxlen_color = max([maxlen_color,len(color)])
+        maxlen_name  = max([maxlen_name,len(name)])
+    fmt = "    (%%%ds %%%ds %%s)," % (maxlen_color+3, maxlen_name+3)
+    for color,name,pattern in lineage_table:
+        qcolor = f"'{color}',"
+        qname = f"'{name}',"
+        qpattern = f"r'{pattern}'"
+        print(fmt % (qcolor,qname,qpattern))
+    print()
+    print("]")
+
 class LineageTablePatterns:
     '''adds some functionality to the raw lineage table'''
 
@@ -65,9 +80,15 @@ class LineageTablePatterns:
         self.names =     {patt: name                          for color,name,patt in table}
         self.regexpatt = {patt: re.compile(r'\.('+patt+r')$') for color,name,patt in table}
 
-    def _match_generator(self,seqname):
-        return (patt for patt in self.patterns
+    def _match_generator(self,seqname,reverse=False):
+        patternlist = self.patterns[::-1] if reverse else self.patterns
+        return (patt for patt in patternlist
                 if self.regexpatt[patt].search(seqname))
+
+    def last_match(self,seqname,notfound=OTHER):
+        '''return the last pattern found whose regexp matches the sequence name'''
+        ## by "last" we mean first in the reversed list
+        return next(self._match_generator(seqname,reverse=True), notfound)
 
     def first_match(self,seqname,notfound=OTHER):
         '''return the first pattern found whose regexp matches the sequence name'''
@@ -85,6 +106,7 @@ class LineageTablePatterns:
         self.regexpatt[patt] = re.compile(r'\.('+patt+r')$')
 
     def del_pattern(self,patt):
+        '''delete an entry in the table'''
         if patt not in self.patterns:
             warnings.warn(f'pattern {patt} not in lineage table, cannot delete')
             return
@@ -108,3 +130,8 @@ def get_lineage_table(lineagetable_file=None,other=None):
         table.insert(0,('Gainsboro','other',OTHER))
 
     return LineageTablePatterns(table)
+
+if __name__ == "__main__":
+
+    ltable = rd_lineage_table('lineage-table-v4.txt')
+    write_lineage_table_python(ltable)
