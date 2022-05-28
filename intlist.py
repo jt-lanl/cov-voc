@@ -1,3 +1,5 @@
+'''utilities for lists of integers'''
+
 def str_intgen(x,end=None):
     """
     Convert a string such as 2,5-8,10
@@ -24,15 +26,18 @@ def str_intgen(x,end=None):
                 yield n
 
 def string_to_intlist(x,end=None):
-    return list(str_intgen(x,end=end))
-
-    
-def string_to_intlist_old(x,end=None):
     """
     Convert a string such as 2,5-8,10
     Into a list of integers [2,5,6,7,8,10]
     Also works with :-notation, eg 2,5:9:2,10 becomes [2,5,7,10]
     Note: no sorting or removal of duplicates; sorted(set(...)) will do that
+    """
+    return list(str_intgen(x,end=end))
+
+
+def string_to_intlist_old(x,end=None):
+    """
+    Deprecated -- see string_to_intlist
     """
     result = []
     for part in x.split(','):
@@ -77,7 +82,7 @@ def format_intlist(nlist,width=79,intro=""):
     return lines
 
 def intlist_to_string(nlist,sort=False):
-    '''inverse of string_to_intlist, 
+    '''inverse of string_to_intlist,
     eg, [1,2,3,6,7,9,10,11] --> "1-3,6,7,9-11"
     '''
     if len(nlist)==0:
@@ -98,10 +103,10 @@ def intlist_to_string(nlist,sort=False):
             elif nhi>nlo+1:
                 slist.append( str(nlo) + "-" + str(nhi) )
             nlo = nhi = n
-    
+
     return ",".join(slist)
-        
-    
+
+
 
 def write_numbers_vertically(nlist,plusone=0,leadingzero=' '):
     '''
@@ -115,7 +120,7 @@ def write_numbers_vertically(nlist,plusone=0,leadingzero=' '):
 
     if nlist is None or len(nlist)==0:
         return []
-    
+
     lines = []
     rlist = []
     nlist = [n+plusone for n in nlist]
@@ -131,16 +136,43 @@ def write_numbers_vertically(nlist,plusone=0,leadingzero=' '):
                 rlist[k][j] = leadingzero
             else:
                 break
-            
+
     for r in rlist:
         lines.append("".join(r))
     return lines
 
+def intlist_to_rangelist(intlist):
+    '''
+    input: 1,2,3,7,8,9,58,59,60,61
+    output: (1,4),(7,10),(58,62)
+    '''
+    intlist = sorted(intlist) #make sure list is sorted
+    rangelist = []
+    nprev=lo=hi=None
+    for n in intlist + [None]:
+        if n is None:
+            rangelist.append( (lo,hi) )
+            break
+        if lo is None:
+            lo = nprev = n
+            hi = n+1
+            continue
+        if n > nprev+1:
+            rangelist.append( (lo,hi) )
+            lo = n
+        nprev = n
+        hi = n+1
+    return rangelist
+
+
 
 if __name__ == "__main__":
 
-    s="2,5-8,10"
-    print(s,string_to_intlist(s))
+    for s in ["2,5-8,10","2,5-8,10-12"]:
+        nlist = string_to_intlist(s)
+        print(s,nlist)
+        rlist = intlist_to_rangelist(nlist)
+        print(s,rlist)
     s="2,5-8,10-"
     print(s,string_to_intlist(s,end=20))
 
@@ -153,5 +185,3 @@ if __name__ == "__main__":
     lines = write_numbers_vertically(nlist)
     print(nlist,":")
     print("\n".join(lines))
-    
-          
