@@ -2,12 +2,13 @@
 import datetime
 import random
 import warnings
-
+import itertools as it
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from verbose import verbose as v
+import wrapgen
 import covid
 
 def embers_args(ap):
@@ -114,6 +115,12 @@ def filter_seqs_by_padded_dates(seqs,args,keepfirst=False):
     args.dates = [start_date,stop_date]
     start_date,stop_date = covid.expand_date_range([start_date,stop_date],args.daily)
     seqs = covid.filter_by_date(seqs,start_date,stop_date,keepfirst=keepfirst)
+
+    if args.nseq:
+        seqs = it.islice(seqs,args.nseq+1)
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
+
     return seqs
 
 def get_running_weekly(cumulative_counts,num_days,daysperweek=7):
