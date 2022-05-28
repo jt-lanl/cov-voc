@@ -1,4 +1,6 @@
-'''utilities for seqs; where seqs is a list of SequenceSample's'''
+'''utilities for seqs;
+   where seqs is a list (or generator) of SequenceSample's
+'''
 
 import re
 import itertools
@@ -9,6 +11,7 @@ from scipy import stats
 
 from seqsample import SequenceSample
 from readseq import read_seqfile,write_seqfile
+import intlist
 
 def copy_seqlist(seqlist):
     '''return a 'deep' copy of the sequence list'''
@@ -69,7 +72,7 @@ def chunked_entropy(seqs,chunk=500,keepx=False):
     '''compute entropy one chunk at a time'''
     ## a chunk is /all/ the sequences, and /some/ of the sites
     ## use Counter() the reduce list of subseq's to
-    ## a shorter list of unique subseq's 
+    ## a shorter list of unique subseq's
     E = []
     L = len(seqs[0].seq)
     for k in range(0,L,chunk):
@@ -161,8 +164,9 @@ def get_gap_columns(seqs,dashchar='-'):
     ## ie, indices such that s.seq[n]==dashchar for all s in seqs
     first,seqs = get_first_item(seqs)
     dashindexes = str_indexes(first.seq,dashchar)
-    for s in seqs:
-        dashindexes = [n for n in dashindexes if s.seq[n]==dashchar]
+    distinct_sequences = set(s.seq for s in seqs)
+    for seq in distinct_sequences:
+        dashindexes = [n for n in dashindexes if seq[n]==dashchar]
         if not dashindexes:
             break
     return dashindexes
@@ -173,8 +177,12 @@ def remove_gap_columns(seqs,dashchar='-'):
     dashindexes = get_gap_columns(seqs,dashchar=dashchar)
     first,seqs = get_first_item(seqs)
     keepndx = [n for n in range(len(first.seq)) if n not in dashindexes]
+    keepranges = intlist.intlist_to_rangelist(keepndx)
+    print("ndx:",len(keepndx))
+    print("rng:",len(keepranges))
     for s in seqs:
-        s.seq = "".join(s.seq[n] for n in keepndx)
+        #s.seq = "".join(s.seq[n] for n in keepndx)
+        s.seq = "".join(s.seq[lo:hi] for lo,hi in keepranges)
     return seqs
 
 ######################## Filter based on pattens in the name of seq
@@ -237,9 +245,11 @@ if __name__ == "__main__":
 
     xargs = getargs()
     def vprint(*p,**kw):
+        '''verbose print'''
         if xargs.verbose:
             print(*p,file=sys.stderr,flush=True,**kw)
     def vvprint(*p,**kw):
+        '''print if very verbose'''
         if xargs.verbose>1:
             print(*p,file=sys.stderr,flush=True,**kw)
 
