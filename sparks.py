@@ -73,7 +73,7 @@ def main(args):
                 v.vprint_only(5,"skip None:",f'[{s.name}]')
                 continue
 
-        voc = T.first_match(s.name)
+        voc = T.last_match(s.name)
 
         if voc == OTHER:
             if args.writeother:
