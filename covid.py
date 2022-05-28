@@ -382,7 +382,7 @@ def fix_seqs(seqs,args):
         seqs = sequtil.stripdashcols(first.seq,seqs)
 
     if not args.keeplastchar:
-        if first.seq[-1] in "$*X":
+        if first.seq and first.seq[-1] in "$*X":
             stop_codon = first.seq[-1]
             first.seq = first.seq[:-1]
             seqs = striplastchars(seqs,len(first.seq))
