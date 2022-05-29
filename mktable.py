@@ -135,8 +135,13 @@ def pango_pseqs(pseqs,pango):
     else:
         pango = covid.expand_who_name_to_pangolin_pattern(pango)
         for ps in pseqs:
-            if re.match(pango,ps.lineage):
-                yield ps
+            try:
+                if re.match(pango,ps.lineage):
+                    yield ps
+            except:
+                print("pango=",pango)
+                print("ps.lineage=",ps.lineage)
+                raise RuntimeError("STOP")
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
