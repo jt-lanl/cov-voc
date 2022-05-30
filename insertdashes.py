@@ -2,7 +2,7 @@
 
 import argparse
 from verbose import verbose as v
-
+import intlist
 import readseq
 
 def _getargs():
@@ -17,6 +17,8 @@ def _getargs():
         help="number of dashes to insert")
     paa("--position","-p",type=int,default=1,
         help="position before which to insert dashes")
+    paa("--seqs","-s",
+        help="list of which sequences to add dashes (1=first, default=all)")
     paa("--dash",default="-",
         help="dash character")
     paa("--verbose","-v",action="count",default=0,
@@ -31,9 +33,15 @@ def _main(args):
     seqs = readseq.read_seqfile(args.input)
     seqs = list(seqs)
 
+    whichseqs = range(len(seqs))
+    if args.seqs:
+        whichseqs = intlist.string_to_intlist(args.seqs)
+    whichseqs = set(whichseqs)
+    
     p = args.position-1
-    for s in seqs:
-        s.seq = s.seq[:p] + args.dash * args.n + s.seq[p:]
+    for n,s in enumerate(seqs,start=1):
+        if n in whichseqs:
+            s.seq = s.seq[:p] + args.dash * args.n + s.seq[p:]
 
     if args.output:
         readseq.write_seqfile(args.output,seqs)
