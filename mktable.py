@@ -139,9 +139,9 @@ def pango_pseqs(pseqs,pango):
                 if re.match(pango,ps.lineage):
                     yield ps
             except:
-                print("pango=",pango)
-                print("ps.lineage=",ps.lineage)
-                raise RuntimeError("STOP")
+                v.print("pango=",pango)
+                v.print("ps.lineage=",ps.lineage)
+                raise RuntimeError(f"Invalid pango name: {pango}/{ps.lineage}")
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
@@ -193,6 +193,20 @@ def read_input_file(filename):
                 continue
             yield (pango,mstring)
 
+def truncate_pango_name(pangofull):
+    '''
+    return the pango lineage associated ith a full pango name
+    it is the SECOND field, as delineated by underscores; eg
+    Iota_B.1.526 -> B.1.526
+    Omicron_BA.1.1__BA.1_add[R346K] -> BA.1.1
+
+    Note: currently, we treat 'xxx_Omicron_BA.1' as an invalid string,
+    because 'Omicron' is not a strict pango lineage name
+    '''
+    match = re.match('[^_]+_+([^_]+).*',pangofull)
+    if not match:
+        raise RuntimeError('Invalid designation: {pangofull}')
+    return match[1]
 
 def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     '''produce a single row of the spreadsheet as a dict()'''
@@ -200,8 +214,7 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     row = dict()
 
     row[Pango] = pangofull ## give it the full name
-    pango = re.sub(r'\s+.*','',pangofull) ## but use the truncated name
-    pango = re.sub(r'_.*','',pango)
+    pango = truncate_pango_name(pangofull)
 
     row[Pattern] = re.sub(r'[\[\]]','',mstring) ## brackets off
 
@@ -212,6 +225,9 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     seqdict[Pango] = list(pango_pseqs(seqs,pango))
     v.vvprint("Of which,",len(seqdict[Pango]),
              "sequences matched pango form",pangofull)
+    if len(seqdict[Pango])==0:
+        v.print(f'No matches to pango form {pango}, full name {pangofull}')
+
     row[TotalPangoCount] = len(seqdict[Pango])
     row[TotalPangoFraction] = row[TotalPangoCount]/total_count
     seqdict[Recent] = seqs_sixtydays
