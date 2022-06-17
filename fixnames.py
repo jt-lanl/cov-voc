@@ -1,5 +1,6 @@
 '''Template doc string'''
 
+import re
 import argparse
 from collections import Counter
 from verbose import verbose as v
@@ -19,7 +20,11 @@ def _getargs():
     args = argparser.parse_args()
     return args
 
-def fixname(seqname):
+DATE_REGEX = re.compile(r'\d\d\d\d-\d\d-\d\d')
+BETA_REGEX = re.compile(r'B\.1\.351(\..*)?')
+BETA_DATE = covid.date_fromiso('2020-06-01')
+
+def fixlocation(seqname):
     '''fix common errors in sequence names
     returns tuple: fixed name, and bad location'''
 
@@ -44,17 +49,14 @@ def fixname(seqname):
             return seqname,location
     return None,None
 
-def _main(args):
-    '''main'''
-    v.vprint(args)
-
-    seqs = covid.read_filter_seqfile(args)
-    if args.output:
-        seqs = list(seqs)
-
+def fixlocations(seqs):
+    '''apply fixlocation to full seqlist'''
     bad_locations = Counter()
+    seqcount=0
     for s in seqs:
-        new_name,old_location = fixname(s.name)
+        seqcount += 1
+
+        new_name,old_location = fixlocation(s.name)
         if new_name:
             if new_name != s.name and old_location not in bad_locations:
                 v.vprint('new name:',new_name)
@@ -64,14 +66,63 @@ def _main(args):
         else:
             v.vprint("Bad name:",s.name)
 
+        yield s
+
     for bad_location,cnt in bad_locations.items():
         v.vprint(f"{cnt:6d} {bad_location}")
 
     v.print("Fixed names:",sum(bad_locations.values()))
+    v.print(f"Fixed names: {100*sum(bad_locations.values())/seqcount:.2f}%")
+
+
+def fixdate(seqname):
+    '''fix common errors in date'''
+    tokens = seqname.split('.',6)
+    date_token = tokens[4]
+    date = covid.date_fromiso(date_token)
+    if date is None:
+        v.vprint_only(5,'bad date:',date_token,seqname)
+        return None
+
+    lineage_token = tokens[6]
+    if BETA_REGEX.match(lineage_token) and date < BETA_DATE:
+        tokens[4] = "2021" + date_token[4:]
+        return ".".join(tokens)
+
+    return seqname
+
+def fixdates(seqs):
+    '''apply fixdate to each sequence in seqlist -- return new iterator'''
+    seqcount=0
+    badcount=0
+    fixcount=0
+    for s in seqs:
+        seqcount += 1
+        new_name = fixdate(s.name)
+        if new_name is None:
+            badcount += 1
+            continue
+        if new_name != s.name:
+            fixcount += 1
+            s.name = new_name
+        yield s
+
+    v.vprint(f'Fix Dates: {seqcount} total, '
+             f'{fixcount} fixed, {badcount} removed')
+
+def _main(args):
+    '''main'''
+    v.vprint(args)
+
+    seqs = covid.read_filter_seqfile(args)
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+
+    seqs = fixlocations(seqs)
+    seqs = fixdates(seqs)
 
     if args.output:
-        sequtil.write_seqfile(args.output,seqs)
-        v.print(f"Fixed names: {100*sum(bad_locations.values())/len(seqs):.2f}%")
+        sequtil.write_seqfile(args.output,
+                              [first] + list(seqs))
 
 
 if __name__ == "__main__":
