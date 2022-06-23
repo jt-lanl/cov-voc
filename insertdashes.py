@@ -33,7 +33,7 @@ def _main(args):
     seqs = readseq.read_seqfile(args.input)
     seqs = list(seqs)
 
-    whichseqs = range(len(seqs))
+    whichseqs = range(1,1+len(seqs))
     if args.seqs:
         whichseqs = intlist.string_to_intlist(args.seqs)
     whichseqs = set(whichseqs)
