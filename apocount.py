@@ -1,9 +1,11 @@
 '''Find APOBEC patterns and mutation in DNA sequences'''
 
 import argparse
+from collections import defaultdict
 import scipy.stats as stats
 
 import verbose as v
+import mutant
 import sequtil
 import apobec as apo
 
@@ -21,6 +23,8 @@ def _getargs():
         help="F = forward, R = reverse complement, B = both")
     paa("--strict",action="store_true",
         help="Use stricter APOBEC pattern definition")
+    paa("--truesite",action="store_true",
+        help="Use actual site number, not position in string")
     paa("--loose",action="store_false",dest='strict',
         help="Use looser APOBEC pattern definition")
     paa("--table",action="store_true",
@@ -117,15 +121,16 @@ def _main(args):
     v.vprint("APOBEC_FD:",apo.APOBEC_FD)
 
     seqs = sequtil.read_seqfile(args.input)
+    seqs = list(seqs)
 
     if args.reversecomplement:
-        seqs = list(seqs)
         for s in seqs:
             s.seq = apo.reverse_complement(s.seq)
             
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+    site_xlate = mutant.SiteIndexTranslator(first.seq)
     if args.nseq:
-        seqs = list(seqs)[:args.nseq]
+        seqs = seqs[:args.nseq]
     
     GC_sites, apo_sites = get_sites(first.seq,fwd=fwd)
     total_apo = len(apo_sites)
@@ -134,6 +139,8 @@ def _main(args):
     v.vprint(f"{sitename} sites:",total_GC)
     v.vprint("apobecs:",total_apo)
     print("sequence-name other-mutations [contingency-table] p=p-value OR=odds-ratio")
+    maxnamelen = max(len(s.name) for s in seqs)
+    namefmt = "%%%ds" % maxnamelen
     for s in seqs:
         ga_count,apo_count = count_patterns(s.seq,GC_sites,apo_sites,fwd=fwd)
         xycnt,gacnt,ctcnt = count_mutations(first.seq,s.seq)
@@ -161,35 +168,26 @@ def _main(args):
                         sidelabels=sidelabels)
             print()
         if args.summary:
-            fsummary.write("%s\n" % s.name)
+            fsummary.write(namefmt % s.name)
             msites = apo.get_all_mutsites(first.seq,s.seq)
             maposites = sorted(set(msites) & set(apo_sites))
             mxxxsites = sorted(set(msites) - set(apo_sites))
-            ctxlist = [apo.get_mut_context(n,first.seq,s.seq)
-                       for n in msites]
-            G_to_A = [n
-                      for n,ctx in zip(msites,ctxlist)
-                      if ctx[0]=='G']
-            C_to_T = [n
-                      for n,ctx in zip(msites,ctxlist)
-                      if ctx[0]=='C']
-            X_to_Y = [n
-                      for n,ctx in zip(msites,ctxlist)
-                      if ctx[0] not in 'GC']
-            
-            def write_sum(mtype,mlist,apo_or_xxx):
-                mlist = [n for n in mlist if n in apo_or_xxx]
-                if mlist:
-                    fsummary.write("  %s: " % mtype)
-                    for n in mlist:
-                        fsummary.write("%d " % n)
-                        #fsummary.write("%s%d%s " % (first.seq[n],n, s.seq[n]))
-            write_sum('APO-GA',G_to_A,maposites)
-            write_sum('APO-CT',C_to_T,maposites)
-            write_sum('APO-XY',X_to_Y,maposites)
-            write_sum('GA',G_to_A,mxxxsites)
-            write_sum('CT',C_to_T,mxxxsites)
-            write_sum('XY',X_to_Y,mxxxsites)
+            #ctx = {n: apo.get_mut_context(n,first.seq,s.seq)
+            #       for n in msites}
+
+            muts = defaultdict(list)
+            for n in maposites:
+                muts['APO-'+first.seq[n]+s.seq[n]].append(n)
+            for n in mxxxsites:
+                muts[first.seq[n]+s.seq[n]].append(n)
+
+            for mtype,mlist in muts.items():
+                fsummary.write(f' {mtype}:')
+                for n in mlist:
+                    nsite = n
+                    if args.truesite:
+                        nsite = site_xlate.site_from_index(n)
+                    fsummary.write(f' {nsite}')
             fsummary.write("\n")
 
     if args.summary:
