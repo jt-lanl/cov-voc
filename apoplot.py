@@ -20,6 +20,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import verbose as v
+import mutant
 import sequtil
 import apobec as apo
 
@@ -37,6 +38,8 @@ def _getargs():
         help="Use stricter APOBEC pattern definition")
     paa("--loose",action="store_false",dest='strict',
         help="Use looser APOBEC pattern definition")
+    paa("--keepfirst",action='store_true',
+        help="Keep the reference sequence in the plot")
     paa("--merge",action="store_true",
         help="Add an extra merge sequence")
     paa("--pairs",
@@ -45,14 +48,92 @@ def _getargs():
         help="write plot to output file")
     paa("--showgaps",action="store_true",
         help="show where the reference sequence gaps are in the alignment")
+    paa("--showgene",action="store_true",
+        help="show where the F13L gene is")
     paa("--nosnp",
         help="write sequences names with no SNPs into file")
+    paa("--numlabel",
+        help="name of file to but names of sequences, associated with numbers")
+    paa("--keyfile",
+        help="name of color keyfile")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
     args.loose = not args.strict
     return args
 
+Colors = {
+    'gene_boundary': '#FFDDBB', #light orange',
+    'apobec':        'Blue', # G->A or C->T
+    'apobec_loose':  'Cyan', # G->G or C->C
+    'non_apobec':    '#BB0000', # dark red, G->[CT] or C->[GA]
+    'not_apobec':    'Magenta', # not-apobec vs non-apobec ??
+    'other_mut':     'Gray',
+    'deletions':     '#99FF99', # light green
+    'insertions':    '#BBBBFF', # light blue
+    'ns':            '#FF88FF', # light magenta
+}
+
+def mk_color_key(keyfile=None):
+    def haxis(y):
+        plt.plot([-1,1],[y,y],'k-')
+    def tick(y,lo,hi,x=0,**kw):
+        plt.plot([x,x],[y-lo,y+hi],linewidth=3,**kw)
+
+    labels=[]
+    plt.figure(figsize=(4,8))
+    n=10
+    n-=1
+    haxis(n); tick(n,0,0.3,color=Colors['apobec'])
+    labels.append('Apobec GA.->A..')
+    n-=1
+    haxis(n); tick(n,0.3,0,color=Colors['apobec'])
+    labels.append('Apobec .TC->.TT')
+    n-=1
+    haxis(n); tick(n,0,0.3,color=Colors['non_apobec'])
+    labels.append('Non-Apobec G->A')
+    n-=1
+    haxis(n); tick(n,0.3,0,color=Colors['non_apobec'])
+    labels.append('Non-Apobec C->T')
+    n-=1
+    haxis(n); tick(n,0.3,0.3,color=Colors['other_mut'])
+    labels.append('Other mutation')
+    n-=1
+    haxis(n);
+    for dx in np.arange(-0.5,0.5,0.01):
+        tick(n,0.3,0.3,x=dx,color=Colors['deletions'])
+    labels.append('Deletions')
+    n-=1
+    haxis(n);
+    for dx in np.arange(-0.5,0.5,0.01):
+        tick(n,0.3,0.3,x=dx,color=Colors['insertions'])
+    labels.append('Insertions')
+    n-=1
+    haxis(n); tick(n,0.3,0.3,color=Colors['ns'])
+    labels.append('Ambiguous base (N)')
+    n-=1
+    haxis(n);
+    for dx in [-0.5,0.5]:
+        tick(n,0.45,0.45,x=dx,color=Colors['gene_boundary'])
+    labels.append('F13L Gene Boundaries')
+
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+    ax.get_xaxis().set_ticks([])
+    ax.tick_params(length=0)
+
+    plt.yticks(range(n,10),labels=labels[::-1])
+    plt.tight_layout()
+    
+    if keyfile:
+        plt.savefig(keyfile)
+
+    
+    
 def get_mutation_ref(n,rseq,seq):
     '''
     for a given mutation at site n, specify the three-character ref string
@@ -78,17 +159,17 @@ class LineStyle:
 
 _colorstyle_of_mutation = {
     ## two styles of forward apobec mutaions
-    'GA' : LineStyle('Blue',ylo=0),
-    'GG' : LineStyle('Cyan',ylo=0),
-    'GC' : LineStyle('#BB0000',ylo=0),
-    'GT' : LineStyle('#BB0000',ylo=0),
+    'GA' : LineStyle(Colors['apobec'],ylo=0),
+    'GG' : LineStyle(Colors['apobec_loose'],ylo=0),
+    'GC' : LineStyle(Colors['non_apobec'],ylo=0),
+    'GT' : LineStyle(Colors['non_apobec'],ylo=0),
     ## two styles of backward apobec mutations
-    'CT' : LineStyle('Blue',yhi=0),
-    'CC' : LineStyle('Cyan',yhi=0),
-    'CG' : LineStyle('#BB0000',yhi=0),
-    'CA' : LineStyle('#BB0000',yhi=0),
+    'CT' : LineStyle(Colors['apobec'],yhi=0),
+    'CC' : LineStyle(Colors['apobec_loose'],yhi=0),
+    'CG' : LineStyle(Colors['non_apobec'],yhi=0),
+    'CA' : LineStyle(Colors['non_apobec'],yhi=0),
     ##
-    'other' : LineStyle('Gray',ylo=-0.1,yhi=0.1)
+    'other' : LineStyle(Colors['other_mut'],ylo=-0.1,yhi=0.1)
     }
 
 def is_mut_ctx_apobec(mut_ctx):
@@ -105,8 +186,8 @@ def type_to_color(mut_ctx,loose=True):
         return _colorstyle_of_mutation['other'].copy()
     mut_linestyle =  _colorstyle_of_mutation[mut_type].copy()
     ## if not apobec, then re-color it red
-    if not is_mut_ctx_apobec(mut_ctx) and mut_linestyle.color != '#BB0000':
-        mut_linestyle.color='Magenta'
+    if not is_mut_ctx_apobec(mut_ctx) and mut_linestyle.color != Colors['non_apobec']:
+        mut_linestyle.color=Colors['not_apobec']
     return mut_linestyle
 
 def get_figure_size(nitems):
@@ -176,18 +257,31 @@ def re_order_sequences(first,seqs,nosnpfile=None):
 def main_nopairs(args,seqs):
     '''if args.pairs is not called, then run first against the rest'''
 
+    mk_color_key(args.keyfile)
+
+    plt.figure(figsize=get_figure_size(len(seqs)))
+
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-
+        
+    ## Get position of F13L gene
+    if args.showgene:
+        ## Note, this may be wrong if args.revcomp is invoked
+        site_xlate = mutant.SiteIndexTranslator(first.seq)
+        gene_lo = site_xlate.index_from_site(39093)
+        gene_hi = site_xlate.index_from_site(40212)
+        plt.axvline(gene_lo,color=Colors['gene_boundary'])
+        plt.axvline(gene_hi,color=Colors['gene_boundary'])
+    
     seqs = re_order_sequences(first,seqs,args.nosnp)
-
     if args.nseq:
-        seqs = list(seqs)[:args.nseq]
-
+        seqs = seqs[:args.nseq]
+    if args.keepfirst:
+        seqs = [first] + seqs
+    
     ## get the locations of all the -'s in the first seqence
     r_dash_indices = set(sequtil.str_indexes(first.seq,'-'))
 
     count_types = Counter()
-    plt.figure(figsize=get_figure_size(len(seqs)))
     seqs = seqs[::-1]
     all_mut_sites = set()
     color_type = dict()
@@ -235,9 +329,17 @@ def main_nopairs(args,seqs):
     for t,cnt in count_types.items():
         v.vprint(f'{cnt:>6d} {t} ({type_to_color(t)})')
 
-
+    if args.numlabel:
+        N = len(seqs)
+        N = N-1 if args.keepfirst else N
+        labels = [f'Seq #{N-n}' for n in range(len(seqs))]
+        with open(args.numlabel,"w") as fnumlabel:
+            for n,s in enumerate(seqs[::-1],start=int(bool(not args.keepfirst))):
+                print("%3d. %s" % (n,s.name),file=fnumlabel)
+    else:
+        labels = [s.name for s in seqs]
     plt.yticks(range(len(seqs)),
-               labels=[s.name for s in seqs])
+               labels=labels)
     plt.ylim([-1,len(seqs)])
 
 
