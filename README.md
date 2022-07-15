@@ -67,7 +67,7 @@ time).
 The variants used in `embers` are defined in a "color mutation" file,
 described below
 
-`sparks` was formerly called `embers_bynames` -- it maked the same
+`sparks` was formerly called `embers_bynames` -- it makes the same
 kind of stacked barplots (or lineplots) that embers makes, but based
 on the pango lineage names (see `cov-lineages.org`) that are encoded
 in the sequence names.  In fact, it works with both sequence files
@@ -398,10 +398,13 @@ then you'll get something like the following:
       --verbose, -v         verbose
 
 
+# REFERENCE
+
+B. Korber, W. M. Fischer, S. Gnanakaran, H. Yoon, J. Theiler, W. Abfalterer, N. Hengartner, E. E. Giorgi, T. Bhattacharya, B. Foley, K. M. Hastie, M. D. Parker, D. G. Partridge, C. M. Evans, T. M. Freeman, T. I. de Silva, A. Angyal, R. L. Brown, L. Carrilero, L. R. Green, D. C. Groves, K. J. Johnson, A. J. Keeley, B. B. Lindsey, P. J. Parsons, M. Raza, S. Rowland-Jones, N. Smith, R. M. Tucker, D. Wang, M. D. Wyles, C. McDanal, L. G. Perez, H. Tang, A. Moon-Walker, S. P. Whelan, C. C. LaBranche, E. O. Saphire, and D. C. Montefiori. "Tracking changes in SARS-CoV-2 Spike: evidence that D614G increases infectivity of the COVID-19 virus." Cell 182 (2020) 812-827. 
 
 # COPYRIGHT
 
-(c) 2021. Triad National Security, LLC. All rights reserved.
+(c) 2021-2022. Triad National Security, LLC. All rights reserved.
 
 This program was produced under U.S. Government contract
 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
@@ -415,7 +418,7 @@ in this material to reproduce, prepare derivative works, distribute
 copies to the public, perform publicly and display publicly, and to
 permit others to do so.
 
-# LICENSE (for SHIVER and XSPIKE)
+# LICENSE
 
 This program is open source under the BSD-3 License.
 
