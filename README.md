@@ -27,6 +27,11 @@ the Spike protein, chosen to maximize coverage globally and/or on
 separate continents, depending on which of several strategies is
 employed.
 
+The standalone `shiver-barplot` routine takes output of `shiver` and
+produces a bar plot showing coverages for different continents and
+different number of components.
+
+
 ## XSPIKE
 
 XSPIKE (eXplore the SPIKE protein) does three main tasks:
@@ -62,33 +67,32 @@ time).
 The variants used in `embers` are defined in a "color mutation" file,
 described below
 
-`sparks` was formerly called `embers_bynames` -- it maked the same kind
-of stacked barplots (or lineplots) that embers makes, but based on the
-pango lineage names that are encoded in the sequence names.  In fact,
-it works with both sequence files (.fasta, .tbl, etc) and with simple
-name files (.nm) which are just the list of sequence names without the
-sequences.
+`sparks` was formerly called `embers_bynames` -- it maked the same
+kind of stacked barplots (or lineplots) that embers makes, but based
+on the pango lineage names (see `cov-lineages.org`) that are encoded
+in the sequence names.  In fact, it works with both sequence files
+(.fasta, .tbl, etc) and with simple name files (.nm indicates a list
+of sequence names without the sequences.
 
 Because the pango lineage names are somewhat Byzantine in their
 structure, `sparks` reads a "lineage table" which has colors, names,
 and regular expressions describing the range of pango names that
 correspond to the given name.
 
-CINDERS is an experimental code that uses both pango names and
+`cinders` is an experimental code that uses both pango names and
 sequences; currently it only considers how single site mutations (eg,
 A222V) affect the various pango lineage evolution over time.
 
 ## PANGOCOMMONFORMS
 
-Alignements from the LANL `cov-dev.lanl.gov` database now include
-pango lineages (see `cov-lineages.org`); The `pangocommonforms` code
-produces a report that identifies the common sequence patterns
-associated with these lineages.  In addition to the most common forms,
-a consensus form is also identified.  The consensus is defined
-site-by-site, and constructs a sequences by taking the most common
-amino-acid at each site. Usually the consensus is also the most common
-form, but that is not always the case, and in some cases, the
-consensus itself does not even appear in the database.
+The `pangocommonforms` code produces a report that identifies the
+common sequence patterns associated with each pango lineage (see
+`cov-lineages.org`). In addition to the most common forms, a consensus
+form is also identified.  The consensus is defined site-by-site, and
+constructs a sequences by taking the most common amino-acid at each
+site. Usually the consensus is also the most common form, but that is
+not always the case, and in some cases, the consensus itself does not
+even appear in the database.
 
 ## FIXFASTA
 
@@ -96,22 +100,24 @@ consensus itself does not even appear in the database.
 (usually fasta, but can be tbl or fasta.gz or several other formats) and
 applies various filters to clean up the file.
 
-One fix is to
-identify all the columns for which the reference sequence exhibits a
-dash (`-`) and to strip these columns from all the sequences.  The
-reason for this is so that the `n`'th character in each sequence
-corresponds to site number `n`. [Note that in the next generation of
-analysis tools, we will be able to handle insertions, and will not
-assume that sequence string index matches site number.]
+One "fix" is to identify all the columns for which the reference
+sequence exhibits a dash (`-`) and to strip these columns from all the
+sequences.  The reason for this is so that the `n`'th character in
+each sequence corresponds to site number `n`. [Note that the current
+generation of analysis tools in this package is able to handle
+insertions, and does not assume that sequence string index matches
+site number.]
 
 `fixfasta` also has options for codon-aligning DNA sequences and
 for translating DNA sequences in to amino-acid sequences.
 
 ## MATCHFASTA
 
-identifies sequences from a fasta file that matches a given pattern (sequence pattern and/or
-geographical region and/or pango lineage). with no pattern specified,
-it provides a conveinent way to view fasta files (eg, subsets of sequences and/or subsets of sites)
+`matchfasta` identifies sequences from a fasta file that matches a
+given pattern (sequence pattern and/or geographical region and/or
+pango lineage). With no pattern specified, it provides a conveinent
+way to view fasta files (eg, subsets of sequences and/or subsets of
+sites).
 
 ## MUT2FASTA
 
@@ -121,34 +127,6 @@ and produces a fasta file, each sequence of which corresponds to a mutant
 specified by the string, relative to the reference sequence, which is the
 first sequence in the specified reference fasta file.  Note that there is no
 checking that such sequences exist in nature; for that, you'll want to use `matchfasta`.
-
-## COMMONTYPES
-
-given an input fasta file, the first of which is a reference sequence,
-find the most common sequences, and express them in terms of mutation strings.
-One can also list the geographical regions where those strains are most
-commonly seen, and one can request a few ISL numbers for each strain, so
-you can find examples in the GISAID database.  By specifying a mutation pattern,
-you can restrict consideration to a mutation pattern, and thereby obtain counts
-for "variants of variants"
-
-## USITES
-
-computes the highest-entropy sites for the global sequence set and for each of the
-continents's sequence sets (which are subsets of the global set), and then returns
-the union of those lists.  you specify the number of sites you want in the final union
-list.  this list of sites is useful as input to `xspike` if you want different runs
-over different geographical regions to all be using a common set of sites.
-
-## COUNTVARIANTS (OBSOLETE)
-
-counts how many variants of a variant appear in an input set of sequences.
-OBSOLETE: use COMMONTYPES instead.
-
-## SHIVER-BARPLOT
-
-takes output of `shiver` and produces a bar plot showing coverages for different continents
-and different number of components.
 
 ## FIXALIGN, TWEAKALIGN, and COALIGN
 
@@ -165,17 +143,65 @@ and apply those tweaks directly.
 sequences, and poorly aligned sequences (especially if the poor
 alignments are consistent) will not be improved.*
 
-`tweakalign` reads alignment tweaks either from the command line or from a file and applies them
-to the input sequences.  You can use the tweaks suggested by fixalign, but you can also edit
-those tweaks to taste and/or add some of your own.
+`tweakalign` reads alignment tweaks either from the command line or
+from a file and applies them to the input sequences.  You can use the
+tweaks suggested by fixalign, but you can also edit those tweaks to
+taste and/or add some of your own.  A single tweak is a pair of mutation
+strings; for example the pair
 
-`coalign` takes a set of amino-acid sequenes that are assumed to be well-aligned, and a set of
-codon-aligned DNA sequences from which the amino-acid sequences were derived, and it then re-aligns
-the DNA sequences to be consistent with their newly-aligned amino-acid sequence counterpargs.
+    [E156G,F157-,R158-] [E156-,F157-,R158G]
+
+changes the string 'G--' at sites 156-158 into '--G'.  A tweak should not
+affect the raw sequence, only how it is aligned with respect to the reference
+sequence.
+
+`coalign` takes a set of amino-acid sequenes that are assumed to be
+well-aligned, and a set of codon-aligned DNA sequences from which the
+amino-acid sequences were derived, and it then re-aligns the DNA
+sequences to be consistent with their newly-aligned amino-acid
+sequence counterpargs.
+
+## APOBEC: APOCOUNT, APOPLOT
+
+The routines `apocount` and `apoplot` analyze and plot the occurrence
+of mutational patterns in DNA sequences that are associated with the
+apobec enzyme. A surfeit of apobec-style mutations is indicative of
+apobec presence. The characteristic apobec mutation is G->A in a
+context where 'G' is part of a string '...*G*A...' or '...*G*G...'
+
+For DNA sequences, the reverse-compliment is also indicative; thus:
+C->T in a context where 'C' is part of a string '...T*C*...' or
+'...C*C*...'.  (Note, these are the "loose" definitions of apobec
+context, a tighter definition is also implemented as an option.)
+
+## COMMONTYPES
+
+`commontypes` takes an input fasta file, the first of which is a
+reference sequence, and finds the most common sequences and then
+express them in terms of mutation strings.  One can also list the
+geographical regions where those strains are most commonly seen, and
+one can request a few ISL numbers for each strain, so you can find
+examples in the GISAID database.  By specifying a mutation pattern,
+you can restrict consideration to a mutation pattern, and thereby
+obtain counts for "variants of variants"
+
+(Note the routine `countvariants` is now considered obsolete; use
+`commontypes` instead.)
+
+## USITES
+
+`usites` is a fairly specialized routine.  It first computes the
+highest-entropy sites for the global sequence set and for each of the
+continents's sequence sets (which are subsets of the global set), and
+then returns the *union* of those lists.  You specify the number of
+sites you want in the final union list.  This list of sites is useful
+as input to `xspike` if you want different runs over different
+geographical regions to all be using a common set of sites.
 
 ## MKTABLE, MUTISL
 
-These are specialized routines that are used in the creation of the tables that appear in the LANL corner of the GISAID website.
+These are specialized routines that are used in the creation of the
+tables that appear in the LANL corner of the GISAID website.
 
 ## BIGHAMMING
 
@@ -183,18 +209,19 @@ Find sequences that are far (in hamming distance) from a reference sequence
 
 # SOME USEFUL LIBRARIES
 
-### readseq/sequtil
+### sequtil
 
-for reading fasta sequence files
+for reading (also writing, and performing basic manipulations to)
+fasta sequence files
 
 * also tbl, mase, and seq (raw); the routine
-  `readseq.read_seqfile(...)` will determine the format of the file
+  `sequtil.read_seqfile(...)` will determine the format of the file
   based on the file extension.
 
 * Note that gzip'd files also work so `-i sequencefile.fasta.gz` on
   the command line will also be automatically understood as a
   compressed fasta-formatted file, and it will be read without
-  explicitly decompressing the file.  (Recently, `*.xz` files
+  explicitly decompressing the file.  (Note that `*.xz` files
   are similarly supported.)
 
 * Output files are also written according to their name, with output
@@ -203,38 +230,45 @@ for reading fasta sequence files
 * A recent addition is the 'pkl' and 'ipkl' filetypes -- this is a
   python pickle (and incremental pickle) file; the 'pkl' is a direct
   serialization of the `SequenceSample` array as one object; the
-  'ipkl' serializes each sample separately.
+  'ipkl' serializes each sample separately. These are *not* archival
+  formats, but can be used to speed up the file-reading time for the
+  routines in this package.
 
 * Another recent addition is the 'nm' filetype -- this is a list of the
   sequence names only, no actual sequences.  Since sequences names
   have a lot of meta-information, you can often do analysis using only
-  the names.
+  the names (eg, see the `sparks` routine above).
 
 * The sequences are read into a list of `SequenceSample` data types
   (containing a name and a sequence), but if you want a literal list
   be sure to use a command like `seqs=list(seqs)` because by default
   the reading and filtering routines return python *iterators*, which
-  [depending on the usage scenario] can be much more memory efficient.
+  [depending on the usage scenario] can be much more memory efficient,
+  but only allow a single pass through the data.
 
 ### mutants/spikevariants
 
-manipulates single-site and multiple-site mutations and parses mutation strings of the form
-`[S13I,W152C,L452R,D614G]`
+These library routines are for managing and manipulating single-site and
+multiple-site mutations, and for parsing mutation strings of the form
+`[S13I,W152C,L452R,D614G]`.
 
 ### covid
 
-contains a lot of hard-coded covid-specific routines and constants (eg, definition of where RBD and NTD regions are).
-also contains a lot of miscellaneous routines that happen to be used by multiple tools.
+The `covid` library contains covid-specific
+routines and constants (eg, definition of where RBD and NTD regions
+are).  It also contains a lot of miscellaneous routines that happen to
+be used by various tools in this package
 
 ### colornames
-simple module for translating common color names into hash-hexcodes
+is a simple module for translating common color names
+into hash-hexcodes.
 
 ### intlist
-generic utilities for dealing with lists of integers; for instance,
-can create headers such as the following, which indicate that the
-sites being displayed are 19, 20, 142, ..., 501.  If it's not obvious,
-you read *down* each column to get the number of the site. (In the
-example below 'W' is at site 152.)
+The `intlist` library provides generic utilities for dealing with
+lists of integers; for instance, it can create headers such as the
+following, which indicate that the sites being displayed are 19, 20,
+142, ..., 501.  If it's not obvious, you read *down* each column to
+get the number of the site. (In the example below 'W' is at site 152.)
 
       1111111222222344444445
     124455555444556613577890
@@ -245,7 +279,7 @@ example below 'W' is at site 152.)
 encapsulates vprint functions that write messages based on user-set
 level of verbosity; typical use:
 
-       from verbose import verbose as v
+       import verbose as v
        ...
        v.verbosity(1)
        ...
@@ -262,8 +296,9 @@ ___
 
 # COLOR MUTATION TABLE
 
-Variants are defined in a color mutation table (eg, `color-mutation-table.txt` file); the
-table is a list of variants, with one variant per line.
+Variants are defined in a color mutation table (eg,
+`color-mutation-table.txt` file); the table is a list of variants,
+with one variant per line.
 
     Format for this file:
       Comments begin with '#' and are ignored
@@ -364,7 +399,7 @@ then you'll get something like the following:
 
 
 
-# COPYRIGHT (for SHIVER and XSPIKE)
+# COPYRIGHT
 
 (c) 2021. Triad National Security, LLC. All rights reserved.
 
@@ -384,8 +419,9 @@ permit others to do so.
 
 This program is open source under the BSD-3 License.
 
-Redistribution and use in source and binary forms, with or without modification, are permitted
-provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
 
 1. Redistributions of source code must retain the above copyright
    notice, this list of conditions and the following disclaimer.
