@@ -18,7 +18,7 @@ import itertools as it
 import random
 import argparse
 
-from verbose import verbose as v
+import verbose as v
 import readseq
 import sequtil
 import wrapgen
@@ -47,6 +47,10 @@ def getargs():
     paa("--sniprange",type=int,nargs=2,
         ## like snipsites, less flexible, but maybe faster?
         help="site range given as two integers, lo and hi")
+    paa("--rmdash",action="store_true",
+        help="remove all the dashes in each sequence")
+    paa("--splitout",
+        help="split the output into a separate file for each sequence")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
@@ -182,6 +186,12 @@ def sniprange(seqs,lohi,offset=1):
         s.seq = s.seq[lo:hi+1]
         yield s
 
+def rmdashes(seqs):
+    '''remove dashes in sequences'''
+    for s in seqs:
+        s.seq = re.sub("-","",s.seq)
+        yield s
+
 def main(args):
     '''fixfasta main'''
     v.vprint(args)
@@ -226,8 +236,21 @@ def main(args):
         first,seqs = sequtil.get_first_item(seqs)
         v.vprint(f"Removed {initlen-len(first.seq)} dashes")
 
+    if args.rmdash:
+        seqs = rmdashes(seqs)
+
     if args.output:
         readseq.write_seqfile(args.output,seqs)
+
+    if args.splitout:
+        if "." in args.splitout:
+            base,ext = args.splitout.split(".")
+        else:
+            base = args.splitout
+            ext = ".fasta"
+
+        for n,s in enumerate(seqs,start=1):
+            readseq.write_seqfile("%s-%03d.%s" % (base,n,ext), [s])
 
 if __name__ == "__main__":
 
