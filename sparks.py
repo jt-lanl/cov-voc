@@ -9,7 +9,7 @@ import lineagetable
 
 
 OTHER = lineagetable.OTHER
-EMPTY_LINEAGE_REGEX = re.compile('EPI_ISL_\d+\.$')
+EMPTY_LINEAGE_REGEX = re.compile('EPI_ISL_\d+\.\s*$')
 DEFAULTNAMESFILE="Latest-names.nm"
 
 def _getargs():
