@@ -11,6 +11,7 @@ import datetime
 import argparse
 import warnings
 
+import intlist
 import sequtil
 from verbose import verbose as v
 import covid
@@ -23,10 +24,10 @@ def _getargs():
     argparser = argparse.ArgumentParser(description=__doc__)
     covid.corona_args(argparser)
     paa = argparser.add_argument
-    paa("--pmfile","--pm",
+    paa("--pmfile","-M",
         help="file with pango lineages and mstrings")
-    paa("--rows","-R",type=int,default=0,
-        help="Only compute this many rows")
+    paa("--rows","-R",
+        help="(0-based int)List of rows to compute")
     paa("--mutant","-m",
         help="mutant mstring; eg, [Q414K,D614G,T716I]")
     paa("--pango","-p",
@@ -202,11 +203,18 @@ def truncate_pango_name(pangofull):
 
     Note: currently, we treat 'xxx_Omicron_BA.1' as an invalid string,
     because 'Omicron' is not a strict pango lineage name
+
+    Note also: the pango string is assumed to be of the form
+        [A-Z]+(\.\d+)+
+    ie, alphabetical.numerical.numerical...numrical
+    with an indeterminate number (possibly even zero)
+    of '.numerical' strings
     '''
-    match = re.match('[^_]+_+([^_]+).*',pangofull)
+    match = re.match(r'[^_]+_+([A-Z]+(\.\d+)*)',pangofull)
     if not match:
-        raise RuntimeError('Invalid designation: {pangofull}')
-    return match[1]
+        raise RuntimeError(f'Invalid designation: {pangofull}')
+    pango = match[1].strip()
+    return pango
 
 def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     '''produce a single row of the spreadsheet as a dict()'''
@@ -275,11 +283,14 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     v.vvprint(list(row))
     return row
 
-def format_row(row,header=False,sepchar='\t'):
-    '''convert row into a string that is a tab-separated list'''
+def format_row(row=None,sepchar='\t'):
+    '''
+    convert row into a string that is a tab-separated list;
+    if row is None, then print the header
+    '''
     ##comma-separated doesn't work for m-string patterns
     column_name_list = list(ColumnHeaders)
-    if header:
+    if row is None:
         return sepchar.join(map(column_header,column_name_list))
     return sepchar.join(str(row[column_name])
                         for column_name in column_name_list)
@@ -302,6 +313,9 @@ def _main(args):
             plist.append(pango)
             mlist.append(mstring)
 
+    ## Do this now just to make sure we don't get an error
+    pango_truncated = [truncate_pango_name(pango) for pango in plist]
+
     fixer = mstringfix.MStringFixer(args.tweakfile)
     fixer.append(r'\s*ancestral\s*','')
     fixer.append(r'G142[GD_]','G142.')
@@ -309,8 +323,9 @@ def _main(args):
     mlist = [fixer.fix(mstring) for mstring in mlist]
 
     if args.rows:
-        plist = plist[:args.rows]
-        mlist = mlist[:args.rows]
+        ndxlist = intlist.string_to_intlist(args.rows)
+        plist = [plist[ndx] for ndx in ndxlist]
+        mlist = [mlist[ndx] for ndx in ndxlist]
 
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs(seqs,args)
@@ -331,14 +346,11 @@ def _main(args):
     v.vprint("Read",len(seqs),"sequences")
     v.vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
 
-    header_yet=False
+    print(format_row(None)) ## print the header
     for pango,mstring in zip(plist,mlist):
         row = get_row(seqs,seqs_sixtydays,m_mgr,pango,mstring)
-        if not header_yet:
-            print(format_row(row,header=True))
-            header_yet=True
-        print(format_row(row))
-        print(end="",flush=True)
+        print(format_row(row),flush=True)
+        #print(end="",flush=True) ## what does this do? just flush?
 
     v.print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences")
 
