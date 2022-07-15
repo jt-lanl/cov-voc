@@ -53,7 +53,7 @@ def _getargs():
     paa("--nosnp",
         help="write sequences names with no SNPs into file")
     paa("--numlabel",
-        help="name of file to but names of sequences, associated with numbers")
+        help="name of file to put names of sequences, associated with numbers")
     paa("--keyfile",
         help="name of color keyfile")
     paa("--verbose","-v",action="count",default=0,
@@ -64,10 +64,9 @@ def _getargs():
 
 Colors = {
     'gene_boundary': '#FFDDBB', #light orange',
-    'apobec':        'Blue', # G->A or C->T
-    'apobec_loose':  'Cyan', # G->G or C->C
-    'non_apobec':    '#BB0000', # dark red, G->[CT] or C->[GA]
-    'not_apobec':    'Magenta', # not-apobec vs non-apobec ??
+    'apobec':        'Blue', # GAx->AAx or xCC->xCT
+    'apobec_gg':  'Cyan', # GGx->AGx or xTC->xTT
+    'non_apobec':    '#BB0000', # dark red, G[CT]->A[CT] or x[GA]C->x[GA]T
     'other_mut':     'Gray',
     'deletions':     '#99FF99', # light green
     'insertions':    '#BBBBFF', # light blue
@@ -85,10 +84,16 @@ def mk_color_key(keyfile=None):
     n=10
     n-=1
     haxis(n); tick(n,0,0.3,color=Colors['apobec'])
-    labels.append('Apobec GA.->A..')
+    labels.append('Apobec GA.->AA.')
     n-=1
     haxis(n); tick(n,0.3,0,color=Colors['apobec'])
     labels.append('Apobec .TC->.TT')
+    n-=1
+    haxis(n); tick(n,0,0.3,color=Colors['apobec_gg'])
+    labels.append('Apobec GG.->AG.')
+    n-=1
+    haxis(n); tick(n,0.3,0,color=Colors['apobec_gg'])
+    labels.append('Apobec .CC->.CT')
     n-=1
     haxis(n); tick(n,0,0.3,color=Colors['non_apobec'])
     labels.append('Non-Apobec G->A')
@@ -96,20 +101,20 @@ def mk_color_key(keyfile=None):
     haxis(n); tick(n,0.3,0,color=Colors['non_apobec'])
     labels.append('Non-Apobec C->T')
     n-=1
-    haxis(n); tick(n,0.3,0.3,color=Colors['other_mut'])
+    haxis(n); tick(n,0.1,0.1,color=Colors['other_mut'])
     labels.append('Other mutation')
     n-=1
     haxis(n);
-    for dx in np.arange(-0.5,0.5,0.01):
+    for dx in np.arange(-0.4,0.4,0.01):
         tick(n,0.3,0.3,x=dx,color=Colors['deletions'])
     labels.append('Deletions')
     n-=1
     haxis(n);
-    for dx in np.arange(-0.5,0.5,0.01):
+    for dx in np.arange(-0.4,0.4,0.01):
         tick(n,0.3,0.3,x=dx,color=Colors['insertions'])
     labels.append('Insertions')
     n-=1
-    haxis(n); tick(n,0.3,0.3,color=Colors['ns'])
+    haxis(n); tick(n,0.2,0.2,color=Colors['ns'])
     labels.append('Ambiguous base (N)')
     n-=1
     haxis(n);
@@ -160,12 +165,12 @@ class LineStyle:
 _colorstyle_of_mutation = {
     ## two styles of forward apobec mutaions
     'GA' : LineStyle(Colors['apobec'],ylo=0),
-    'GG' : LineStyle(Colors['apobec_loose'],ylo=0),
+    'GG' : LineStyle(Colors['apobec_gg'],ylo=0),
     'GC' : LineStyle(Colors['non_apobec'],ylo=0),
     'GT' : LineStyle(Colors['non_apobec'],ylo=0),
     ## two styles of backward apobec mutations
     'CT' : LineStyle(Colors['apobec'],yhi=0),
-    'CC' : LineStyle(Colors['apobec_loose'],yhi=0),
+    'CC' : LineStyle(Colors['apobec_gg'],yhi=0),
     'CG' : LineStyle(Colors['non_apobec'],yhi=0),
     'CA' : LineStyle(Colors['non_apobec'],yhi=0),
     ##
@@ -185,9 +190,9 @@ def type_to_color(mut_ctx,loose=True):
     if mut_type not in _colorstyle_of_mutation:
         return _colorstyle_of_mutation['other'].copy()
     mut_linestyle =  _colorstyle_of_mutation[mut_type].copy()
-    ## if not apobec, then re-color it red
+    ## if not apobec, then re-color it red (unless alread red)
     if not is_mut_ctx_apobec(mut_ctx) and mut_linestyle.color != Colors['non_apobec']:
-        mut_linestyle.color=Colors['not_apobec']
+        mut_linestyle.color=Colors['non_apobec']
     return mut_linestyle
 
 def get_figure_size(nitems):
@@ -195,6 +200,20 @@ def get_figure_size(nitems):
     if figsize[1] > 9:
         figsize = (12,1+0.4*nitems)
     return figsize
+
+def blank_labels(labels,n=2,reverse=False):
+    '''replace list of labels ["one","two",three","four",five"]
+    with ["one", "", "three", "", "five"]
+    '''
+    hlabels=[]
+    if reverse:
+        labels=labels[::-1]
+    for i,label in enumerate(labels):
+        hlabels.append( label if i%n==0 else "" )
+    if reverse:
+        hlabels = hlabels[::-1]
+    return hlabels
+
 
 def main_pairs(args,seqs):
     '''if arg.pairs specified'''
@@ -224,7 +243,8 @@ def main_pairs(args,seqs):
         for n in mut_sites:
             site_ref = get_mutation_ref(n,first.seq,s.seq)
             ls = type_to_color(site_ref)
-            plt.plot([n,n],[ns+ls.ylo,ns+ls.yhi],color=ls.color,linestyle=ls.style,lw=1)
+            plt.plot([n,n],[ns+ls.ylo,ns+ls.yhi],
+                     color=ls.color,linestyle=ls.style,lw=1)
 
     plt.yticks(range(len(pairs)),
                labels=[first.name + "/" + s.name for (first,s) in pairs],
@@ -243,11 +263,11 @@ def re_order_sequences(first,seqs,nosnpfile=None):
         else:
             seqs_identical.append(s)
 
-    if nosnpfile:
+    n_identical = len(seqs_identical)
+    if n_identical and nosnpfile:
         with open(nosnpfile,'w') as fnosnp:
             for s in seqs_identical:
                 print(s.name,file=fnosnp)
-        n_identical = len(seqs_identical)
         seqs_identical = seqs_identical[:1]
         seqs_identical[0].name = f'{n_identical} sequences with no SNPs'
 
@@ -294,15 +314,15 @@ def main_nopairs(args,seqs):
             r_minus_s = r_dash_indices - s_dash_indices
             for din in s_minus_r:
                 ## Green deletions
-                plt.plot([din,din],[ns-0.4,ns+0.4],'-',color='#99FF99')
+                plt.plot([din,din],[ns-0.4,ns+0.4],'-',color=Colors['deletions'])
             for din in r_minus_s - s_n_indices:
                 ## Blue insertions
-                plt.plot([din,din],[ns-0.4,ns+0.4],'-',color='#BBBBFF')
+                plt.plot([din,din],[ns-0.4,ns+0.4],'-',color=Colors['insertions'])
             for din in s_n_indices:
                 ## Magenta N's
-                plt.plot([din,din],[ns-0.2,ns+0.2],'-',color='#FF88FF')
+                plt.plot([din,din],[ns-0.2,ns+0.2],'-',color=Colors['ns'])
                               
-        plt.plot([0,len(s.seq)],[ns,ns],'k-')
+        plt.plot([0,len(s.seq)],[ns,ns],'k-',linewidth=0.5)
         mut_sites = apo.get_all_mutsites(first.seq,s.seq)
         all_mut_sites.update(mut_sites)
         v.vprint(s.name,end=':')
@@ -333,6 +353,8 @@ def main_nopairs(args,seqs):
         N = len(seqs)
         N = N-1 if args.keepfirst else N
         labels = [f'Seq #{N-n}' for n in range(len(seqs))]
+        #nskip = len(labels) // 40
+        #labels = blank_labels(labels,nskip+1,reverse=True)
         with open(args.numlabel,"w") as fnumlabel:
             for n,s in enumerate(seqs[::-1],start=int(bool(not args.keepfirst))):
                 print("%3d. %s" % (n,s.name),file=fnumlabel)
