@@ -199,8 +199,16 @@ def half_labels(labels,n=2):
     '''replace list of labels ["one","two","three","four","five"]
     with ["one", "", "three", "", "five"]
     '''
+    if n<2:
+        return labels
     return [label if i%n==0 else ""
             for i,label in enumerate(labels)]
+
+def skip_elements(elist,n=1):
+    '''only include every n'th element of a list of elements'''
+    if n<1:
+        return elist
+    return [elt for i,elt in enumerate(elist) if i%n==0]
 
 def embersplot(counts,
                fullnames,
@@ -317,12 +325,21 @@ def embersplot(counts,
     plt.xlim(ordplotmin-ordmin-1,ordplotmax-ordmin+1)
     xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
     xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
+    min_year = min(dt.year for dt in xlabels)
+    max_year = max(dt.year for dt in xlabels)
     xlabels = [date_friendly(dt) for dt in xlabels]
     nhalf = 1 + len(xlabels)//16
-    if nhalf>1:
+    if nhalf<4:
         xlabels = half_labels(xlabels,nhalf)
+    else:
+        xlabels = skip_elements(xlabels,nhalf)
+        xticks  = skip_elements(xticks, nhalf)
     plt.xticks(xticks,xlabels,fontsize='medium', ## was small
                rotation=45,ha='right',position=(0,0.01))
+    if min_year == max_year:
+        plt.xlabel("Date (%4d)" % min_year)
+    else:
+        plt.xlabel("Date (%4d-%4d)" % (min_year,max_year))
 
     if onsets:
         ylo,yhi = plt.gca().get_ylim()
