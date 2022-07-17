@@ -69,7 +69,9 @@ def main(args):
             continue
 
         if args.skipnone:
-            if "None" in s.name or EMPTY_LINEAGE_REGEX.search(s.name):
+            if ("None" in s.name or
+                "Unassigned" in s.name or
+                EMPTY_LINEAGE_REGEX.search(s.name)):
                 v.vprint_only(5,"skip None:",f'[{s.name}]')
                 continue
 
@@ -122,7 +124,18 @@ def main(args):
     if args.skipother:
         del cum_counts[OTHER]
         T.del_pattern(OTHER)
-        
+
+    if args.skipnone:
+        for nonestring in ['None','Unssigned',
+                           '(None|Unassigned)',
+                           '(None|Unassigned|)']:
+            try:
+                del cum_counts[nonestring]
+                T.del_pattern(nonestring)
+                v.vprint('Removing:',nonestring)
+            except:
+                v.vprint('Cannot remove:',nonestring)
+
     emu.make_emberstyle_plots(args,'bynames',cum_counts,T.names,T.colors,ord_range[0],
                               ordplotrange = ord_plot_range,
                               title=": ".join([covid.get_title(args),
