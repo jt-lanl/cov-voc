@@ -265,8 +265,12 @@ def embersplot(counts,
         plt.bar(range(num_days),[0]*num_days,width=1,
                 label=legendtitle,color="white")
 
+    Y = []
+    Ylabels = []
+    Ycolors = []
+
     name_color_sofar = set()
-    for m in  patterns[::-1]:
+    for m in  patterns: #patterns[::-1]:
 
         name = mnames[m] ## mnames
         #if legend>1:   ### take this outside
@@ -297,7 +301,15 @@ def embersplot(counts,
             fm = fm[fm>0]
             plt.semilogy(dy,fm,lw=2, **kwargs)
         else:
-            plt.bar(range(num_days),fm,bottom=bm,width=1,**kwargs)
+            #plt.bar(range(num_days),fm,bottom=bm,width=1,**kwargs)
+            Y.append(fm)
+            Ylabels.append(kwargs['label'])
+            Ycolors.append(kwargs['color'])
+
+    if not lineplot:
+        ## instead of multiple calls to plt.bar, single call to plt.stackplot
+        plt.stackplot(range(num_days),Y,
+                      labels=Ylabels,colors=Ycolors)
 
     if fraction and not lineplot:
         plt.ylim([0,1.05])
@@ -307,7 +319,12 @@ def embersplot(counts,
     #    plt.yticks([0.0001,0.01,1])
 
     if legend:
-        plt.legend(bbox_to_anchor=(1.02, 1),
+        ## reverse the order of the handles/labels in the legend
+        handles, labels = plt.gca().get_legend_handles_labels()
+        handles = handles[::-1]
+        labels = labels[::-1]
+        plt.legend(handles,labels,
+                   bbox_to_anchor=(1.02, 1),
                    #handlelength=3,
                    #markerfirst=False,
                    frameon=False,
@@ -327,6 +344,8 @@ def embersplot(counts,
     xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
     min_year = min(dt.year for dt in xlabels)
     max_year = max(dt.year for dt in xlabels)
+    min_date = datetime.date.fromordinal(ordplotmin)
+    max_date = datetime.date.fromordinal(ordplotmax)
     xlabels = [date_friendly(dt) for dt in xlabels]
     nhalf = 1 + len(xlabels)//16
     if nhalf<4:
@@ -336,10 +355,12 @@ def embersplot(counts,
         xticks  = skip_elements(xticks, nhalf)
     plt.xticks(xticks,xlabels,fontsize='medium', ## was small
                rotation=45,ha='right',position=(0,0.01))
-    if min_year == max_year:
-        plt.xlabel("Date (%4d)" % min_year)
-    else:
-        plt.xlabel("Date (%4d-%4d)" % (min_year,max_year))
+
+    plt.xlabel(f'{min_date} to {max_date}')
+    #if min_year == max_year:
+    #    plt.xlabel("Date (%4d)" % min_year)
+    #else:
+    #    plt.xlabel("Date (%4d-%4d)" % (min_year,max_year))
 
     if onsets:
         ylo,yhi = plt.gca().get_ylim()
