@@ -303,7 +303,7 @@ def embersplot(counts,
         else:
             #plt.bar(range(num_days),fm,bottom=bm,width=1,**kwargs)
             Y.append(fm)
-            Ylabels.append(kwargs['label'])
+            Ylabels.append(kwargs.get('label',None))
             Ycolors.append(kwargs['color'])
 
     if not lineplot:
@@ -320,9 +320,16 @@ def embersplot(counts,
 
     if legend:
         ## reverse the order of the handles/labels in the legend
+        ## deleting the empty labels (corresponding to repeated colors)
         handles, labels = plt.gca().get_legend_handles_labels()
-        handles = handles[::-1]
-        labels = labels[::-1]
+        hl_reverse_list = list(zip(handles,labels))[::-1]
+        handles = []
+        labels = []
+        for h,l in hl_reverse_list:
+            if l is not None:
+                handles.append(h)
+                labels.append(l)
+                
         plt.legend(handles,labels,
                    bbox_to_anchor=(1.02, 1),
                    #handlelength=3,
