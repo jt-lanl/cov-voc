@@ -1,5 +1,7 @@
 '''Find APOBEC patterns and mutation in DNA sequences'''
 
+## TODO: --truesite should be default!!
+
 import argparse
 from collections import defaultdict
 import scipy.stats as stats
@@ -19,12 +21,10 @@ def _getargs():
         help="if specified, then only analyze this many sequences")
     paa("--reversecomplement","-r",action="store_true",
         help="reverse complement the strings as they are read in")
-    paa("--fwd",default="B",
-        help="F = forward, R = reverse complement, B = both")
+    paa("--fwd",default="FR",
+        help="F = forward, R = reverse complement, FR = both (default)")
     paa("--strict",action="store_true",
         help="Use stricter APOBEC pattern definition")
-    paa("--truesite",action="store_true",
-        help="Use actual site number, not position in string")
     paa("--loose",action="store_false",dest='strict',
         help="Use looser APOBEC pattern definition")
     paa("--table",action="store_true",
@@ -47,20 +47,16 @@ def get_sites(rseq,fwd='F'):
     if fwd == 'F':
         G_sites = set( apo.sites_match_char(rseq,'G') )
         G_sites -= set([len(rseq)-2,len(rseq)-1]) ## don't include last two sites
-        apo_sites = set( n for n in G_sites if apo.is_apobec(rseq[n:n+3],fwd=fwd))
+        apo_sites = set( n for n in G_sites
+                         if apo.is_apobec(rseq[n:n+3],fwd=fwd))
         return G_sites,apo_sites
     if fwd == 'R':
         C_sites = set( apo.sites_match_char(rseq,'C') )
         C_sites -= set([0,1]) ## don't include first two sites
-        apo_sites = set( n for n in C_sites if apo.is_apobec(rseq[n-2:n+1],fwd=fwd))
+        apo_sites = set( n for n in C_sites
+                         if apo.is_apobec(rseq[n-2:n+1],fwd=fwd))
         return C_sites,apo_sites
-    if fwd == 'B':
-        fwd_sites,fwd_apo = get_sites(rseq,'F')
-        rvc_sites,rvc_apo = get_sites(rseq,'R')
-        GC_sites = fwd_sites | rvc_sites
-        apo_sites = fwd_apo | rvc_apo
-        return GC_sites,apo_sites
-    raise RuntimeError('fwd argument should be F, R, or B')
+    raise RuntimeError('fwd argument should be F or R')
 
 def count_patterns(seq,GC_sites,apo_sites,fwd='F'):
     '''count various patterns in mutations from ref rseq to seq'''
@@ -74,18 +70,14 @@ def count_patterns(seq,GC_sites,apo_sites,fwd='F'):
         CT_sites = GC_sites & T_in_seq
         CT_apo = apo_sites & T_in_seq
         return len(CT_sites),len(CT_apo)
-    if fwd == 'B':
-        GA_count,GA_apocount = count_patterns(seq,GC_sites,apo_sites,'F')
-        CT_count,CT_apocount = count_patterns(seq,GC_sites,apo_sites,'R')
-        return GA_count+CT_count, GA_apocount+CT_apocount
-    raise RuntimeError('fwd argument should be F, R, or B')
+    raise RuntimeError('fwd argument should be F or R')
 
 def count_mutations(rseq,seq):
     '''
     count the mutations in seq relative to rseq
     discard all mutations involving dashes or Ns
     return 3-tuple: X->Y count, G->A count, C->T count
-    where "X->Y" refers to any mutation except G->A or C->T 
+    where "X->Y" refers to any mutation except G->A or C->T
     '''
     msites = apo.get_all_mutsites(rseq,seq)
     ctxlist = [apo.get_mut_context(n,rseq,seq) for n in msites]
@@ -106,7 +98,7 @@ def print_table(ctable,/,toplabels=('',''),sidelabels=('','')):
           f" {sum(ctable[i][0] for i in [0,1]):6d}"
           f" {sum(ctable[i][1] for i in [0,1]):6d} |"
           f" {sum(ctable[i][j] for i in [0,1] for j in [0,1]):6d}")
-    
+
 def _main(args):
     '''main'''
     v.vprint(args)
@@ -114,7 +106,7 @@ def _main(args):
     if args.summary:
         fsummary = open(args.summary,'w')
 
-    fwd = args.fwd.upper()[0]
+    fwd = args.fwd.upper()
     if args.loose:
         apo.loosen_apobec_rules()
 
@@ -126,23 +118,34 @@ def _main(args):
     if args.reversecomplement:
         for s in seqs:
             s.seq = apo.reverse_complement(s.seq)
-            
+
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     site_xlate = mutant.SiteIndexTranslator(first.seq)
     if args.nseq:
         seqs = seqs[:args.nseq]
-    
-    GC_sites, apo_sites = get_sites(first.seq,fwd=fwd)
-    total_apo = len(apo_sites)
-    total_GC = len(GC_sites)
-    sitename = 'G' if fwd=='F' else 'C'
-    v.vprint(f"{sitename} sites:",total_GC)
+
+    GC_sites = dict()
+    apo_sites = dict()
+    all_aposites = set()
+    for fwd in args.fwd:
+        GC_sites[fwd], apo_sites[fwd] = get_sites(first.seq,fwd=fwd)
+        all_aposites.update(apo_sites[fwd])
+
+    total_apo = sum( len(apo_sites[fwd]) for fwd in args.fwd)
+    total_GC  = sum( len(GC_sites[fwd])  for fwd in args.fwd)
+    v.vprint("  sites:",total_GC)
     v.vprint("apobecs:",total_apo)
     print("sequence-name other-mutations [contingency-table] p=p-value OR=odds-ratio")
     maxnamelen = max(len(s.name) for s in seqs)
     namefmt = "%%%ds" % maxnamelen
     for s in seqs:
-        ga_count,apo_count = count_patterns(s.seq,GC_sites,apo_sites,fwd=fwd)
+        ga_count = apo_count = 0
+        for fwd in args.fwd:
+            ga_fwd,apo_fwd = count_patterns(s.seq,
+                                            GC_sites[fwd],
+                                            apo_sites[fwd],fwd=fwd)
+            ga_count += ga_fwd
+            apo_count += apo_fwd
         xycnt,gacnt,ctcnt = count_mutations(first.seq,s.seq)
         if fwd == 'F':
             xycnt += ctcnt
@@ -157,11 +160,11 @@ def _main(args):
         #ber = stats.barnard_exact(ctable)
         #print(f"p={ber.pvalue:8.6f} (Barnard's exact test)")
         if args.table:
-            if fwd == 'F':
+            if args.fwd == 'F':
                 sidelabels=("G->A","G->B")
-            if fwd == 'R':
+            if args.fwd == 'R':
                 sidelabels=("C->T","C->V")
-            if fwd == 'B':
+            if args.fwd == 'FR':
                 sidelabels=('mutate','nonmut')
             print_table(ctable,
                         toplabels=("apobec","no-apo"),
@@ -170,29 +173,32 @@ def _main(args):
         if args.summary:
             fsummary.write(namefmt % s.name)
             msites = apo.get_all_mutsites(first.seq,s.seq)
-            maposites = sorted(set(msites) & set(apo_sites))
-            mxxxsites = sorted(set(msites) - set(apo_sites))
+            maposites = sorted(set(msites) & all_aposites)
+            mxxxsites = sorted(set(msites) - all_aposites)
             #ctx = {n: apo.get_mut_context(n,first.seq,s.seq)
             #       for n in msites}
 
             muts = defaultdict(list)
             for n in maposites:
-                muts['APO-'+first.seq[n]+s.seq[n]].append(n)
+                mstr = first.seq[n] + s.seq[n] ## eg: "GA" for G->A mutation
+                if mstr in ("GA","CT"):  ## assumes 'fwd==B'
+                    muts['APO-'+mstr].append(n)
+                else:
+                    muts[mstr].append(n)
             for n in mxxxsites:
-                muts[first.seq[n]+s.seq[n]].append(n)
+                mstr = first.seq[n] + s.seq[n] ## eg: "GA" for G->A mutation
+                muts[mstr].append(n)
 
             for mtype,mlist in muts.items():
                 fsummary.write(f' {mtype}:')
                 for n in mlist:
-                    nsite = n
-                    if args.truesite:
-                        nsite = site_xlate.site_from_index(n)
+                    nsite = site_xlate.site_from_index(n)
                     fsummary.write(f' {nsite}')
             fsummary.write("\n")
 
     if args.summary:
         fsummary.close()
-    
+
 if __name__ == "__main__":
 
     _args = _getargs()
