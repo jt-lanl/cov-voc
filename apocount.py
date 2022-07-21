@@ -147,9 +147,9 @@ def _main(args):
             ga_count += ga_fwd
             apo_count += apo_fwd
         xycnt,gacnt,ctcnt = count_mutations(first.seq,s.seq)
-        if fwd == 'F':
+        if args.fwd == 'F':
             xycnt += ctcnt
-        if fwd == 'R':
+        if args.fwd == 'R':
             xycnt += gacnt
         ctable = [[apo_count, ga_count-apo_count],
                   [total_apo - apo_count, total_GC - ga_count - total_apo + apo_count]]
