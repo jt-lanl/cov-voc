@@ -42,6 +42,8 @@ def _getargs():
         help="Keep the reference sequence in the plot")
     paa("--merge",action="store_true",
         help="Add an extra merge sequence")
+    paa("--trim",type=int,default=0,
+        help="Trim this many bases off of front and back of sequence")
     paa("--pairs",
         help="file with pairs of sequence names")
     paa("--output","-o",
@@ -214,6 +216,14 @@ def blank_labels(labels,n=2,reverse=False):
         hlabels = hlabels[::-1]
     return hlabels
 
+def trim_seqs(seqs,trim=0):
+    if not trim:
+        yield from seqs
+    else:
+        sedge = "-"*trim
+        for s in seqs:
+            s.seq = sedge + s.seq[trim:-trim] + sedge
+            yield s
 
 def main_pairs(args,seqs):
     '''if arg.pairs specified'''
@@ -277,9 +287,13 @@ def re_order_sequences(first,seqs,nosnpfile=None):
 def main_nopairs(args,seqs):
     '''if args.pairs is not called, then run first against the rest'''
 
-    mk_color_key(args.keyfile)
+    if args.keyfile:
+        mk_color_key(args.keyfile)
 
     plt.figure(figsize=get_figure_size(len(seqs)))
+
+    if args.trim:
+        seqs = trim_seqs(seqs,args.trim)
 
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
         
@@ -322,7 +336,7 @@ def main_nopairs(args,seqs):
                 ## Magenta N's
                 plt.plot([din,din],[ns-0.2,ns+0.2],'-',color=Colors['ns'])
                               
-        plt.plot([0,len(s.seq)],[ns,ns],'k-',linewidth=0.5)
+        plt.plot([0,len(s.seq)],[ns,ns],'k-',linewidth=0.1)
         mut_sites = apo.get_all_mutsites(first.seq,s.seq)
         all_mut_sites.update(mut_sites)
         v.vprint(s.name,end=':')
