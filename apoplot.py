@@ -170,11 +170,13 @@ _colorstyle_of_mutation = {
     'GG' : LineStyle(Colors['apobec_gg'],ylo=0),
     'GC' : LineStyle(Colors['non_apobec'],ylo=0),
     'GT' : LineStyle(Colors['non_apobec'],ylo=0),
+    'G-' : LineStyle(Colors['non_apobec'],ylo=0),
     ## two styles of backward apobec mutations
     'CT' : LineStyle(Colors['apobec'],yhi=0),
     'CC' : LineStyle(Colors['apobec_gg'],yhi=0),
     'CG' : LineStyle(Colors['non_apobec'],yhi=0),
     'CA' : LineStyle(Colors['non_apobec'],yhi=0),
+    'C-' : LineStyle(Colors['non_apobec'],yhi=0),
     ##
     'other' : LineStyle(Colors['other_mut'],ylo=-0.1,yhi=0.1)
     }
