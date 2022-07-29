@@ -96,7 +96,7 @@ def _getargs():
     paa("--colormut",
         help="name of color mutation file "
         "(mutation_string,lineage_name) are 2nd,3rd columns")
-    paa("--baseline",default=None,choices=("Wuhan","BA.2"),
+    paa("--baseline",default=None,choices=("Wuhan","BA.2","BA.5"),
         help="Use this sequence as basline for mutation strings")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")

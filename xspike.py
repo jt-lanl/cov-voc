@@ -38,7 +38,7 @@ def getargs():
         help="prepend this (comma-separated) list of sites to those being observed")
     paa("--sites",type=int,default=50,
         help="Number of highest-entropy sites to use")
-    paa("--baseline",choices=('Wuhan','BA.2'), default=None,
+    paa("--baseline",choices=('Wuhan','BA.2','BA.5'), default=None,
         help="Baseline sequences (default is Wuhan)")
     paa("--thresh",type=int,default=2,
         help="Only include patterns that appear at least this many times")
