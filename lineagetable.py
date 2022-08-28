@@ -8,30 +8,26 @@ OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
 
 DefaultLineageTable = [
 
-    (      'Black',                'Unassigned', r'(None|Unassigned)'),
-    (   'DarkGray',                 'Ancestral', r'(A)|(A.1)|(A.11)|(A.12)|(A.15)|(A.16)|(A.17)|(A.2)|(A.2.2)|(A.2.3)|(A.2.4)|(A.21)|(A.22)|(A.23)|(A.23.1)|(A.24)|(A.25)|(A.26)|(A.27)|(A.28)|(A.29)|(A.3)|(A.30)|(A.4)|(A.5)|(A.6)|(A.7)|(A.9)|(B)|(B.1.1.161)|(B.1.14)|(B.1.260)|(B.10)|(B.11)|(B.12)|(B.13)|(B.15)|(B.18)|(B.19)|(B.20)|(B.23)|(B.26)|(B.27)|(B.28)|(B.29)|(B.3)|(B.3.1)|(B.30)|(B.31)|(B.32)|(B.33)|(B.34)|(B.35)|(B.36)|(B.37)|(B.38)|(B.39)|(B.4)|(B.4.1)|(B.4.2)|(B.4.4)|(B.4.5)|(B.4.6)|(B.4.7)|(B.40)|(B.41)|(B.42)|(B.43)|(B.44)|(B.45)|(B.46)|(B.47)|(B.49)|(B.5)|(B.50)|(B.51)|(B.52)|(B.53)|(B.55)|(B.56)|(B.57)|(B.58)|(B.6)|(B.6.1)|(B.6.2)|(B.6.3)|(B.6.4)|(B.6.5)|(B.6.6)|(B.6.8)|(B.60)|(B.61)'),
-    (     'Yellow',                     'D614G', r'$OTHER'),
-    (     'Orange',                     'Alpha', r'(B\.1\.1\.7)|(Q\..*)'),
-    ('ForestGreen',                    'Lambda', r'C\.37(\..*)?'),
-    (  'LightPink',                      'Beta', r'B\.1\.351(\..*)?'),
-    (  'LimeGreen',                        'Mu', r'B\.1\.621(\..*)?'),
-    (  'FireBrick',                     'Gamma', r'P\.1(\..*)?'),
-    (       'Cyan',                   'Epsilon', r'B\.1\.42[97](\..*)?'),
-    ( 'DodgerBlue',                      'Iota', r'B\.1\.526(\..*)?'),
-    (       'Gold',                       'Eta', r'B\.1\.525(\..*)?'),
-    (  'OliveDrab',                     'Kappa', r'B\.1\.617\.1(\..*)?'),
-    (  'Goldenrod',                       'R.1', r'R\.1(\..*)?'),
-    ( 'BlueViolet',                     'Delta', r'(B\.1\.617\.2)|(AY\..*)'),
-    (      'Khaki',                     'C.1.2', r'C\.1\.2(\..*)?'),
-    (        'Red',             'Omicron_other', r'(B\.1\.1\.529)|(BA\..*)'),
-    (       'Pink',            'Omicron_BA.1.1', r'BA\.1\.1(\..*)?'),
-    (     'Maroon',              'Omicron_BA.2', r'BA\.2(\..*)?'),
-    (    'Magenta',         'Omicron_BA.2.12.1', r'BA\.2\.12\.1'),
-    (  'Burlywood',           'Omicron_BA.2.11', r'BA\.2\.11'),
-    ( 'LightGreen', 'Omicron_BA.2.13/9.1_L452M', r'(BA\.2\.13)|(BA\.2\.9\.1)'),
-    (  'ALiceBlue',     'Omicron_BA.2.18_K417T', r'BA\.2\.18'),
-    (       'Blue',              'Omicron_BA.4', r'BA\.4(\..*)?'),
-    ( 'DarkOrange',              'Omicron_BA.5', r'BA\.5(\..*)?'),
+    (      'Black',                'Other', r'(None|Unassigned|)'),
+    (   'DarkGray',            'Ancestral', r'(A)|(A.1)|(A.11)|(A.12)|(A.15)|(A.16)|(A.17)|(A.2)|(A.2.2)|(A.2.3)|(A.2.4)|(A.21)|(A.22)|(A.23)|(A.23.1)|(A.24)|(A.25)|(A.26)|(A.27)|(A.28)|(A.29)|(A.3)|(A.30)|(A.4)|(A.5)|(A.6)|(A.7)|(A.9)|(B)|(B.1.1.161)|(B.1.14)|(B.1.260)|(B.10)|(B.11)|(B.12)|(B.13)|(B.15)|(B.18)|(B.19)|(B.20)|(B.23)|(B.26)|(B.27)|(B.28)|(B.29)|(B.3)|(B.3.1)|(B.30)|(B.31)|(B.32)|(B.33)|(B.34)|(B.35)|(B.36)|(B.37)|(B.38)|(B.39)|(B.4)|(B.4.1)|(B.4.2)|(B.4.4)|(B.4.5)|(B.4.6)|(B.4.7)|(B.40)|(B.41)|(B.42)|(B.43)|(B.44)|(B.45)|(B.46)|(B.47)|(B.49)|(B.5)|(B.50)|(B.51)|(B.52)|(B.53)|(B.55)|(B.56)|(B.57)|(B.58)|(B.6)|(B.6.1)|(B.6.2)|(B.6.3)|(B.6.4)|(B.6.5)|(B.6.6)|(B.6.8)|(B.60)|(B.61)'),
+    (     'Yellow',                'D614G', r'$OTHER'),
+    (     'Orange',                'Alpha', r'(B\.1\.1\.7)|(Q\..*)'),
+    ('ForestGreen',               'Lambda', r'C\.37(\..*)?'),
+    (  'LightPink',                 'Beta', r'B\.1\.351(\..*)?'),
+    (  'LimeGreen',                   'Mu', r'B\.1\.621(\..*)?'),
+    (  'FireBrick',                'Gamma', r'P\.1(\..*)?'),
+    (       'Cyan',              'Epsilon', r'B\.1\.42[97](\..*)?'),
+    ( 'DodgerBlue',                 'Iota', r'B\.1\.526(\..*)?'),
+    ( 'BlueViolet',                'Delta', r'(B\.1\.617\.2)|(AY\..*)'),
+    (        'Red',         'Omicron_BA.1', r'(B\.1\.1\.529)|(BA\.1(\..*)?)'),
+    (       'Pink',       'Omicron_BA.1.1', r'BA\.1\.1(\..*)?'),
+    (  'RoyalBlue',         'Omicron_BA.2', r'BA\.2(\..*)?'),
+    (  'Burlywood', 'Omicron_BA.2.12.1/BG', r'(BA\.2\.12\.1)|(BG\..*)'),
+    ('YellowGreen',         'Omicron_BA.4', r'BA\.4(\..*)?'),
+    (  'Chocolate',       'Omicron_BA.4.6', r'BA\.4\.6(\..*)?'),
+    (   'DarkCyan',   'Omicron_BA.5/BE/BF', r'(BA\.5(\..*)?)|(B[EF]\..*)'),
+    (       'Gold',         'Omicron_BF.5', r'BF\.5(\..*)?'),
+    (    'Magenta',      'Omicron_BA.2.75', r'BA\.2\.75'),
 
 ]
 
@@ -133,5 +129,5 @@ def get_lineage_table(lineagetable_file=None,other=None):
 
 if __name__ == "__main__":
 
-    ltable = rd_lineage_table('lineage-table-v4.txt')
+    ltable = rd_lineage_table('lineage-table-v8.txt')
     write_lineage_table_python(ltable)
