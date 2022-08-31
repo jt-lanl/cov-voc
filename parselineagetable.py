@@ -42,7 +42,7 @@ def main(args):
     T = lineagetable.get_lineage_table(args.lineagetable)
     
     for s in seqs:
-        voc = T.first_match(s.name)
+        voc = T.last_match(s.name)
         print(s.name,T.names[voc],T.colors[voc])
 
 if __name__ == "__main__":
