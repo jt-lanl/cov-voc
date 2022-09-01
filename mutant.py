@@ -34,7 +34,10 @@ class SiteIndexTranslator():
     '''
     def __init__(self,refseq):
         self.site = list(it.accumulate(int(b!='-') for b in refseq))
-        self.ndx = [None]*(2+max(self.site))
+        if self.site:
+            self.ndx = [None]*(2+max(self.site))
+        else:
+            self.ndx = [None]*2
         for n,p in enumerate(self.site):
             if self.ndx[p] is None:
                 self.ndx[p] = n
