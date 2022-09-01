@@ -313,6 +313,10 @@ def _main(args):
             plist.append(pango)
             mlist.append(mstring)
 
+    ## If at this point mlist is empty, then something is wrong!
+    if not mlist:
+        raise RuntimeError('No mstrings are input: check -M or (-m and -p)')
+
     ## Do this now just to make sure we don't get an error
     pango_truncated = [truncate_pango_name(pango) for pango in plist]
 
