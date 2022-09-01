@@ -105,7 +105,8 @@ def main(args):
     seqs = read_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs)
 
-    m_mgr = mutant.MutationManager(first.seq)
+    if args.mutant or args.sites or args.showmutants:
+        m_mgr = mutant.MutationManager(first.seq)
 
     mpatt = None
     sites = []
