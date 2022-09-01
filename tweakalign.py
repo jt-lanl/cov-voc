@@ -1,11 +1,12 @@
 '''Tweak alignment according to specifed mutant strings'''
 import re
 import itertools as it
+from collections import Counter
 import argparse
 
 import warnings
 
-from verbose import verbose as v
+import verbose as v
 import covid
 import readseq
 import sequtil
@@ -169,22 +170,28 @@ def _main(args):
     ndx_seqs_tuples = []
     for ma,mb in mstringpairs:
         ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
-        ndx_seqs_tuples.append( (ndxlo,ndxhi,seq_a,seq_b) )
+        ndx_seqs_tuples.append( (ma,mb,ndxlo,ndxhi,seq_a,seq_b) )
         v.vprint(f"{seq_a} -> {seq_b}")
 
     changed_sequences=[]
     seqs = list(seqs)
+    changes_by_mstring = Counter()
     for s in seqs:
         ## Normalize sequence (seq -> mut -> seq)
         nmut = mut_mgr.get_mutation(s.seq)
         s.seq = mut_mgr.seq_from_mutation(nmut)
-        for ndxlo,ndxhi,seq_a,seq_b in ndx_seqs_tuples:
+        for ma,mb,ndxlo,ndxhi,seq_a,seq_b in ndx_seqs_tuples:
             if s.seq[ndxlo:ndxhi] == seq_a:
                 s.seq = s.seq[:ndxlo] + seq_b + s.seq[ndxhi:]
                 changed_sequences.append(s)
+                changes_by_mstring[(ma,mb)] += 1
 
-    print("Made",len(changed_sequences),"changes, affecting",
-          len(set(changed_sequences)),"distinct sequences")
+    v.print("Made",len(changed_sequences),"changes, affecting",
+            len(set(changed_sequences)),"distinct sequences")
+
+    v.print("Changes by mstring:")
+    for (ma,mb),cnt in changes_by_mstring.items():
+        v.print(f'{cnt:8d} {ma}->{mb}')
 
     ## After tweaking, are there any indices with dashes in /all/ sequences?
     if args.rmgapcols:
