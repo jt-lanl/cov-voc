@@ -1,7 +1,7 @@
 '''Template doc string'''
 
 import argparse
-from verbose import verbose as v
+import verbose as v
 
 def _getargs():
     '''parse options from command line'''
