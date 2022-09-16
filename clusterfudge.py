@@ -49,25 +49,20 @@ def split_seqs(first,seqs,sitelist=None):
         (sitesplit,mut),count = muts_by_site.most_common(1)[0]
         v.vprint(f'Site {sitesplit} has {count}/{len(seqs)} mutations '
                  f'of {first.seq[sitesplit]}->{mut}')
-        sitesplit_ties = [site for (site,base),cnt in muts_by_site.items()
-                          if cnt==count]
-        v.vprint('Ties:',sitesplit,'=',sitesplit_ties)
     except IndexError:
-        v.print('muts:',muts_by_site)
+        v.vprint('muts:',muts_by_site)
         v.vprint(f'No new mutations in cluster of {len(seqs)} sequences')
-        sitesplit=None
+        return Cluster(),Cluster(seqs),(None,None)
     
     aseqs = Cluster()
     bseqs = Cluster()
     for s in seqs:
-        if ((sitesplit is not None) and
-            (first.seq[sitesplit] != s.seq[sitesplit]) and
-            (s.seq[sitesplit] in 'ACGT')):
+        if s.seq[sitesplit]==mut:
             aseqs.append(s)
         else:
             bseqs.append(s)
 
-    return aseqs,bseqs,sitesplit
+    return aseqs,bseqs,(sitesplit,mut)
 
 def _main(args):
     '''main'''
@@ -87,7 +82,7 @@ def _main(args):
             if not cluster.splittable:
                 newclusters.append(cluster)
                 continue
-            aseqs,bseqs,sitesplit = split_seqs(first,cluster,sitelist)
+            aseqs,bseqs,(sitesplit,mut) = split_seqs(first,cluster,sitelist)
             v.vprint(f'{sitesplit=}')
             if len(aseqs) < args.minclustersize:
                 ## then don't split
@@ -95,7 +90,10 @@ def _main(args):
                 newclusters.append(cluster)
             elif len(bseqs) == 0:
                 ## don't split this time, but try again later
+                ## meanwhile, note that we have an equivalent 'definedby'
                 sitelist = sorted(set(sitelist)-set([sitesplit]))
+                cluster.definedby[-1] += ("_%s%d%s" % (first.seq[sitesplit],
+                                                       sitesplit,mut))
                 newclusters.append(cluster)                
             else:
                 ## split
@@ -106,8 +104,7 @@ def _main(args):
                     bseqs.definedby.extend(cluster.definedby)
                     
                 aseqs.definedby.append("%s%d%s" % (first.seq[sitesplit],
-                                                sitesplit,
-                                                aseqs[0].seq[sitesplit]))
+                                                sitesplit,mut))
                 v.vprint(aseqs.name,sitesplit,aseqs.definedby)
                 bseqs.name = cluster.name + "B"
                 newclusters.extend([aseqs,bseqs])
@@ -118,12 +115,10 @@ def _main(args):
     maxlenclustername = max(len(cluster.name) for cluster in clusters)
     fmtclustername = "%%%ds" % maxlenclustername
 
-
     ## get class counts
     if len(clusters) == 1:
-        raise RuntimeError(f'No clustering: no clusters > {args.minclustersize}')
-
-    
+        raise RuntimeError(f'No clustering: consider reducing '
+                           f'{args.minclustersize=}')
     classcounts = Counter()
     class_number = 1
     for cluster in clusters:
