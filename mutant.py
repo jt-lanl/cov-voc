@@ -302,8 +302,8 @@ class Mutation(list):
             mutstr += "+" + str(Mutation(ssms_add))
         if ssms_cut:
             mutstr += "-" + str(Mutation(ssms_cut))
-        return mutstr        
-    
+        return mutstr
+
 class MutationManager(SiteIndexTranslator):
     '''
     Object that helps manage Mutation() mstrings,
@@ -405,6 +405,9 @@ class MutationManager(SiteIndexTranslator):
         mutseq = list(self.refseq)
         for ssm in mut:
             ndx = self.index_from_site(ssm.site)
+            if ssm.ref not in ['+', self.refseq[ndx]]:
+                ## complain but for now, don't exit
+                warnings.warn(f'at site {ssm.site}, ref={self.refseq[ndx]} != {ssm}')
             if ssm.ref == '+':
                 mutseq[ndx] += ssm.mut
                 for n in range(ndx+1,ndx+1+len(ssm.mut)):
