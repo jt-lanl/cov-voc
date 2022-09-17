@@ -43,11 +43,6 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     mut_a = mutant.Mutation.from_mstring(mstring_a)
     mut_b = mutant.Mutation.from_mstring(mstring_b)
 
-    ## we may want to put in some logic here, to make sure that mut_b
-    ## will 'fit' in the refseq (viz, for mut_b = [...,+123XYZ,...] make
-    ## sure there are three extra spaces after 123; if not
-    ## somehow create them !?
-
     sites = sorted(set(ssm.site for ssm in it.chain(mut_a,mut_b)))
     lo,hi = sites[0],sites[-1]+1
     ndxlo = min(mut_mgr.indices_from_site(lo))
@@ -61,6 +56,11 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     seq_a = seq_a[ndxlo:ndxhi]
     seq_b = seq_b[ndxlo:ndxhi]
 
+    v.vvprint(f'{mstring_a}->{mstring_b}:')
+    v.vvprint(f'   r: {seq_r}')
+    v.vvprint(f'   a: {seq_a}')
+    v.vvprint(f'   b: {seq_b}')
+
     ## None of these should happen
     if seq_r == seq_a:
         raise RuntimeError(f"Edit {mstring_a} will be inconsistent with ref sequence!")
@@ -68,8 +68,12 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
         v.vprint(f"Edit {mstring_a}->{mstring_b} will do nothing!")
     if de_gap(seq_a) != de_gap(seq_b):
         v.print(".".join(a+b for a,b in zip(de_gap(seq_a),de_gap(seq_b))))
+        v.print(f'   r: {seq_r}')
+        v.print(f'   a: {seq_a}')
+        v.print(f'   b: {seq_b}')
         warnings.warn(f"Edit {mstring_a}->{mstring_b} will change actual sequence!"
-                           " not just the alignment")
+                      " not just the alignment\n"
+                      f"  {seq_a}->{seq_b}")
         ## this shouldn't happen...but if it does, then don't do any replacing
         seq_b = seq_a
 
@@ -136,13 +140,20 @@ def _main(args):
         raise RuntimeError('Duplicated pair(s) of mstrings specified')
 
 
+    ## Now we have all of our mstrings
+    v.vprint("mstring pairs:")
+    for mspair in mstringpairs:
+        v.vprint("%s -> %s" % mspair)
+
     ## characterize extra chars: xtras[site] = number of extra chars after site
+    ## Add xtra chars for all the +nnnABC mstring components
     xtras = dict()
-    for _,mstring_b in mstringpairs:
-        mut_b = mutant.Mutation.from_mstring(mstring_b)
-        for ssm in mut_b:
-            if ssm.ref == "+":
-                xtras[ssm.site] = max( [xtras.get(ssm.site,0), len(ssm.mut)] )
+    for mspair in mstringpairs:
+        for mstring in mspair:
+            for ssm in mutant.Mutation.from_mstring(mstring):
+                if ssm.ref == "+":
+                    xtras[ssm.site] = max( [xtras.get(ssm.site,0),
+                                            len(ssm.mut)] )
 
     v.print("xtras:",xtras)
 
@@ -171,7 +182,7 @@ def _main(args):
     for ma,mb in mstringpairs:
         ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
         ndx_seqs_tuples.append( (ma,mb,ndxlo,ndxhi,seq_a,seq_b) )
-        v.vprint(f"{seq_a} -> {seq_b}")
+        v.vprint(f"{ma} -> {mb}:   {seq_a} -> {seq_b}")
 
     changed_sequences=[]
     seqs = list(seqs)
