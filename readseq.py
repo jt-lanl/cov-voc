@@ -337,13 +337,17 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
 ################### WRITE SEQUENCE FILES
 
 
-def columnize(str,col=70):
+def columnize(str,col=0):
     '''break up a long string into a sequence of strings with col columns or less'''
-    while len(str)>=col:
-        yield str[:col]
-        str = str[col:]
-    if str:
+    if col == 0:
+        ## default is not to columnize
         yield str
+    else:
+        while len(str)>=col:
+            yield str[:col]
+            str = str[col:]
+        if str:
+            yield str
 
 def write_fasta(filename,seq_samples,gz=False,xz=False):
     with xopen(filename,'w',gz=gz,xz=xz) as fout:
