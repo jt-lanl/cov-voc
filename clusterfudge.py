@@ -88,13 +88,14 @@ def _main(args):
                 ## then don't split
                 cluster.splittable=False
                 newclusters.append(cluster)
-            elif len(bseqs) == 0:
+            elif len(bseqs) < args.minclustersize: #== 0:
                 ## don't split this time, but try again later
-                ## meanwhile, note that we have an equivalent 'definedby'
-                sitelist = sorted(set(sitelist)-set([sitesplit]))
-                cluster.definedby[-1] += ("_%s%d%s" % (first.seq[sitesplit],
-                                                       sitesplit,mut))
-                newclusters.append(cluster)                
+                newclusters.append(cluster)
+                ## meanwhile, we may have an equivalent 'definedby'
+                if len(bseqs) == 0:
+                    sitelist = sorted(set(sitelist)-set([sitesplit]))
+                    cluster.definedby[-1] += ("_%s%d%s" % (first.seq[sitesplit],
+                                                           sitesplit,mut))
             else:
                 ## split
                 sitelist = sorted(set(sitelist)-set([sitesplit]))
@@ -102,9 +103,9 @@ def _main(args):
                 if cluster.definedby:
                     aseqs.definedby.extend(cluster.definedby)
                     bseqs.definedby.extend(cluster.definedby)
-                    
-                aseqs.definedby.append("%s%d%s" % (first.seq[sitesplit],
-                                                sitesplit,mut))
+                ref = first.seq[sitesplit]
+                aseqs.definedby.append("%s%d%s" % (ref,sitesplit,mut))
+                bseqs.definedby.append("%s%d%s" % (ref,sitesplit,ref))
                 v.vprint(aseqs.name,sitesplit,aseqs.definedby)
                 bseqs.name = cluster.name + "B"
                 newclusters.extend([aseqs,bseqs])
