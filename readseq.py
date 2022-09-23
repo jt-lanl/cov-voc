@@ -27,6 +27,8 @@ from seqsample import SequenceSample
 
 def xopen(filename,rw,gz=False,xz=False,binaryfile=False):
     ''' equivalent of open that works w/ and w/o gzip '''
+    if filename == "-":
+        return sys.stdout if rw=="w" else sys.stdin
     rwstr = rw + "b" if binaryfile else rw
     if (gz or xz) and not binaryfile:
         rwstr += "t"
@@ -170,11 +172,14 @@ def auto_filetype(filename,filetypes=FILETYPES):
         if filename.lower().endswith("."+t):
             return t,gz,xz
 
+    if filename == "-":
+        ## default for stdin or stdout is fasta
+        return 'fasta',gz,xz
+
     _,ext = os.path.splitext(filename)
     raise RuntimeWarning(f"Filename extension [{ext}] "
                          f"not among supported filetypes: "
                          f"{filetypes}")
-    return "",gz,xz
 
 def rd_seqfile(filename,filetype="auto"):
     '''
