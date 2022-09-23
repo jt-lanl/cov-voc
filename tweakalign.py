@@ -26,6 +26,8 @@ def _getargs():
         help="Remove gap-only columns as the final step")
     paa("--output","-o",
         help="output tweaked fasta file")
+    paa("--jobno",type=int,default=1,
+        help="job number if using tweakalign in parallel")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -99,6 +101,7 @@ def add_xtra_dashes(seqs,xxtras):
 
 def _main(args):
     '''tweakalign main'''
+    v.vprint(args)
 
     ## Get pairs of mutation strings
     ## each pair has a from_mstring and a to_mstring
@@ -155,14 +158,14 @@ def _main(args):
                     xtras[ssm.site] = max( [xtras.get(ssm.site,0),
                                             len(ssm.mut)] )
 
-    v.print("xtras:",xtras)
+    v.vprint("xtras:",xtras)
 
     ## Read full sequences
     seqs = covid.read_filter_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs)
 
     mut_mgr = mutant.MutationManager(first.seq)
-    print("len(first):",len(first.seq))
+    v.vprint("len(first):",len(first.seq))
 
     xxtras = dict() ## xx is ndx based instead of site based
     for site in sorted(xtras):
@@ -176,7 +179,7 @@ def _main(args):
         seqs = add_xtra_dashes(seqs,xxtras)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     mut_mgr = mutant.MutationManager(first.seq)
-    v.print("len(first):",len(first.seq))
+    v.vprint("len(first):",len(first.seq))
 
     ndx_seqs_tuples = []
     for ma,mb in mstringpairs:
@@ -197,19 +200,20 @@ def _main(args):
                 changed_sequences.append(s)
                 changes_by_mstring[(ma,mb)] += 1
 
-    v.print("Made",len(changed_sequences),"changes, affecting",
+    v.vprint("Made",len(changed_sequences),"changes, affecting",
             len(set(changed_sequences)),"distinct sequences")
 
-    v.print("Changes by mstring:")
+    v.vprint("Changes by mstring:")
     for (ma,mb),cnt in changes_by_mstring.items():
-        v.print(f'{cnt:8d} {ma}->{mb}')
+        v.vprint(f'{cnt:8d} {ma}->{mb}')
 
     ## After tweaking, are there any indices with dashes in /all/ sequences?
     if args.rmgapcols:
         seqs = sequtil.remove_gap_columns(seqs)
 
     if args.output:
-        seqs = [first] + seqs
+        if args.jobno == 1:
+            seqs = [first] + seqs
         readseq.write_seqfile(args.output,seqs)
 
 if __name__ == "__main__":
