@@ -22,7 +22,7 @@ ISO_DATE_REGEX_DOTS = re.compile(r'\.(\d\d\d\d-\d\d-\d\d)\.')
 EPI_ISL_REGEX = re.compile(r'EPI_ISL_\d+')
 LINEAGE_REGEX = re.compile(r'EPI_ISL_\d+\.(.*)')
 
-DEFAULTSEQFILE="Latest.ipkl"
+DEFAULTSEQFILE="Latest.fasta"
 
 def default_seqfile(seqfilename=DEFAULTSEQFILE):
     '''
