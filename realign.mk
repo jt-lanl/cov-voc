@@ -28,7 +28,7 @@ tweak-$(XID).out: fx-$(XIDF)
 
 tkfx-$(XIDF): fx-$(XIDF) tweak-$(XID).out
 	parallel --header 2 -L2 --blocksize 400M --pipe \
-	python -m tweakalign -M tweak-$(XID).out -M . $(KEEPX) -i - -o - < fx-$(XIDF) > $@
+	python -m tweakalign -M tweak-$(XID).out -M . $(KEEPX) --jobno {#} -i - -o - < fx-$(XIDF) > $@
 
 ztkfx-$(XIDF): tkfx-$(XIDF)
 	python -m fixfasta $(KEEPX) --rmgapcols --random -i $< -o $@
