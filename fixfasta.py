@@ -49,6 +49,8 @@ def getargs():
         help="site range given as two integers, lo and hi")
     paa("--rmdash",action="store_true",
         help="remove all the dashes in each sequence")
+    paa("--toomanygaps",type=int,default=0,
+        help="Remove sequences with too many gaps in a single stretch")
     paa("--splitout",
         help="split the output into a separate file for each sequence")
     paa("--output","-o",type=Path,
@@ -192,6 +194,22 @@ def rmdashes(seqs):
         s.seq = re.sub("-","",s.seq)
         yield s
 
+def rm_toomanygaps(toomany,seqs):
+    '''filter out sequnces that have too many gaps'''
+    count_removed=0
+    if toomany == 0:
+        yield from seqs
+    else:
+        biggap = "-" * toomany
+        bigN = "N" * toomany
+        for s in seqs:
+            if biggap in s.seq or bigN in s.seq:
+                count_removed += 1
+                continue
+            yield s
+    if count_removed:
+        v.vprint(f'Removed {count_removed} sequences with gap > {toomany}')
+
 def main(args):
     '''fixfasta main'''
     v.vprint(args)
@@ -238,6 +256,9 @@ def main(args):
 
     if args.rmdash:
         seqs = rmdashes(seqs)
+
+    if args.toomanygaps:
+        seqs = rm_toomanygaps(args.toomanygaps,seqs)
 
     if args.output:
         readseq.write_seqfile(args.output,seqs)
