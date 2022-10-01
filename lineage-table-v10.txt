@@ -25,8 +25,8 @@ Pink		Omicron_BA.1.1/BC         (BA\.1\.1(\..*)?)|(BC\..*)
 RoyalBlue	Omicron_BA.2/B[HJSP]      (BA\.2(\..*)?)|(B[SPHJ]\..*)
 Burlywood       Omicron_BA.2.12.1/BG 	  (BA\.2\.12\.1(\..*)?)|(BG\..*)
 Magenta         Omicron_BA.2.75/B[LMNRY]/CB  (BA\.2\.75(\..*)?)|(B[LMNRY]\..*)|(CB\..*)
-Gold            Omicron_BA.2.75.2         (BA\.2\.75\.2(\..*)?)|(BL\..*)
+Gold            Omicron_BA.2.75.2/CA         (BA\.2\.75\.2(\..*)?)|(CA\..*)|
 YellowGreen     Omicron_BA.4      	  BA\.4(\..*)?
 Chocolate       Omicron_BA.4.6  	  BA\.4\.6(\..*)?
-DarkCyan        Omicron_BA.5/B[EFKTQUVWZ]/CF (BA\.5(\..*)?)|(B[EFKTQUVWZ]\..*)|(CF\..*)
+DarkCyan        Omicron_BA.5/B[EFKTQUVWZ]/C[CDEF] (BA\.5(\..*)?)|(B[EFKTQUVWZ]\..*)|(C[CDEF]\..*)
 
