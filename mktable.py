@@ -5,6 +5,12 @@ of pango forms and associated mutant strings
 Input is two columns: pango lineage name, and m-string
 (it's ok if there's spaces in the m-string)
 '''
+
+## parallel usage: (48 variants per process; ie, 48 lines of variantes-in.tsv)
+## parallel -k -N48 --pipe \
+##  pm mktable --jobno {#} -M - < variants-in.tsv > variants-out.tsv
+
+import sys
 import re
 from collections import Counter
 import datetime
@@ -13,7 +19,7 @@ import warnings
 
 import intlist
 import sequtil
-from verbose import verbose as v
+import verbose as v
 import covid
 import mutant
 import pseq
@@ -36,6 +42,8 @@ def _getargs():
         help="do no pango lineage computation")
     paa("--tweakfile",
         help="Use tweakfile to fix mstrings")
+    paa("--jobno",type=int,default=1,
+        help="Use --jobno={#} in parallel mode")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -177,9 +185,14 @@ def mstring_pseqs(pseqs,m_mgr,mstring,exact=False):
     return pseq.filter_pseqs_by_pattern(m_mgr,mpatt,pseqs,
                                         exact=exact,assume_inclusive=exact)
 
+def xopen(filename):
+    if filename == '-':
+        return sys.stdin
+    return open(filename)
+
 def read_input_file(filename):
     '''return list of (pango,mstring) pairs'''
-    with open(filename) as f_input:
+    with xopen(filename) as f_input:
         for line in f_input:
             line = re.sub(r'#.*','',line)
             line = line.strip()
@@ -350,7 +363,8 @@ def _main(args):
     v.vprint("Read",len(seqs),"sequences")
     v.vprint("Of which",len(seqs_sixtydays),"are from the last 60 days")
 
-    print(format_row(None)) ## print the header
+    if args.jobno == 1:
+        print(format_row(None)) ## print the header
     for pango,mstring in zip(plist,mlist):
         row = get_row(seqs,seqs_sixtydays,m_mgr,pango,mstring)
         print(format_row(row),flush=True)
