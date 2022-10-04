@@ -34,7 +34,7 @@ def _getargs():
 
 def print_other_lineages(filename,other_lineages):
     '''if other lineages found, print out a summary'''
-    if not filename or not other_lineages:
+    if not filename:
         return
     otherlist = sorted(other_lineages,key=other_lineages.get,reverse=True)
     with open(filename,'w') as fout:
