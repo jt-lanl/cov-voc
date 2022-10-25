@@ -32,5 +32,5 @@ DarkCyan        Omicron_BA.5/B[EFKTQUVWZ]/C[CDEFGKLNUPQRTU] (BA\.5(\..*)?)|(B[EF
 
 Thistle         BQ.1.1   BQ\.1\.1(\..*)?
 LightBlue       BF.7     BF\.7(\..*)?
-ForestGreen     XBB.1    XBB\.1(\..*)?
+ForestGreen     XBB      XBB(\..*)?
 
