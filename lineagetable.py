@@ -6,29 +6,31 @@ import colornames
 
 OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
 
-
 DefaultLineageTable = [
 
-    (      'Black',                 'Other', r'(None|Unassigned|)'),
-    (   'DarkGray',             'Ancestral', r'(A)|(A.1)|(A.11)|(A.12)|(A.15)|(A.16)|(A.17)|(A.2)|(A.2.2)|(A.2.3)|(A.2.4)|(A.21)|(A.22)|(A.23)|(A.23.1)|(A.24)|(A.25)|(A.26)|(A.27)|(A.28)|(A.29)|(A.3)|(A.30)|(A.4)|(A.5)|(A.6)|(A.7)|(A.9)|(B)|(B.1.1.161)|(B.1.14)|(B.1.260)|(B.10)|(B.11)|(B.12)|(B.13)|(B.15)|(B.18)|(B.19)|(B.20)|(B.23)|(B.26)|(B.27)|(B.28)|(B.29)|(B.3)|(B.3.1)|(B.30)|(B.31)|(B.32)|(B.33)|(B.34)|(B.35)|(B.36)|(B.37)|(B.38)|(B.39)|(B.4)|(B.4.1)|(B.4.2)|(B.4.4)|(B.4.5)|(B.4.6)|(B.4.7)|(B.40)|(B.41)|(B.42)|(B.43)|(B.44)|(B.45)|(B.46)|(B.47)|(B.49)|(B.5)|(B.50)|(B.51)|(B.52)|(B.53)|(B.55)|(B.56)|(B.57)|(B.58)|(B.6)|(B.6.1)|(B.6.2)|(B.6.3)|(B.6.4)|(B.6.5)|(B.6.6)|(B.6.8)|(B.60)|(B.61)'),
-    (     'Yellow',                 'D614G', r'$OTHER'),
-    (     'Orange',                 'Alpha', r'(B\.1\.1\.7)|(Q\..*)'),
-    ('ForestGreen',                'Lambda', r'C\.37(\..*)?'),
-    (  'LightPink',                  'Beta', r'B\.1\.351(\..*)?'),
-    (  'LimeGreen',                    'Mu', r'B\.1\.621(\..*)?'),
-    (  'FireBrick',                 'Gamma', r'P\.1(\..*)?'),
-    (       'Cyan',               'Epsilon', r'B\.1\.42[97](\..*)?'),
-    ( 'DodgerBlue',                  'Iota', r'B\.1\.526(\..*)?'),
-    ( 'BlueViolet',                 'Delta', r'(B\.1\.617\.2)|(AY\..*)'),
-    (        'Red',       'Omicron_BA.1/BD', r'(B\.1\.1\.529)|(BA\.1(\..*)?)|(BD\..*)'),
-    (       'Pink',     'Omicron_BA.1.1/BC', r'(BA\.1\.1(\..*)?)|(BC\.1(\..*)?)'),
-    (  'RoyalBlue',    'Omicron_BA.2/BH/BJ', r'BA\.2(\..*)?|(B[HJ]\..*)'),
-    (  'Burlywood',  'Omicron_BA.2.12.1/BG', r'(BA\.2\.12\.1)|(BG\..*)'),
-    ('YellowGreen',          'Omicron_BA.4', r'BA\.4(\..*)?'),
-    (  'Chocolate',        'Omicron_BA.4.6', r'BA\.4\.6(\..*)?'),
-    (   'DarkCyan', 'Omicron_BA.5/BE/BF/BK', r'(BA\.5(\..*)?)|(B[EFK]\..*)'),
-    (       'Gold',          'Omicron_BF.5', r'BF\.5(\..*)?'),
-    (    'Magenta',    'Omicron_BA.2.75/BL', r'(BA\.2\.75(\..*)?)|(BL\..*)'),
+    (      'Black',                                  'Unassigned', r'(None|Unassigned|)'),
+    ( 'WhiteSmoke',                                'Recombinants', r'X.*'),
+    (   'DarkGray',                                   'Ancestral', r'(A)|(A.1)|(A.11)|(A.12)|(A.15)|(A.16)|(A.17)|(A.2)|(A.2.2)|(A.2.3)|(A.2.4)|(A.21)|(A.22)|(A.23)|(A.23.1)|(A.24)|(A.25)|(A.26)|(A.27)|(A.28)|(A.29)|(A.3)|(A.30)|(A.4)|(A.5)|(A.6)|(A.7)|(A.9)|(B)|(B.1.1.161)|(B.1.14)|(B.1.260)|(B.10)|(B.11)|(B.12)|(B.13)|(B.15)|(B.18)|(B.19)|(B.20)|(B.23)|(B.26)|(B.27)|(B.28)|(B.29)|(B.3)|(B.3.1)|(B.30)|(B.31)|(B.32)|(B.33)|(B.34)|(B.35)|(B.36)|(B.37)|(B.38)|(B.39)|(B.4)|(B.4.1)|(B.4.2)|(B.4.4)|(B.4.5)|(B.4.6)|(B.4.7)|(B.40)|(B.41)|(B.42)|(B.43)|(B.44)|(B.45)|(B.46)|(B.47)|(B.49)|(B.5)|(B.50)|(B.51)|(B.52)|(B.53)|(B.55)|(B.56)|(B.57)|(B.58)|(B.6)|(B.6.1)|(B.6.2)|(B.6.3)|(B.6.4)|(B.6.5)|(B.6.6)|(B.6.8)|(B.60)|(B.61)'),
+    (     'Yellow',                                       'D614G', r'$OTHER'),
+    (     'Orange',                                       'Alpha', r'(B\.1\.1\.7(\..*)?)|(Q\..*)'),
+    (  'LightPink',                                        'Beta', r'B\.1\.351(\..*)?'),
+    (  'FireBrick',                                       'Gamma', r'(B\.1\.1\.28)|(P\.1(\..*)?)'),
+    (  'LimeGreen',                                          'Mu', r'(B\.1\.621(\..*)?)|(BB.2)'),
+    (       'Cyan',                                     'Epsilon', r'B\.1\.42[97](\..*)?'),
+    ( 'DodgerBlue',                                        'Iota', r'B\.1\.526'),
+    ( 'BlueViolet',                                       'Delta', r'(B\.1\.617\.2)|(AY\..*)'),
+    (        'Red',                             'Omicron_BA.1/BD', r'(B.1.1.529)|(BA\.1(\..*)?)|(BD\..*)'),
+    (       'Pink',                           'Omicron_BA.1.1/BC', r'(BA\.1\.1(\..*)?)|(BC\..*)'),
+    (  'RoyalBlue',                'Omicron_BA.2/B[HJSP]/CM/CS.1', r'(BA\.2(\..*)?)|(B[SPHJ]\..*)|(CM\.(.*))|(CS\.1(\..*)?)'),
+    (  'Burlywood',                        'Omicron_BA.2.12.1/BG', r'(BA\.2\.12\.1(\..*)?)|(BG\..*)'),
+    (    'Magenta',             'Omicron_BA.2.75/B[LMNRY]/C[BJH]', r'(BA\.2\.75(\..*)?)|(B[LMNRY]\..*)|(C[BJH]\..*)'),
+    (       'Gold',                        'Omicron_BA.2.75.2/CA', r'(BA\.2\.75\.2(\..*)?)|(CA\..*)|'),
+    ('YellowGreen',                          'Omicron_BA.4/CS.2+', r'(BA\.4(\..*)?)|(CS\.[2-9].*)'),
+    (  'Chocolate',                              'Omicron_BA.4.6', r'BA\.4\.6(\..*)?'),
+    (   'DarkCyan', 'Omicron_BA.5/B[EFKTQUVWZ]/C[CDEFGKLNUPQRTU]', r'(BA\.5(\..*)?)|(B[EFKTQUVWZ]\..*)|(C[CDEFGKLNUPQRTU]\..*)'),
+    (    'Thistle',                                      'BQ.1.1', r'BQ\.1\.1(\..*)?'),
+    (  'LightBlue',                                        'BF.7', r'BF\.7(\..*)?'),
+    ('ForestGreen',                                         'XBB', r'XBB(\..*)?'),
 
 ]
 

@@ -5,7 +5,7 @@
 ## Columns are: color, name, and pattern to match pangolin lineage
 ##
 
-Black           Other (None|Unassigned|)
+Black           Unassigned (None|Unassigned|)
 
 WhiteSmoke	Recombinants	X.*
 
