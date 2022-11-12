@@ -130,6 +130,8 @@ def get_lineage_table(lineagetable_file=None,other=None):
 
     return LineageTablePatterns(table)
 
+
+
 if __name__ == "__main__":
 
     ltable = rd_lineage_table('lineage-table-latest.txt')
