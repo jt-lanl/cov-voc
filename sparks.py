@@ -2,14 +2,15 @@
 from collections import Counter
 import argparse
 import re
+
 import covid
 from verbose import verbose as v
 import embersutil as emu
 import lineagetable
-
+import owid
 
 OTHER = lineagetable.OTHER
-EMPTY_LINEAGE_REGEX = re.compile('EPI_ISL_\d+\.\s*$')
+EMPTY_LINEAGE_REGEX = re.compile(r'EPI_ISL_\d+\.\s*$')
 DEFAULTNAMESFILE="Latest-names.nm"
 
 def _getargs():
@@ -27,10 +28,13 @@ def _getargs():
         help="sequences labeled 'None' are totally ignored, not put in OTHER")
     paa("--skipother",action="store_true",
         help="skip all sequences in OTHER category")
+    paa("--cases",#default="data/owid-harmonized.csv",
+        help="csv file with case counts (harmonized, from OWID)")
     paa("--verbose","-v",action="count",default=0,
         help="verbosity")
     args = ap.parse_args()
     return args
+
 
 def print_other_lineages(filename,other_lineages):
     '''if other lineages found, print out a summary'''
@@ -85,7 +89,7 @@ def main(args):
             if args.skipother:
                 v.vprint_only(5,"skip other:",voc,s.name)
                 continue
-        
+
         date_counter[voc][seqdate] += 1
 
     v.vprint_only_summary("No seqdate:","warnings triggered")
@@ -121,6 +125,14 @@ def main(args):
     cum_counts = emu.get_cumulative_counts(date_counter,ord_range,
                                            daysperweek=args.daily)
 
+    num_cases=None
+    if args.cases:
+        df = owid.read_dataframe(args.cases)
+        if df is None:
+            raise RuntimeError(f'Cannot read OWID datafile: {args.cases}')
+        df = owid.filter_cases(df,args.filterbyname,args.xfilterbyname)
+        num_cases = owid.case_counts(df,ord_range,daysperweek=args.daily)
+
     if args.skipother:
         del cum_counts[OTHER]
         T.del_pattern(OTHER)
@@ -136,8 +148,10 @@ def main(args):
             except:
                 v.vprint('Cannot remove:',nonestring)
 
-    emu.make_emberstyle_plots(args,'bynames',cum_counts,T.names,T.colors,ord_range[0],
+    emu.make_emberstyle_plots(args,'bynames',cum_counts,
+                              T.names,T.colors,ord_range[0],
                               ordplotrange = ord_plot_range,
+                              num_cases = num_cases,
                               title=": ".join([covid.get_title(args),
                                                f"{nmatches} sequences"]),
                               onsets=onsets)

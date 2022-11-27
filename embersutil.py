@@ -149,9 +149,9 @@ def get_cumulative_counts(date_counter,ord_range,daysperweek=7):
             cumulative_counts[m].append( sum(date_counter[m][dt]
                                   for dt in date_counter[m] if dt <= day ) )
 
-    running_weekly = get_running_weekly(cumulative_counts,num_days,daysperweek=daysperweek)
+    running_weekly = get_running_weekly(cumulative_counts,num_days,
+                                        daysperweek=daysperweek)
     return running_weekly
-
 
 def mk_counts_table(date_counter,names):
     '''useful diagnostic; a table of names, counts, onsets, and patterns'''
@@ -170,14 +170,18 @@ def mk_counts_table(date_counter,names):
         yield fmt % (name,str(count),onset,p)
 
 
-def get_plot_filename(args,fraction,xtra=None):
+def get_plot_filename(args,fraction,case_is_none=True,xtra=None):
     '''return name of file in which to save plot'''
     ## eg, something like wk-f-bar-xtra-out.pdf
     if not args.output:
         return ''
 
     linbar = "line" if args.lineplot else "bar"
-    fc = "f" if fraction else "c"
+    if fraction:
+        fc = "f" if case_is_none else "t"
+    else:
+        fc = "c"
+    v.print(f'{fc=}')
     wk = "wk" if args.daily==7 \
         else "dy" if args.daily == 1 \
              else "cm"
@@ -215,6 +219,7 @@ def embersplot(counts,
                mcolors,
                ordmin,
                ordplotrange=None,
+               num_cases=None,
                title=None,legendtitle=None,legend=0,onsets=False,
                fraction=False,lineplot=False,show=False):
     '''
@@ -290,6 +295,10 @@ def embersplot(counts,
         if fraction:
             fm = [a/(b+0.001) for a,b in zip(counts[m],counts_total)]
             bm = [a/(b+0.001) for a,b in zip(counts_bottom[m],counts_total)]
+            if num_cases is not None:
+                fm = [c*f for c,f in zip(fm,num_cases)]
+                bm = [c*f for c,f in zip(bm,num_cases)]
+
         else:
             fm = counts[m]
             bm = counts_bottom[m]
@@ -311,7 +320,7 @@ def embersplot(counts,
         plt.stackplot(range(num_days),Y,
                       labels=Ylabels,colors=Ycolors)
 
-    if fraction and not lineplot:
+    if fraction and not lineplot and num_cases is None:
         plt.ylim([0,1.05])
 
     #if fraction:
@@ -329,7 +338,7 @@ def embersplot(counts,
             if l is not None:
                 handles.append(h)
                 labels.append(l)
-                
+
         plt.legend(handles,labels,
                    bbox_to_anchor=(1.02, 1),
                    #handlelength=3,
@@ -349,8 +358,6 @@ def embersplot(counts,
     plt.xlim(ordplotmin-ordmin-1,ordplotmax-ordmin+1)
     xticks = list(range(ordplotmin-ordmin,ordplotmax-ordmin+1,7)) ## was n+6
     xlabels = [datetime.date.fromordinal(int(ord+ordmin)) for ord in xticks]
-    min_year = min(dt.year for dt in xlabels)
-    max_year = max(dt.year for dt in xlabels)
     min_date = datetime.date.fromordinal(ordplotmin)
     max_date = datetime.date.fromordinal(ordplotmax)
     xlabels = [date_friendly(dt) for dt in xlabels]
@@ -364,10 +371,6 @@ def embersplot(counts,
                rotation=45,ha='right',position=(0,0.01))
 
     plt.xlabel(f'{min_date} to {max_date}')
-    #if min_year == max_year:
-    #    plt.xlabel("Date (%4d)" % min_year)
-    #else:
-    #    plt.xlabel("Date (%4d-%4d)" % (min_year,max_year))
 
     if onsets:
         ylo,yhi = plt.gca().get_ylim()
@@ -398,15 +401,22 @@ def embersplot(counts,
 
     plt.yticks(fontsize=12)
 
-    plt.ylabel("Fraction" if fraction else "Counts")
+    plt.ylabel("Fraction" if fraction else "Sequence Counts")
+    if fraction and num_cases is not None:
+        plt.ylabel("Cases")
     plt.tight_layout()
     if show:
         plt.show()
 
 
-def make_emberstyle_plots(args,extra_id,cum_counts,names,colors,ordmin,ordplotrange,
+def make_emberstyle_plots(args,extra_id,cum_counts,
+                          names,colors,ordmin,ordplotrange,
+                          num_cases=None,
                           title=None, onsets=None):
-    '''plot both fraction and counts against time for variants of interest'''
+    '''
+    plot fraction, sequence counts, and cases
+    against time for variants of interest
+    '''
 
     ## restrict data to within the plot range
     ## then, auto scaling on the y-axis will be based on available data
@@ -416,16 +426,26 @@ def make_emberstyle_plots(args,extra_id,cum_counts,names,colors,ordmin,ordplotra
         cum_counts[m] = cum_counts[m][ordplotmin-ordmin: ordplotmax-ordmin+1]
     ordmin = ordplotmin
 
-    ## Now make two plots, one w/ fractions and one w/ counts
-    for fraction in (False,True):
+    ## Now make three plots, one w/ seq-counts, one w/ fractions,...
+    ## and one w/ case counts (if num_counts is available)
+    fractions = (False,True)
+    cases = (None,None)
+    if num_cases is not None:
+        fractions = (False,True,True)
+        cases = (None,None,num_cases)
+
+    for fraction,case in zip(fractions,cases):
+        v.print(f'frac,case = {fraction},{case is None}')
         embersplot(cum_counts,names,colors,ordmin,
                    ordplotrange = ordplotrange,
+                   num_cases=case,
                    legend=args.legend,lineplot=args.lineplot,
                    title = title, onsets=onsets,
                    fraction=fraction)
 
         if args.output:
-            outfile = get_plot_filename(args,fraction,xtra=extra_id)
+            outfile = get_plot_filename(args,fraction,
+                                        case is None,xtra=extra_id)
             plt.savefig(outfile)
 
     if not args.output:
