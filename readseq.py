@@ -32,16 +32,15 @@ def xopen(filename,rw,gz=False,xz=False,binaryfile=False):
     rwstr = rw + "b" if binaryfile else rw
     if (gz or xz) and not binaryfile:
         rwstr += "t"
-    if gz:
-        return gzip_open(filename,rwstr)
-    elif xz:
-        return lzma_open(filename,rwstr)
-    else:
-        return open(filename,rwstr)
+
+    if gz: return gzip_open(filename,rwstr)
+    if xz: return lzma_open(filename,rwstr)
+
+    return open(filename,rwstr)
 
 def rd_names(fp):
     '''only names, no sequences'''
-    re_seqname_prefix = re.compile('^>\s*')
+    re_seqname_prefix = re.compile(r'^>\s*')
     for line in fp:
         line = re_seqname_prefix.sub('',line)
         yield SequenceSample(line.strip(),"")
@@ -124,7 +123,7 @@ def rd_tbl(fp):
     ## Spaces in the name string are not allowed ... but sometimes creep in
     ## To deal with that, take name as first token and sequence as last token
 
-    re_comment    = re.compile('^\#.*')
+    re_comment    = re.compile(r'^\#.*')
 
     for line in fp:
         line = re_comment.sub('',line)
@@ -132,7 +131,7 @@ def rd_tbl(fp):
         if not line:
             continue
         try:
-            tokens = line.split('\t')
+            tokens = line.split('\t') if '\t' in line else line.split()
             if len(tokens) != 2:
                 warnings.warn(f"Invalid tbl line: {' '.join(tokens[0:-1])} {tokens[-1][:5]}...")
             name,seq = tokens[0],tokens[-1]
@@ -158,8 +157,9 @@ FILEFUNCS = {
 }
 FILETYPES = list(FILEFUNCS)
 
-def auto_filetype(filename,filetypes=FILETYPES):
-
+def auto_filetype(filename,filetypes=None):
+    '''determind file type from filename extension(s)'''
+    filetypes = filetypes or FILETYPES
     gz = xz = False
     if filename.endswith(".gz"):
         gz = True
@@ -209,7 +209,7 @@ def rd_seqfile(filename,filetype="auto"):
         raise RuntimeError("Unknown filetype ["+filetype+
                            "] of sequence file ["+filename+"]")
 
-    binaryfile = True if filetype in ["ipkl","pkl"] else False
+    binaryfile = bool(filetype in ["ipkl","pkl"])
 
     ## having gone through all that to determine what kind
     ## of file this is, now start reading it
@@ -227,7 +227,7 @@ def filter_seqs(seqs,
     seqgen = generator (eg, output of rd_seqfile(filename) )
     rmdash=True/False: to remove dashes from every sequence (loses alignment)
     toupper=True/False: convert all sequence characters to upper case
-    badchar=char: replace "bad" characters (currently: #*X) with specified character
+    badchar=char: replace "bad" characters (currently: #$*X) with specified character
     pattern=str: only keep seqeunces whose name matches this pattern
     xpattern=str: only keep seqeunces whose name does NOT match this pattern
     revseq=True/False: reverse the s.seq's
@@ -238,8 +238,20 @@ def filter_seqs(seqs,
     ## eg, instead of maxseqs keyword, could call
     ## seqs = itertools.islice(seqs,maxseqs) if maxseqs else seqs
 
-    re_dash = re.compile('-')
-    re_badchar = re.compile('[\$\#\*Xx]')
+    re_dash = re.compile(r'-')
+
+    ## old-style badchar as regexp
+    re_badchar = re.compile(r'[\$\#\*Xx]')
+    re_badlastchar = re.compile(r'[\#Xx]')
+
+    ## new badchar based on translation (faster)
+    ## Always keep '*'
+    ## Translate '$' into '*'
+    ## Convert '#' or 'x' into badchar (badchar='X' is typical)
+    badchar_dict = dict((c,badchar) for c in r'#Xx')
+    badchar_dict['$'] = '*'
+    tr_badchar = "".maketrans( badchar_dict )
+
     if pattern:
         re_pattern = re.compile(pattern)
     if xpattern:
@@ -259,18 +271,20 @@ def filter_seqs(seqs,
             continue
         if xpattern and re_xpattern.search(s.name):
             continue
-        if rmdash:
-            s.seq = re_dash.sub('',s.seq)
-        if toupper:
-            s.seq = s.seq.upper()
-        if badchar:
-            s.seq = re_badchar.sub(badchar,s.seq)
-        if revseq:
-            s.seq = s.seq[::-1]
-        if rmdup:
-            if s.seq in uniq:
-                continue
-            else:
+        if len(s.seq):
+            ## if s.seq is empty, don't bother with all this stuff
+            if rmdash:
+                s.seq = re_dash.sub('',s.seq)
+            if toupper:
+                s.seq = s.seq.upper()
+            if badchar:
+                #translate bad character into badchar
+                s.seq = s.seq.translate(tr_badchar)
+            if revseq:
+                s.seq = s.seq[::-1]
+            if rmdup:
+                if s.seq in uniq:
+                    continue
                 uniq.add(s.seq)
         yield s
         nseqs += 1
@@ -332,7 +346,7 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
             s.seq = s.seq.upper()
 
     if badchar:
-        re_badchar = re.compile('[\#\$\*Xx]')
+        re_badchar = re.compile(r'[\#\$\*Xx]')
         for s in seqlist:
             s.seq = re_badchar.sub(badchar,s.seq)
 
