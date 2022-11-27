@@ -88,10 +88,12 @@ ColumnHeaders = {
     TotalPatternInclusiveCount: "Number of sequences that contain this pattern",
     SixtyDaysPatternFullCount: "Number of sequences that exactly match this pattern, last 60 days",
     SixtyDaysPatternInclusiveCount: "Number of sequences that contain this pattern, last 60 days",
-    'LineagesMatchPatternFull': "Lineages with sequences that " \
+    'TotalLineagesMatchPatternFull': "Lineages with sequences that " \
                                 "exactly match this pattern in Spike (and count)",
-    'LineagesMatchPatternInclusive': "Lineages with sequences that " \
+    'TotalLineagesMatchPatternInclusive': "Lineages with sequences that " \
                                 "contain this pattern in Spike (and count)",
+    'SixtyDaysLineagesMatchPatternFull': 'Lineages with sequences that exactly match pattern, last sixty days',
+    'SixtyDaysLineagesMatchPatternInclusive': 'Lineages with sequenecs that contain pattern, last sixty days',
     TotalPangoCount: "Total number of sequences with this Pango lineage designation",
     PangoPatternFullCount: "Number of sequences in the Pango lineage that " \
                                 "exactly match this pattern",
@@ -101,8 +103,8 @@ ColumnHeaders = {
                                 "contain this pattern",
     PangoPatternInclusiveFraction: "Fraction of sequences in the Pango lineage that " \
                                 "contain this pattern",
-    'CountriesPatternFull': "Countries that exactly match this pattern",
-    'CountriesPatternInclusive': "Countries that contain this pattern",
+    'CountriesTotalPatternFull': "Countries that exactly match this pattern",
+    'CountriesTotalPatternInclusive': "Countries that contain this pattern",
     'CountriesSixtyDaysPatternFull': "Countries that exactly match this pattern, "\
     "counts based on last 60 days",
     'CountriesSixtyDaysPatternInclusive': "Countries that contain this pattern, "\
@@ -276,14 +278,14 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
                     warnings.warn(f"For pango={pangofull}, no sequences "
                                   f"exactly match: {mstring}")
 
-            if seqtype == Total:
+            if seqtype in [Total,Recent]:
                 lineages = [ps.lineage for ps in matched_seqs]
                 cnt_lineages = Counter(lineages)
                 sorted_lineages = sorted(cnt_lineages,key=cnt_lineages.get,reverse=True)
                 str_lineages = ",".join("%s(%d)" % (lin,cnt_lineages[lin])
                                   for lin in sorted_lineages)
                 column_name = "PatternFull" if exact else "PatternInclusive"
-                row["LineagesMatch" + column_name] = str_lineages
+                row[seqtype + "LineagesMatch" + column_name] = str_lineages
 
             if seqtype in [Total,Recent]:
                 countries = [get_country_from_name(s.name) for s in matched_seqs]
@@ -291,7 +293,7 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
                 sorted_countries = sorted(cnt_countries,key=cnt_countries.get,reverse=True)
                 str_countries = ",".join("%s(%d)" % (c,cnt_countries[c])
                                          for c in sorted_countries[:3])
-                row["Countries" + column_name] = str_countries
+                row["Countries" + seqtype + column_name] = str_countries
 
     v.vvprint(list(row))
     return row
