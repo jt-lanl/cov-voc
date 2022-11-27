@@ -171,7 +171,7 @@ def _main(args):
     for site in sorted(xtras):
         mm_xtras = len(mut_mgr.indices_from_site(site))-1
         if mm_xtras < xtras[site]:
-            print("xtras:",site,mm_xtras,"->",xtras[site])
+            v.print("xtras:",site,mm_xtras,"->",xtras[site])
             ndx = mut_mgr.index_from_site(site)
             xxtras[ndx] = xtras[site] - mm_xtras
 
