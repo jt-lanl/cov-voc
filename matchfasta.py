@@ -44,6 +44,8 @@ def getargs():
         help="eliminate sequences with duplicate names")
     paa("--showmutants",action="store_true",
         help="show mutant string after sequence name")
+    paa("--jobno",type=int,default=1,
+        help="job number if using parallel")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -103,7 +105,7 @@ def main(args):
     '''main'''
 
     seqs = read_seqfile(args)
-    first,seqs = sequtil.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
 
     if args.mutant or args.sites or args.showmutants:
         m_mgr = mutant.MutationManager(first.seq)
@@ -140,6 +142,8 @@ def main(args):
 
     if args.output:
         seqs = list(seqs)
+        if args.jobno == 1:
+            seqs = [first] + seqs
         readseq.write_seqfile(args.output,seqs)
     else:
         ndxlist,sitelist = ndx_and_site_lists(m_mgr,sites,
