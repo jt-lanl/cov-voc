@@ -131,6 +131,9 @@ def main(args):
             raise RuntimeError(f'Cannot read OWID datafile: {args.cases}')
         df = owid.filter_cases(df,args.filterbyname,args.xfilterbyname)
         num_cases = owid.case_counts(df,ord_range,daysperweek=args.daily)
+        if max(num_cases) == 0:
+            v.vprint(f"No OWID case data for {args.filterbyname}")
+            num_cases = None
 
     if args.skipother:
         del cum_counts[OTHER]
