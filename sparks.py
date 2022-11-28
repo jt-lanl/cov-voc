@@ -72,18 +72,17 @@ def main(args):
             v.vprint_only(5,"Bad seqdate:",seqdate,s.name)
             continue
 
+        lineage = covid.get_lineage_from_name(s.name)
+
         if args.skipnone:
-            if ("None" in s.name or
-                "Unassigned" in s.name or
-                EMPTY_LINEAGE_REGEX.search(s.name)):
+            if lineage in ["None","Unassigned",""]:
                 v.vprint_only(5,"skip None:",f'[{s.name}]')
                 continue
 
-        voc = T.last_match(s.name)
+        voc = T.last_match("."+lineage)
 
         if voc == OTHER:
             if args.writeother:
-                lineage = covid.get_lineage_from_name(s.name)
                 other_lineages[lineage] += 1
                 v.vvprint_only(10,'Other:',s.name)
             if args.skipother:
@@ -144,9 +143,9 @@ def main(args):
             try:
                 del cum_counts[nonestring]
                 T.del_pattern(nonestring)
-                v.vprint('Removing:',nonestring)
+                v.vvprint('Removing:',nonestring)
             except:
-                v.vprint('Cannot remove:',nonestring)
+                v.vvprint('Cannot remove:',nonestring)
 
     emu.make_emberstyle_plots(args,'bynames',cum_counts,
                               T.names,T.colors,ord_range[0],
