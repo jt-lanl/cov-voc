@@ -181,7 +181,7 @@ def get_plot_filename(args,fraction,case_is_none=True,xtra=None):
         fc = "f" if case_is_none else "t"
     else:
         fc = "c"
-    v.print(f'{fc=}')
+    v.vprint(f'{fc=}')
     wk = "wk" if args.daily==7 \
         else "dy" if args.daily == 1 \
              else "cm"
@@ -435,7 +435,6 @@ def make_emberstyle_plots(args,extra_id,cum_counts,
         cases = (None,None,num_cases)
 
     for fraction,case in zip(fractions,cases):
-        v.print(f'frac,case = {fraction},{case is None}')
         embersplot(cum_counts,names,colors,ordmin,
                    ordplotrange = ordplotrange,
                    num_cases=case,
