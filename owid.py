@@ -20,13 +20,15 @@ def _getargs():
     parser = argparse.ArgumentParser(description=__doc__)
     paa = parser.add_argument
     paa("--input","-i",required=True,
-        help="input OWID csv file")
+        help="input csv file, use 'OWID' for direct input of OWID website")
     paa("--output","-o",
         help="output GISAID-harmoinzed case counts csv file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = parser.parse_args()
     return args
+
+STD_URL="https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv"
 
 ATTRIBUTES=('continent','location','date','total_cases')
 
@@ -124,6 +126,8 @@ def case_counts(df_cases,ord_range,daysperweek=7):
 
 def _main(args):
     '''read raw OWID file and write GISAID harmonized file'''
+    if args.input == "OWID":
+        args.input = STD_URL
     df_owid = read_dataframe(args.input)
     df_gisaid = harmonize_dataframe(df_owid)
     if args.output:
