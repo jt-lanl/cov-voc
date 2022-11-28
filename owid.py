@@ -97,6 +97,8 @@ def filter_cases(df_cases,filterbyname=None,xfilterbyname=None):
     if df_cases is None:
         return None
     for name in (filterbyname or []):
+        if name == 'Global':
+            continue
         df_cases = df_cases[(df_cases.location == name)|
                             (df_cases.continent == name)]
     for name in (xfilterbyname or []):
