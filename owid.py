@@ -96,12 +96,20 @@ def filter_cases(df_cases,filterbyname=None,xfilterbyname=None):
     '''
     if df_cases is None:
         return None
+    keepers = []
+    xcludes = []
     for name in (filterbyname or []):
-        if name == 'Global':
-            continue
+        patt,_,xpat = name.partition("-minus-")
+        if patt != "Global":
+            keepers.append(patt)
+        if xpat:
+            xcludes.append(xpat)
+    xcludes.extend(xfilterbyname or [])
+
+    for name in keepers:
         df_cases = df_cases[(df_cases.location == name)|
                             (df_cases.continent == name)]
-    for name in (xfilterbyname or []):
+    for name in xcludes:
         df_cases = df_cases[(df_cases.location != name)&
                             (df_cases.continent != name)]
 
