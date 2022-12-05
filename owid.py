@@ -99,6 +99,15 @@ def filter_cases(df_cases,filterbyname=None,xfilterbyname=None):
     keepers = []
     xcludes = []
     for name in (filterbyname or []):
+
+        ## special case for "Asia.India"
+        ## as a way to avoid "India" matching "Indiana"
+        continent,dot,country = name.partition(".")
+        if dot:
+            keepers.extend([continent,country])
+            continue
+
+        ## special case for "Europe-minus-United-Kingdom"
         patt,_,xpat = name.partition("-minus-")
         if patt != "Global":
             keepers.append(patt)
