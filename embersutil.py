@@ -181,7 +181,6 @@ def get_plot_filename(args,fraction,case_is_none=True,xtra=None):
         fc = "f" if case_is_none else "t"
     else:
         fc = "c"
-    v.vprint(f'{fc=}')
     wk = "wk" if args.daily==7 \
         else "dy" if args.daily == 1 \
              else "cm"
@@ -393,7 +392,7 @@ def embersplot(counts,
 
         def ytickformat(x,pos):
             if x>1:
-                return "" if fraction else "%g" % x
+                return "" if (fraction and num_cases is None) else "%g" % x
             else:
                 return "%.1g" % x
 
