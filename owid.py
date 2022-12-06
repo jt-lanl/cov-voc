@@ -8,8 +8,10 @@
 
 import re
 import argparse
+import datetime
 import numpy as np
 import pandas as pd
+
 import verbose as v
 import embersutil as emu
 
@@ -28,7 +30,9 @@ def _getargs():
     args = parser.parse_args()
     return args
 
-STD_URL="https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv"
+STD_URL=\
+    "https://raw.githubusercontent.com/owid/covid-19-data/" \
+    "master/public/data/owid-covid-data.csv"
 
 ATTRIBUTES=('continent','location','date','total_cases')
 
@@ -100,13 +104,6 @@ def filter_cases(df_cases,filterbyname=None,xfilterbyname=None):
     xcludes = []
     for name in (filterbyname or []):
 
-        ## special case for "Asia.India"
-        ## as a way to avoid "India" matching "Indiana"
-        continent,dot,country = name.partition(".")
-        if dot:
-            keepers.extend([continent,country])
-            continue
-
         ## special case for "Europe-minus-United-Kingdom"
         patt,_,xpat = name.partition("-minus-")
         if patt != "Global":
@@ -115,9 +112,21 @@ def filter_cases(df_cases,filterbyname=None,xfilterbyname=None):
             xcludes.append(xpat)
     xcludes.extend(xfilterbyname or [])
 
+    df_keepers = []
     for name in keepers:
-        df_cases = df_cases[(df_cases.location == name)|
-                            (df_cases.continent == name)]
+        if "." in name:
+            ## special case for "Asia.India"
+            ## as a way to avoid "India" matching "Indiana"
+            cont,_,loca = name.partition(".")
+            dfk = df_cases[(df_cases.location == loca)&
+                           (df_cases.continent == cont)]
+        else:
+            dfk = df_cases[(df_cases.location == name)|
+                           (df_cases.continent == name)]
+        df_keepers.append(dfk)
+
+    if df_keepers:
+        df_cases = pd.concat(df_keepers)
     for name in xcludes:
         df_cases = df_cases[(df_cases.location != name)&
                             (df_cases.continent != name)]
@@ -136,12 +145,21 @@ def case_counts(df_cases,ord_range,daysperweek=7):
         ord_day = date.toordinal()
         if ord_min-daysperweek <= ord_day <= ord_max:
             cum_cases[ord_day-ord_min+daysperweek] += count
+    total_cases = max(cum_cases) - cum_cases[daysperweek]
+    v.vprint('total cases:',total_cases,max(cum_cases),
+             cum_cases[ord_max-ord_min+daysperweek],
+             cum_cases[daysperweek])
+    v.vprint('dates:',
+             datetime.date.fromordinal(ord_min-daysperweek),
+             datetime.date.fromordinal(ord_min),
+             datetime.date.fromordinal(ord_max))
+
     if daysperweek==0:
-        return cum_cases
+        return cum_cases,total_cases
     num_cases = [0] * (ord_max-ord_min+1)
     for n in range(ord_max-ord_min+1):
         num_cases[n] = cum_cases[n+daysperweek] - cum_cases[n]
-    return num_cases
+    return num_cases,total_cases
 
 def _main(args):
     '''read raw OWID file and write GISAID harmonized file'''
