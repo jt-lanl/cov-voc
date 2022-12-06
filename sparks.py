@@ -2,6 +2,7 @@
 from collections import Counter
 import argparse
 import re
+import datetime
 
 import covid
 from verbose import verbose as v
@@ -55,11 +56,15 @@ def main(args):
     v.vvprint(args)
 
     if args.lineagetable.upper() == "FROMSEQS":
+        ## special case in which lineage table is "created on the fly"
+        ## with the most common pango lineages (with no grouping of
+        ## similar lineages as is done inthe lineage table files)
         seqs = list(seqs)
         T = lineagetable.get_lineage_table_from_seqs(seqs,
-                                                     num_lineages=18,
+                                                     num_lineages=24,
                                                      skipnone=args.skipnone)
     else:
+        ## build lineage table from the file
         T = lineagetable.get_lineage_table(args.lineagetable)
 
     v.vvprint('patterns',T.patterns)
@@ -127,16 +132,21 @@ def main(args):
 
     ord_range, ord_plot_range = emu.get_ord_daterange(date_counter,args.dates)
     v.vprint("ordinal range:",ord_range,ord_plot_range)
+    v.vprint("ordinal to date:",args.dates,
+             datetime.date.fromordinal(ord_range[0]),
+             datetime.date.fromordinal(ord_range[1]))
     cum_counts = emu.get_cumulative_counts(date_counter,ord_range,
                                            daysperweek=args.daily)
 
     num_cases=None
+    ncases=0
     if args.cases:
         df = owid.read_dataframe(args.cases)
         if df is None:
             raise RuntimeError(f'Cannot read OWID datafile: {args.cases}')
         df = owid.filter_cases(df,args.filterbyname,args.xfilterbyname)
-        num_cases = owid.case_counts(df,ord_range,daysperweek=args.daily)
+        num_cases,ncases = owid.case_counts(df,ord_plot_range,
+                                            daysperweek=args.daily)
         if max(num_cases) == 0:
             v.vprint(f"No OWID case data for {args.filterbyname}")
             num_cases = None
@@ -160,10 +170,10 @@ def main(args):
                               T.names,T.colors,ord_range[0],
                               ordplotrange = ord_plot_range,
                               num_cases = num_cases,
-                              title=": ".join([covid.get_title(args),
-                                               f"{nmatches} sequences"]),
+                              title=covid.get_title(args),
+                              nmatches=nmatches,
+                              ncases=ncases,
                               onsets=onsets)
-
 
 if __name__ == "__main__":
 
