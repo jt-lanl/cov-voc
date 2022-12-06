@@ -54,7 +54,13 @@ def main(args):
     seqs = emu.filter_seqs_by_padded_dates(seqs,args)
     v.vvprint(args)
 
-    T = lineagetable.get_lineage_table(args.lineagetable)
+    if args.lineagetable.upper() == "FROMSEQS":
+        seqs = list(seqs)
+        T = lineagetable.get_lineage_table_from_seqs(seqs,
+                                                     num_lineages=18,
+                                                     skipnone=args.skipnone)
+    else:
+        T = lineagetable.get_lineage_table(args.lineagetable)
 
     v.vvprint('patterns',T.patterns)
     v.vvprint('names',list(T.names.values()))
