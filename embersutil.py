@@ -411,7 +411,8 @@ def embersplot(counts,
 def make_emberstyle_plots(args,extra_id,cum_counts,
                           names,colors,ordmin,ordplotrange,
                           num_cases=None,
-                          title=None, onsets=None):
+                          title=None,nmatches=0,ncases=0,
+                          onsets=None):
     '''
     plot fraction, sequence counts, and cases
     against time for variants of interest
@@ -429,16 +430,24 @@ def make_emberstyle_plots(args,extra_id,cum_counts,
     ## and one w/ case counts (if num_counts is available)
     fractions = (False,True)
     cases = (None,None)
+    totals = (f'{nmatches} sequences',
+              f'{nmatches} sequences')
     if num_cases is not None:
         fractions = (False,True,True)
         cases = (None,None,num_cases)
+        totals = (f'{nmatches} sequences',
+                  f'{nmatches} sequences',
+                  #f'{nmatches} sequences',
+                  f'{ncases} cases',
+        )
 
-    for fraction,case in zip(fractions,cases):
+    for fraction,case,total in zip(fractions,cases,totals):
+        the_title = title + f': {total}'
         embersplot(cum_counts,names,colors,ordmin,
                    ordplotrange = ordplotrange,
                    num_cases=case,
                    legend=args.legend,lineplot=args.lineplot,
-                   title = title, onsets=onsets,
+                   title = the_title, onsets=onsets,
                    fraction=fraction)
 
         if args.output:
