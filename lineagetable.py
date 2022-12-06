@@ -14,7 +14,8 @@ COLORS_DEFAULT = [
     'orange', 'green', 'indigo'
 ]
 
-## From Will via Paul Tol
+## From Will Fischer via Paul Tol
+## (this is third row of scheme in Fig.14)
 COLORS_DEFAULT = [
     '#771155',
     '#AA4488',
@@ -25,18 +26,16 @@ COLORS_DEFAULT = [
     '#117777',
     '#44AAAA',
     '#77CCCC',
-    '#117744',
-    '#44AA77',
-    '#88CCAA',
     '#777711',
     '#AAAA44',
     '#DDDD77',
     '#774411',
     '#AA7744',
     '#DDAA77',
-    '#771122',
-    '#AA4455',
-    '#DD7788',
+# comment out last triplet, too similar to first triplet
+#    '#771122',
+#    '#AA4455',
+#    '#DD7788',
 ]
 
 OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
@@ -110,10 +109,14 @@ class LineageTablePatterns:
     '''adds some functionality to the raw lineage table'''
 
     def __init__(self,table):
-        self.patterns =  [patt                                for color,name,patt in table]
-        self.colors =    {patt: colornames.tohex(color)       for color,name,patt in table}
-        self.names =     {patt: name                          for color,name,patt in table}
-        self.regexpatt = {patt: re.compile(r'\.('+patt+r')$') for color,name,patt in table}
+        self.patterns =  [patt
+                          for color,name,patt in table]
+        self.colors =    {patt: colornames.tohex(color)
+                          for color,name,patt in table}
+        self.names =     {patt: name
+                          for color,name,patt in table}
+        self.regexpatt = {patt: re.compile(r'\.('+patt+r')$')
+                          for color,name,patt in table}
 
     def _match_generator(self,seqname,reverse=False):
         patternlist = self.patterns[::-1] if reverse else self.patterns
