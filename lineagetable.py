@@ -2,7 +2,42 @@
 
 import re
 import warnings
+from collections import Counter
+import itertools
+
+import covid
 import colornames
+
+## Roy G Biv
+COLORS_DEFAULT = [
+    'red', 'yellow', 'blue', 'violet',
+    'orange', 'green', 'indigo'
+]
+
+## From Will via Paul Tol
+COLORS_DEFAULT = [
+    '#771155',
+    '#AA4488',
+    '#CC99BB',
+    '#114477',
+    '#4477AA',
+    '#77AADD',
+    '#117777',
+    '#44AAAA',
+    '#77CCCC',
+    '#117744',
+    '#44AA77',
+    '#88CCAA',
+    '#777711',
+    '#AAAA44',
+    '#DDDD77',
+    '#774411',
+    '#AA7744',
+    '#DDAA77',
+    '#771122',
+    '#AA4455',
+    '#DD7788',
+]
 
 OTHER='$OTHER' #regexp that doesn't match anything (since it begins with $)
 
@@ -131,7 +166,39 @@ def get_lineage_table(lineagetable_file=None,other=None):
 
     return LineageTablePatterns(table)
 
+def get_lineage_table_from_seqs(seqs,num_lineages=15,
+                                skipnone=True,other=None):
+    '''
+    create a lineage table from the most frequent
+    pango designations in the list of sequences
+    '''
+    lineage_counter = Counter()
+    for s in seqs:
+        lineage = covid.get_lineage_from_name(s.name)
+        if skipnone and lineage in ['None','Unassigned','']:
+            continue
+        lineage_counter[lineage] += 1
+    lineage_list = sorted(lineage_counter,
+                          key=lineage_counter.get,
+                          reverse=True)
+    table = []
+    colors = itertools.cycle(COLORS_DEFAULT)
+    for name in lineage_list[:num_lineages]:
+        pattern = re.sub(r'\.',r'\.',name)
+        color = next(colors)
+        table.append((color,name,pattern))
 
+    ## reverse order of table so most frequent on top
+    table = list(reversed(table))
+
+    if other:
+        color,name,posn = other
+        table.insert(int(posn), (color,name,OTHER) )
+
+    if OTHER not in [items[2] for items in table]:
+        table.insert(0,('Gainsboro','other',OTHER))
+
+    return LineageTablePatterns(table)
 
 if __name__ == "__main__":
 
