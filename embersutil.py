@@ -220,7 +220,7 @@ def embersplot(counts,
                ordplotrange=None,
                num_cases=None,
                title=None,legendtitle=None,legend=0,onsets=False,
-               fraction=False,lineplot=False,show=False):
+               fraction=False,lineplot=False,show=False,daily=7):
     '''
     embersplot is an embers-style plot of counts vs date for multiple variants
     counts: dictionary of arrays; each array is counts vs date;
@@ -400,9 +400,20 @@ def embersplot(counts,
 
     plt.yticks(fontsize=12)
 
-    plt.ylabel("Fraction" if fraction else "Sequence Counts")
+    if daily==7:
+        ylabel_prefix="Weekly"
+    elif daily==1:
+        ylabel_prefix="Daily"
+    elif daily==0:
+        ylabel_prefix="Cumulative"
+    else:
+        ylabel_prefix=f'{daily}-day'
+
+
+
+    plt.ylabel("Fraction" if fraction else ylabel_prefix+" Sequence Counts")
     if fraction and num_cases is not None:
-        plt.ylabel("Cases")
+        plt.ylabel(ylabel_prefix+" Cases")
     plt.tight_layout()
     if show:
         plt.show()
@@ -412,6 +423,7 @@ def make_emberstyle_plots(args,extra_id,cum_counts,
                           names,colors,ordmin,ordplotrange,
                           num_cases=None,
                           title=None,nmatches=0,ncases=0,
+                          daily=7,
                           onsets=None):
     '''
     plot fraction, sequence counts, and cases
@@ -448,7 +460,7 @@ def make_emberstyle_plots(args,extra_id,cum_counts,
                    num_cases=case,
                    legend=args.legend,lineplot=args.lineplot,
                    title = the_title, onsets=onsets,
-                   fraction=fraction)
+                   fraction=fraction, daily=daily)
 
         if args.output:
             outfile = get_plot_filename(args,fraction,

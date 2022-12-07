@@ -173,6 +173,7 @@ def main(args):
                               title=covid.get_title(args),
                               nmatches=nmatches,
                               ncases=ncases,
+                              daily=args.daily,
                               onsets=onsets)
 
 if __name__ == "__main__":
