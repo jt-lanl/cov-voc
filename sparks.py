@@ -55,7 +55,7 @@ def main(args):
     seqs = emu.filter_seqs_by_padded_dates(seqs,args)
     v.vvprint(args)
 
-    if args.lineagetable.upper() == "FROMSEQS":
+    if args.lineagetable and args.lineagetable.upper() == "FROMSEQS":
         ## special case in which lineage table is "created on the fly"
         ## with the most common pango lineages (with no grouping of
         ## similar lineages as is done inthe lineage table files)
