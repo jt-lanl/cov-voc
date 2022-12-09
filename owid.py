@@ -145,6 +145,16 @@ def case_counts(df_cases,ord_range,daysperweek=7):
         ord_day = date.toordinal()
         if ord_min-daysperweek <= ord_day <= ord_max:
             cum_cases[ord_day-ord_min+daysperweek] += count
+
+    ## in case OWID data doesn't reach to the present, we'll get
+    ## 0's in cum_cases ... in that case, should pad with latest
+    ## value, since cumulative is zero implies current is negative!
+    for ndx,cnt in enumerate(cum_cases):
+        if ndx==0:
+            continue
+        if cnt == 0:
+            cum_cases[ndx] = cum_cases[ndx-1]
+
     total_cases = max(cum_cases) - cum_cases[daysperweek]
     v.vprint('total cases:',total_cases,max(cum_cases),
              cum_cases[ord_max-ord_min+daysperweek],
