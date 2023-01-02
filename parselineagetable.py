@@ -12,7 +12,7 @@ import warnings
 import sequtil
 import covid
 import colornames
-from verbose import verbose as v
+import verbose as v
 
 import lineagetable
 
@@ -23,13 +23,16 @@ def _getargs():
     covid.corona_args(ap)
     paa("--lineagetable","-l",
         help="read lineage table from file")
+    paa("--skipnone",action="store_true",
+        help="sequences labeled 'None' are totally ignored, not put in OTHER")
+    paa("--skipother",action="store_true",
+        help="skip all sequences in OTHER category")
     paa("--usehex",action="store_true",
         help="use six-character hex-codes instead of X11 colornames")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     return args
-
 
 def main(args):
     '''main parselineagetable'''
@@ -42,7 +45,16 @@ def main(args):
     T = lineagetable.get_lineage_table(args.lineagetable)
     
     for s in seqs:
-        voc = T.last_match(s.name)
+        lineage = covid.get_lineage_from_name(s.name)
+        if args.skipnone:
+            if lineage in ["None","Unassigned",""]:
+                v.vprint_only(5,"skip None:",f'[{s.name}]')
+                continue
+        voc = T.last_match("."+lineage)
+        if args.skipother and voc == lineagetable.OTHER:
+            v.vprint_only(5,"skip Other:",f'[{s.name}]')
+            continue
+            
         print(s.name,T.names[voc],T.colors[voc])
 
 if __name__ == "__main__":
