@@ -59,16 +59,16 @@ DefaultLineageTable = [
     (  'Burlywood',                               'BA.2.12.1/BG', r'(BA\.2\.12\.1(\..*)?)|(BG\..*)'),
     (  'LimeGreen',                                    'BA.4/CS', r'(BA\.4(\..*)?)|(CS\..*)'),
     (  'Chocolate',                                  'BA.4.6/DC', r'(BA\.4\.6(\..*)?)|(DC\..*)'),
-    ('YellowGreen', 'BA.5/B[EFKTUVWZ]/C[CDEFGKLNRTU]/D[ABEFGHJ]', r'(BA\.5(\..*)?)|(B[EFKTUVWZ]\..*)|(C[CDEFGKLNRTU]\..*)|(D[ABEFGHJ]\..*)'),
+    ('YellowGreen', 'BA.5/B[EFKTUVWZ]/C[CDEFGKLNRTU]/D[ABEFGHJ]', r'(BA\.5(\..*)?)|(B[EFKTUVWZ]\..*)|(C[CDEFGKLNQRTU]\..*)|(D[ABEFGHJ]\..*)'),
     (    'Thistle',                   'BA.2.75/B[LMNRY]/C[BHJV]', r'(BA\.2\.75(\..*)?)|(B[LMNRY]\..*)|(C[BHJV]\..*)'),
     (    'Magenta',                               'BA.2.75.2/CA', r'(BA\.2\.75\.2(\..*)?)|(CA\..*)'),
     (   'Cornsilk',                                       'BN.1', r'BN\.1(\..*)?'),
     (  'LightBlue',                                  'BF.7-like', r'(BF\.(7|(11))(\..*)?)|(CP\..*)|(BA.5.2.(6|(13)|(3[45]))(\..*)?)|(BA\.5\.1\.((18)|(27))(\..*)?)|(BA\.5\.10\.1(\..*)?)|(BE\.1\.2(\..*)?)'),
     (       'Gold',                                       'BQ.1', r'BQ\.1(\..*)?'),
-    (  'Goldenrod',                               'BQ.1.1/C[WZ]', r'(BQ\.1\.1(\..*)?)|(C[WZ]\..*)'),
+    (  'Goldenrod',                               'BQ.1.1/C[WZ]', r'(BQ\.1\.1(\..*)?)|(C[WZ]\..*)|(D[KMNP]\..*)'),
     ('ForestGreen',                                        'XBB', r'XBB(\..*)?'),
+    (    'Crimson',                                    'XBB.1.5', r'XBB\.1\.5(\..*)?'),
     (       'Blue',                               'BA.2.3.20/CM', r'(BA\.2\.3\.20(\..*)?)|(CM\..*)'),
-    (    'Crimson',                             'BA.5.2.18-like', r'(BA\.5\.2\.18(\..*)?)|(BF\.16(\..*)?)|(CQ\..*)'),
 
 ]
 
