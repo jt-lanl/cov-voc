@@ -1,4 +1,4 @@
-## Updated 2022-01-23 (adding BQ-1.1.22-like, BM.1.1.1-like, X-minus)
+## Updated 2022-01-23 (adding BN, BQ-1.1.22-like, BM.1.1.1-like)
 ## Lineage Table with pango lineages for the ancestral sequences
 ## D614G is treated as $OTHER
 ## Columns are: color, name, and pattern to match pangolin lineage
