@@ -30,7 +30,7 @@ def getargs():
         help="Do not compute consensus for each form [faster compute]")
     paa("--protein",default="Spike",
         help="Protein name to be used in the header")
-    paa("--baseline",default=None,choices=("Wuhan","BA.2","BA.5"),
+    paa("--baseline",default=None,choices=("Wuhan","BA.2","BA.5","BA.2.75"),
         help="Use this sequence as basline for mutation strings")
     paa("--lineagebaseline",action="store_true",
         help="Use each lineage most common form as mstring baseline for that lineage")
