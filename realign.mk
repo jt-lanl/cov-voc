@@ -5,8 +5,8 @@
 ## make -j3 -f src/realign.mk ID=20211024  makes re-aligned sequences based on date 20211024
 ## make -f src/realign.mk Latest           makes a new Latest.ipkl
 
-ID := 20221027
-INITALIGN := data/REG_COMP.SPIKE.protein.Human.$(ID).fasta.xz
+ID := 20230326
+INITALIGN := data/SPIKE.protein.Human.$(ID).fasta
 KEEPX := --keepx
 ifeq ($(KEEPX),--keepx)
 XID := xx$(ID)
@@ -24,7 +24,10 @@ fx-$(XIDF): $(INITALIGN)
 	python -m fixalign $(KEEPX) -i $(INITALIGN) --fix $@
 
 tweak-$(XID).out: fx-$(XIDF)
-	python -m matchfasta -i $< --showmut | perl -nle '/\b((.)(\d+)-,\+\3\2)\b/ and printf "[%s] []\n",$$1' | sort | uniq > $@
+	echo "[Y145Q,H146-] [Y144-,H146Q]" > $@
+	echo "[Y145K,H146-] [Y144-,H146K]" >> $@
+	echo "[Y145Q,H146I,K147-] [Y144-,H146Q,K147I]" >> $@
+	python -m matchfasta -i $< --showmut | perl -nle '/\b((.)(\d+)-,\+\3\2)\b/ and printf "[%s] []\n",$$1' | sort | uniq >> $@
 
 tkfx-$(XIDF): fx-$(XIDF) tweak-$(XID).out
 	parallel -k --header 2 --recstart '>' --blocksize 400M --pipe \
