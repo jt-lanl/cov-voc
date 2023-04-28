@@ -99,14 +99,6 @@ def main(args):
 
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
-
-    
-    ## baseline mutation for mstrings
-    base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
-    if args.baseline:
-        print()
-        print("Baseline:",str(base_mut))
-        print()
     
     seqlist = list(seqlist)
     v.vprint_only_summary('Invalid date:','skipped sequences')
@@ -135,11 +127,32 @@ def main(args):
     fmt_lin = {lin: fmt%lin for lin in lineages}
     fmt_lin["EMPTY"] = fmt % ("",)
 
+    mut_manager = mutant.MutationManager(firstseq)
+
+    ## Get baseline:
+    ##     For Spike, use hardcoded baseline sequences
+    ##     For Other proteins, use most common form of the given baseline pango type
+    if not args.baseline:
+        base_mut = mutant.Mutation("[]")
+    elif args.protein == 'Spike':
+        base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
+    else:
+        v.vprint('Will obtain baseline from most common',args.baseline)
+        if args.baseline not in seqlist_by_lineage:
+            ## should this be fatal?
+            v.vprint(f'Baseline {args.baseline} not in data!')
+        else:
+            cntr = Counter(s.seq for s in seqlist_by_lineage[args.baseline])
+            base_seq = cntr.most_common(1)[0][0]
+            base_mut = mut_manager.get_mutation(base_seq)
+    if args.baseline:
+        print()
+        print("Baseline:",str(base_mut))
+        print()
+
     print()
     print(fmt % "Pango","Lineage   Form   Form")
     print(fmt % "Lineage","  Count  Count    Pct  HD [Form as mutation string]")
-
-    mut_manager = mutant.MutationManager(firstseq)
 
     for lin in lineages:
 
