@@ -168,18 +168,12 @@ def date_fromiso(s):
     '''return datetime.date object from date string in yyyy-mm-dd format'''
     ## if "." or invalid (quite different cases!), return None
     ## problem with raising error is that many badly formatted dates out there
-    if not s:
-        return None
     if isinstance(s, datetime.date):
         return s
     try:
-        yyyy,mm,dd = s.split("-")
-        dt = datetime.date(int(yyyy),int(mm),int(dd))
-        return dt
-    except ValueError:
-        if s == ".":
-            return None
-        return None #raise RuntimeError(f"Invalid Date {s}")
+        return datetime.date.fromisoformat(s)
+    except (ValueError,TypeError):
+        return None
 
 def date_from_seqname(sname):
     '''extract date string from sequence name'''
