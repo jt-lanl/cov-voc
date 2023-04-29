@@ -20,6 +20,8 @@ import mutant
 import verbose as v
 from hamming import hamming
 
+PVALMIN = 1.26e-100 #caps neg log pvalue at 99.9
+
 def getargs():
     '''get arguments from command line'''
     ap = argparse.ArgumentParser(description=__doc__)
@@ -29,10 +31,6 @@ def getargs():
         help="How many of the most common patterns per lineage (0=all)")
     paa("--mincount","-m",type=int,default=10,
         help="Show only patterns with at least this many counts")
-    paa("--consensusalways","-c",action="store_true",
-        help="Always show consensus, even if not common")
-    paa("--consensusnever",action="store_true",
-        help="Do not compute consensus for each form [faster compute]")
     paa("--protein",default="Spike",
         help="Protein name to be used in the header")
     paa("--baseline",default=None,
@@ -45,8 +43,6 @@ def getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
-    if args.consensusalways and args.consensusnever:
-        raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
     return args
 
 def mostcommonchar(clist):
@@ -74,6 +70,8 @@ def print_header(args):
           "indicated with 'E156-,F157-'), "
           "and insertions are denoted by a plus sign "
           "(e.g. an extra T at position 143 is written '+143T'). ")
+    print(f"Abs Differences are 100 times difference in later vs earlier fractions.")
+    print(f"Relative Differences range between -100% and +100%.")
     if args.baseline:
         print(f"[Note: Mutation strings are relative to baseline {args.baseline}].")
     if args.lineagebaseline:
@@ -86,11 +84,7 @@ def print_header(args):
         f" that have at least {args.mincount} counts " \
         "(but we always show the most common form)" \
         if args.mincount>1 else ""
-    consensus_always = \
-        "And we always show the consensus form; " \
-        "this form has the most common amino acid at each position. " \
-        if args.consensusalways else ""
-    print(f"We show {count_forms} forms{min_count}. {consensus_always}")
+    print(f"We show {count_forms} forms{min_count}. ")
 
 def split_date_range(date_range):
     '''Split a date range into early and later halves'''
@@ -103,7 +97,7 @@ def split_date_range(date_range):
     return early_range, later_range
 
 def main(args):
-    '''pangocommonforms main'''
+    '''commonformschange main'''
 
     if args.baseline and args.lineagebaseline:
         raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
@@ -116,10 +110,10 @@ def main(args):
     seqs = sequtil.checkseqlengths(seqs)
 
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
-    firstseq = first.seq
 
+    mut_manager = mutant.MutationManager(first.seq)
 
-    ## baseline mutation for mstrings
+    ## baseline mutation for mstrings (assumes protein==Spike)
     base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
     if args.baseline:
         print()
@@ -129,17 +123,13 @@ def main(args):
     seqlist = list(seqlist)
     v.vprint_only_summary('Invalid date:','skipped sequences')
 
-    last_days = f" in the last {args.days} days from our last update,"
-    last_days = last_days if args.days else ""
-    try:
-        (f_date,t_date) = covid.range_of_dates(seqlist)
-    except ValueError:
-        (f_date,t_date) = ('Unknown','Unknown')
-
+    (f_date,t_date) = covid.range_of_dates(seqlist)
     early,later = split_date_range((f_date,t_date))
     n_early = len(list(covid.filter_by_date(seqlist,*early)))
     n_later = len(list(covid.filter_by_date(seqlist,*later)))
 
+    last_days = f" in the last {args.days} days from our last update,"
+    last_days = last_days if args.days else ""
     print(f"This output is based on sequences sampled{last_days} "
           "from %s to %s." % (f_date,t_date))
     print(f"This interval is split into two intervals.")
@@ -162,22 +152,26 @@ def main(args):
     fmt_lin = {lin: fmt%lin for lin in lineages}
     fmt_lin["EMPTY"] = fmt % ("",)
 
-    ## print header table
+    ## print header for table
     print()
     print(fmt % "Pango",
-          "Lineage    Form   Form    Counts        Fractions       Differences -log10")
+          "Lineage    Form   Form    Counts        Fractions      Differences  -log10")
     print(fmt % "Lineage",
-          "  Count   Count    Pct  Early/Later    Early/Later      Abs Relative pval  HD [Form as mutation string]")
+          "  Count   Count    Pct  Early/Later    Early/Later     Abs Relative  pval  HD"
+          " [Form as mutation string]")
 
-    mut_manager = mutant.MutationManager(firstseq)
-
+    table_format = \
+        "%s %7d %7d %5.1f%% %6d/%-6d %7.5f/%7.5f "\
+        "%+6.2f%% %+6.1f%% %4.1f %3d %s %s"
+    
     for lin in lineages:
 
         seqlin = seqlist_by_lineage[lin]
 
         ## First get consensus form
-        cons = consensus(seqlin) if not args.consensusnever else None
+        cons = consensus(seqlin)
 
+        ## Partition sequences into early and later
         seqlin_early = list(covid.filter_by_date(seqlin,*early))
         seqlin_later = list(covid.filter_by_date(seqlin,*later))
         ne,nl = len(seqlin_early),len(seqlin_later)
@@ -187,13 +181,24 @@ def main(args):
         if nl+ne < args.mincount:
             continue
 
-        _,pval = stats.fisher_exact([[ne,nl],[n_early-ne,n_later-nl]])
-        print()
-        print("%s %7d %7d   100%% %6d/%-6d"
-              "                                 "
-              "%4.1f     Full lineage" %
-              (fmt_lin[lin],ne+nl,ne+nl,ne,nl,-np.log10(pval+1.25e-100)))
-        #-np.log10(pval)))
+        ## Compute pval for the lineage
+        if lin != "N/A":
+            _,pval = stats.fisher_exact([[ne,nl],[n_early-ne,n_later-nl]])
+            pval = max([pval,PVALMIN])
+            print()
+            #print("%s %7d %7d   100%% %6d/%-6d 1.00000/1.00000"
+            #      "                "
+            #      "%4.1f      Full %s lineage" %
+            #      (fmt_lin[lin],ne+nl,ne+nl,ne,nl,np.log10(1/pval),lin))
+            print(table_format %
+                  (fmt_lin[lin],ne+nl,ne+nl,
+                   100*(ne+nl)/(n_early+n_later),
+                   ne,nl,ne/n_early,nl/n_later,
+                   100*(nl/n_later-ne/n_early),
+                   100*(nl*n_early-ne*n_later)/max([nl*n_early,ne*n_later]),
+                   np.log10(1/pval),
+                   0," Full %s lineage" %lin,""))
+
 
         ## Now get most common forms
         cntr_both = Counter(s.seq for s in seqlin)
@@ -206,14 +211,18 @@ def main(args):
             ce,cl = cntr_early[comm],cntr_later[comm]
             #den = cl/nl if cl*ne > ce*nl else ce/ne
             return 100*(cl*ne-ce*nl)/max([cl*ne,ce*nl,1])
-        def neg_log_pval(comm):
+        def neg_log_pval(comm,cap=False):
             ce,cl = cntr_early[comm],cntr_later[comm]
-            oddrat,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
-            return -np.log10(pval+1.26e-100) ## caps neglog at 99.9
+            _,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
+            if cap:
+                pval = max([pval,PVALMIN])
+            return np.log10(1/pval)
         cntrlist = sorted(cntr_both,key=neg_log_pval,reverse=True) #key=cntr_later.get
+
         if args.npatterns:
             cntrlist = cntrlist[:args.npatterns]
-        for n,comm in enumerate(cntrlist):
+
+        for comm in cntrlist:
             ce,cl = cntr_early[comm],cntr_later[comm]
             if cl+ce < args.mincount:
                 continue
@@ -231,26 +240,15 @@ def main(args):
             cene = ce/ne if ne>0 else np.inf
             clnl = cl/nl if nl>0 else np.inf
             oddrat,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
-            print("%s %7d %7d %5.1f%% %6d/%-6d %7.5f/%7.5f %+5.2f%% %+7.1f%% %4.1f %3d %s %s" %
+            print(table_format % 
                   (fmt_lin[lin],cnt_lin[lin],ce+cl,
                    100*(ce+cl)/cnt_lin[lin],
                    ce,cl,
                    cene,clnl,
                    100*(clnl-cene),
                    relative_diff(comm),
-                   neg_log_pval(comm),
+                   neg_log_pval(comm,cap=True),
                    h,mstring,cons_string))
-
-        ## print statement is out of date, so use if 0 for now
-        if 0 and args.consensusalways and not cflag:
-            h = hamming(top_comm,cons)
-            m = mut_manager.get_mutation(cons)
-            mstring = m.relative_to(base_mut) if args.baseline else str(m)
-            cnt = cntr[cons]
-            print("%s %7d %6d/%6d %5.1f%% %3d %s %s" %
-                  (fmt_lin[lin],cnt_lin[lin],ce,cl,
-                       100*(ce+cl)/cnt_lin[lin],
-                   h,mstring,"(consensus)"))
 
 if __name__ == "__main__":
 
