@@ -65,9 +65,8 @@ def print_header(args):
           f"WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
     print(f"For each lineage, we show the most common forms of {args.protein}, "
-          "as well as their counts within (and percentages of) the lineage.  "
-          "[Note that if a lineage contains several divergent forms, "
-          "the consensus form might not be found among these common forms.] "
+          "and we show the forms that are most significantly increasing "
+          "or decreasing. "
           "Also shown is the Hamming distance (HD) between each form "
           "and the most common form in that lineage. Deletions relative to "
           "the baseline reference strain are indicated with a dash "
@@ -108,6 +107,8 @@ def main(args):
 
     if args.baseline and args.lineagebaseline:
         raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
+    if args.nopango and args.lineagebaseline:
+        v.print('Warning: --nopango and --lineagebaseline not recommended.')
 
     print_header(args)
 
