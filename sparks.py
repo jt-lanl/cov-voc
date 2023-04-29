@@ -22,7 +22,7 @@ def _getargs():
     emu.embers_args(ap)
     paa = ap.add_argument
     paa("--lineagetable","-l",
-        help="read lineage table from file")
+        help="read lineage table from file (or use FROMSEQS)")
     paa("--writeother",
         help="write out the lineages in the 'other' class to this file")
     paa("--skipnone",action="store_true",
