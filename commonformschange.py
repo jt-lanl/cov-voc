@@ -217,7 +217,10 @@ def main(args):
             if cap:
                 pval = max([pval,PVALMIN])
             return np.log10(1/pval)
-        cntrlist = sorted(cntr_both,key=neg_log_pval,reverse=True) #key=cntr_later.get
+        def form_count(comm):
+            ce,cl = cntr_early[comm],cntr_later[comm]
+            return ce+cl
+        cntrlist = sorted(cntr_both,key=form_count,reverse=True)
 
         if args.npatterns:
             cntrlist = cntrlist[:args.npatterns]
