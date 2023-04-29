@@ -197,7 +197,7 @@ def range_of_dates(seqlist):
     assert isinstance(seqlist,list)
     dates = [date_from_seqname(s.name) for s in seqlist]
     dates = [d for d in dates if d is not None]
-    v.vprint("Range of dates bsed on",len(dates),"sequences")
+    v.vprint("Range of dates based on",len(dates),"sequences")
     return (min(dates).isoformat(),
             max(dates).isoformat())
 
