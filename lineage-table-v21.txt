@@ -1,4 +1,5 @@
-## Updated 2022-02-22 (adding XAY*)
+## Updated 2023-05-06 (adding XBB 1.9, XBB.1.16;
+##                     updating BQ.1.1, XBB.1.5, CH.1, BN.1, BR.2)
 ## Lineage Table with pango lineages for the ancestral sequences
 ## D614G is treated as $OTHER
 ## Columns are: color, name, and pattern to match pangolin lineage
