@@ -9,11 +9,13 @@ for that lineage, and show the most commmon forms.
 from collections import Counter,defaultdict
 import argparse
 
+import verbose as v
+from hamming import hamming
+
 import sequtil
 import covid
 import mutant
-from verbose import verbose as v
-from hamming import hamming
+import commonforms as cf
 
 def getargs():
     '''get arguments from command line'''
@@ -41,16 +43,6 @@ def getargs():
     if args.consensusalways and args.consensusnever:
         raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
     return args
-
-def mostcommonchar(clist):
-    '''return the most common item in the list'''
-    [(c,_)] = Counter(clist).most_common(1)
-    return c
-
-def consensus(seqlist):
-    '''create a consesnsus sequence from the sequence list'''
-    return "".join(mostcommonchar(clist)
-                   for clist in sequtil.gen_columns_seqlist(seqlist))
 
 def print_header(args):
     '''print the header before the table itself'''
@@ -94,14 +86,8 @@ def main(args):
 
     print_header(args)
 
-    seqs = covid.read_filter_seqfile(args)
-    seqs = sequtil.checkseqlengths(seqs)
-
-    first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
-    firstseq = first.seq
-    
-    seqlist = list(seqlist)
-    v.vprint_only_summary('Invalid date:','skipped sequences')
+    firstseq,seqlist = cf.get_input_sequences(args)
+    mut_manager = mutant.MutationManager(firstseq)
 
     last_days = f" in the last {args.days} days from our last update,"
     last_days = last_days if args.days else ""
@@ -113,21 +99,8 @@ def main(args):
     print(f"This output is based on sequences sampled{last_days} "
           "from %s to %s." % (f_date,t_date))
 
-    seqlist_by_lineage=defaultdict(list)
-    for s in seqlist:
-        lin = covid.get_lineage_from_name(s.name)
-        lin = lin or "None"
-        seqlist_by_lineage[lin].append(s)
-
-    cnt_lin = {lin: len(seqlist_by_lineage[lin]) for lin in seqlist_by_lineage}
-    lineages = sorted(cnt_lin,key=cnt_lin.get,reverse=True)
-
-    maxlinlen = max(len(lin) for lin in lineages)
-    fmt = "%%-%ds" % (maxlinlen,)
-    fmt_lin = {lin: fmt%lin for lin in lineages}
-    fmt_lin["EMPTY"] = fmt % ("",)
-
-    mut_manager = mutant.MutationManager(firstseq)
+    ## Partition seqlist by lineages, separate list for each lineage
+    lin_partition = cf.LineagePartition(seqlist)
 
     ## Get baseline:
     ##     For Spike, use hardcoded baseline sequences
@@ -138,11 +111,11 @@ def main(args):
         base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
     else:
         v.vprint('Will obtain baseline from most common',args.baseline)
-        if args.baseline not in seqlist_by_lineage:
+        if args.baseline not in lin_partition.lineages:
             ## should this be fatal?
             v.vprint(f'Baseline {args.baseline} not in data!')
         else:
-            cntr = Counter(s.seq for s in seqlist_by_lineage[args.baseline])
+            cntr = Counter(s.seq for s in lin_partition.sequences[args.baseline])
             base_seq = cntr.most_common(1)[0][0]
             base_mut = mut_manager.get_mutation(base_seq)
     if args.baseline:
@@ -151,18 +124,21 @@ def main(args):
         print()
 
     print()
-    print(fmt % "Pango","Lineage   Form   Form")
-    print(fmt % "Lineage","  Count  Count    Pct  HD [Form as mutation string]")
+    print(lin_partition.format("Pango"),
+          "Lineage   Form   Form")
+    print(lin_partition.format("Lineage"),
+          "  Count  Count    Pct  HD [Form as mutation string]")
 
-    for lin in lineages:
+    for lin in lin_partition.lineages:
 
-        #if lin == "None": continue
-        #if not lin: continue
+        seqlin = lin_partition.sequences[lin]
+        countlin = lin_partition.counts[lin]
+        fmtlin = lin_partition.format(lin)
 
-        seqlin = seqlist_by_lineage[lin]
+        print()
 
         ## First get consensus form
-        cons = consensus(seqlin) if not args.consensusnever else None
+        cons = cf.consensus(seqlin) if not args.consensusnever else None
 
         ## Now get most common forms
         cntr = Counter(s.seq for s in seqlin)
@@ -186,27 +162,21 @@ def main(args):
                     lineage_baseline = m
                 else:
                     mstring = m.relative_to(lineage_baseline)
-                    
+
             if n == 0:
                 top_comm = comm
-                h = 0
-                print("%s %7d %6d %5.1f%% %3d %s %s" %
-                      (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
-                       h,mstring,cons_string))
-            else:
-                h = hamming(top_comm,comm)
-                print("%s %7d %6d %5.1f%% %3d %s %s" %
-                      (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
-                       h,mstring,cons_string))
+            h = hamming(top_comm,comm)
+            print("%s %7d %6d %5.1f%% %3d %s %s" %
+                  (fmtlin,countlin,cnt,100*cnt/countlin,
+                   h,mstring,cons_string))
         if args.consensusalways and not cflag:
             h = hamming(top_comm,cons)
             m = mut_manager.get_mutation(cons)
             mstring = m.relative_to(base_mut) if args.baseline else str(m)
             cnt = cntr[cons]
             print("%s %7d %6d %5.1f%% %3d %s %s" %
-                  (fmt_lin[lin],cnt_lin[lin],cnt,100*cnt/cnt_lin[lin],
+                  (fmtlin,countlin,cnt,100*cnt/countlin,
                    h,mstring,"(consensus)"))
-        print()
 
 if __name__ == "__main__":
 

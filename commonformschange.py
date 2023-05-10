@@ -8,17 +8,20 @@ can be used to look for rapidly increasing variants
 ## 2/ there may be vestigal features of pangocommonforms that are still here,
 ##    but which don't make sense in the context of how common forms change
 
+import re
 from collections import Counter,defaultdict
 import datetime
 import argparse
 import numpy as np
 from scipy import stats
 
+import verbose as v
+from hamming import hamming
+
 import sequtil
 import covid
 import mutant
-import verbose as v
-from hamming import hamming
+import commonforms as cf
 
 PVALMIN = 1.26e-100 #caps neg log pvalue at 99.9
 
@@ -45,19 +48,9 @@ def getargs():
     args = ap.parse_args()
     return args
 
-def mostcommonchar(clist):
-    '''return the most common item in the list'''
-    [(c,_)] = Counter(clist).most_common(1)
-    return c
-
-def consensus(seqlist):
-    '''create a consesnsus sequence from the sequence list'''
-    return "".join(mostcommonchar(clist)
-                   for clist in sequtil.gen_columns_seqlist(seqlist))
-
 def print_header(args):
     '''print the header before the table itself'''
-    print(f"COMMON FORMS OF {args.protein.upper()} "
+    print(f"COMMON FORMS CHANGES FOR {args.protein.upper()} "
           f"WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
     print(f"For each lineage, we show the most common forms of {args.protein}, "
@@ -70,12 +63,14 @@ def print_header(args):
           "indicated with 'E156-,F157-'), "
           "and insertions are denoted by a plus sign "
           "(e.g. an extra T at position 143 is written '+143T'). ")
-    print(f"Abs Differences are 100 times difference in later vs earlier fractions.")
-    print(f"Relative Differences range between -100% and +100%.")
-    if args.baseline:
-        print(f"[Note: Mutation strings are relative to baseline {args.baseline}].")
-    if args.lineagebaseline:
-        print("[Note: Mutation strings are relative to the most common variant in each lineage.]")
+    print(f"Abs Differences in later vs early fractions, expressed as percent.")
+    print(f"Relative Differences range between -100% and +100%, using formula: "
+          "rel = 100*(later-early)/max(later,early) percent.")
+    print(f"The first line of each lineage section indicates counts "
+          f"for the full lineage relative to all the sequences. "
+          f"'Lineage Count' in this first line is actually the full sequence count. "
+          f"'Form Count' in this first line is actually the full lineage count, "
+          f"and 'Form Pct' refers to lineage count relative to full sequence set.")
     print()
 
     count_forms = f"the {args.npatterns} most common" if args.npatterns \
@@ -85,6 +80,11 @@ def print_header(args):
         "(but we always show the most common form)" \
         if args.mincount>1 else ""
     print(f"We show {count_forms} forms{min_count}. ")
+    print()
+    if args.baseline:
+        print(f"[Note: Mutation strings are relative to baseline {args.baseline}].")
+    if args.lineagebaseline:
+        print("[Note: Mutation strings are relative to the most common variant in each lineage.]")
 
 def split_date_range(date_range):
     '''Split a date range into early and later halves'''
@@ -96,6 +96,21 @@ def split_date_range(date_range):
     later_range = (mid_date + datetime.timedelta(days=1), end_date)
     return early_range, later_range
 
+def split_date_range_bycounts(seqlist):
+    '''Produce two adjacent date ranges, one early and one later,
+       that cover the full range of dates in the input sequence list,
+       with the split chosen so that there is a
+       roughly equal number of sequences in each range
+    '''
+    datelist = sorted([covid.date_from_seqname(s.name) for s in seqlist])
+    start_date = datelist[0]
+    mid_date = datelist[len(datelist)//2]
+    end_date = datelist[-1]
+    early_range = (start_date, mid_date + datetime.timedelta(days=-1))
+    later_range = (mid_date, end_date)
+    return early_range, later_range
+
+
 def main(args):
     '''commonformschange main'''
 
@@ -106,70 +121,53 @@ def main(args):
 
     print_header(args)
 
-    seqs = covid.read_filter_seqfile(args)
-    seqs = sequtil.checkseqlengths(seqs)
-
-    first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
-
-    mut_manager = mutant.MutationManager(first.seq)
+    firstseq,seqlist = cf.get_input_sequences(args)
+    mut_manager = mutant.MutationManager(firstseq)
 
     ## baseline mutation for mstrings (assumes protein==Spike)
     base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
     if args.baseline:
-        print()
         print("Baseline:",str(base_mut))
         print()
 
-    seqlist = list(seqlist)
-    v.vprint_only_summary('Invalid date:','skipped sequences')
-
-    (f_date,t_date) = covid.range_of_dates(seqlist)
-    early,later = split_date_range((f_date,t_date))
+    early,later = split_date_range_bycounts(seqlist)
     n_early = len(list(covid.filter_by_date(seqlist,*early)))
     n_later = len(list(covid.filter_by_date(seqlist,*later)))
 
     last_days = f" in the last {args.days} days from our last update,"
     last_days = last_days if args.days else ""
-    print(f"This output is based on sequences sampled{last_days} "
-          "from %s to %s." % (f_date,t_date))
-    print(f"This interval is split into two intervals.")
-    print(f"Early: {early[0].isoformat()} to {early[1].isoformat()} ({n_early})")
-    print(f"Later: {later[0].isoformat()} to {later[1].isoformat()} ({n_later})")
+    (f_date,_),(_,t_date) = early,later
+    print(f"This output is based on {n_early+n_later} sequences sampled{last_days} "
+          f"from {f_date} to {t_date}")
+    print(f"This total interval is split into two sub-intervals.")
+    print(f"Total: {early[0]} ot {later[1]} ({n_early+n_later})")
+    print(f"Early: {early[0]} to {early[1]} ({n_early})")
+    print(f"Later: {later[0]} to {later[1]} ({n_later})")
 
     ## Partition seqlist by lineages, separate list for each lineage
-    seqlist_by_lineage=defaultdict(list)
-    for s in seqlist:
-        lin = covid.get_lineage_from_name(s.name) if not args.nopango else "N/A"
-        lin = lin or "None"
-        seqlist_by_lineage[lin].append(s)
-
-    cnt_lin = {lin: len(seqlist_by_lineage[lin]) for lin in seqlist_by_lineage}
-    lineages = sorted(cnt_lin,key=cnt_lin.get,reverse=True)
-
-    ## format lineage strings so they line up
-    maxlinlen = max(len(lin) for lin in lineages+["Lineage"])
-    fmt = "%%-%ds" % (maxlinlen,)
-    fmt_lin = {lin: fmt%lin for lin in lineages}
-    fmt_lin["EMPTY"] = fmt % ("",)
+    lp = cf.LineagePartition(seqlist,nopango=args.nopango)
 
     ## print header for table
     print()
-    print(fmt % "Pango",
-          "Lineage    Form   Form    Counts        Fractions      Differences  -log10")
-    print(fmt % "Lineage",
-          "  Count   Count    Pct  Early/Later    Early/Later     Abs Relative  pval  HD"
-          " [Form as mutation string]")
+    print(lp.format("Pango"),
+          "Lineage    Form   Form    Counts        Fractions      "
+          "Differences  -log10")
+    print(lp.format("Lineage"),
+          "  Count   Count    Pct  Early/Later    Early/Later     "
+          "Abs Relative  pval  HD [Form as mutation string]")
 
     table_format = \
         "%s %7d %7d %5.1f%% %6d/%-6d %7.5f/%7.5f "\
         "%+6.2f%% %+6.1f%% %4.1f %3d %s %s"
-    
-    for lin in lineages:
 
-        seqlin = seqlist_by_lineage[lin]
+    for lin in lp.lineages:
+
+        seqlin = lp.sequences[lin]
+        countlin = lp.counts[lin]
+        fmtlin = lp.format(lin)
 
         ## First get consensus form
-        cons = consensus(seqlin)
+        cons = cf.consensus(seqlin)
 
         ## Partition sequences into early and later
         seqlin_early = list(covid.filter_by_date(seqlin,*early))
@@ -186,18 +184,16 @@ def main(args):
             _,pval = stats.fisher_exact([[ne,nl],[n_early-ne,n_later-nl]])
             pval = max([pval,PVALMIN])
             print()
-            #print("%s %7d %7d   100%% %6d/%-6d 1.00000/1.00000"
-            #      "                "
-            #      "%4.1f      Full %s lineage" %
-            #      (fmt_lin[lin],ne+nl,ne+nl,ne,nl,np.log10(1/pval),lin))
-            print(table_format %
-                  (fmt_lin[lin],ne+nl,ne+nl,
-                   100*(ne+nl)/(n_early+n_later),
-                   ne,nl,ne/n_early,nl/n_later,
-                   100*(nl/n_later-ne/n_early),
-                   100*(nl*n_early-ne*n_later)/max([nl*n_early,ne*n_later]),
-                   np.log10(1/pval),
-                   0," Full %s lineage" %lin,""))
+            table_line = table_format % \
+                (fmtlin,n_early+n_later,ne+nl,
+                 100*(ne+nl)/(n_early+n_later),
+                 ne,nl,ne/n_early,nl/n_later,
+                 100*(nl/n_later-ne/n_early),
+                 100*(nl*n_early-ne*n_later)/max([nl*n_early,ne*n_later]),
+                 np.log10(1/pval),
+                 0,f" Full {lin} lineage","")
+            table_line = re.sub(" ","_",table_line)
+            print(table_line)
 
 
         ## Now get most common forms
@@ -243,9 +239,9 @@ def main(args):
             cene = ce/ne if ne>0 else np.inf
             clnl = cl/nl if nl>0 else np.inf
             oddrat,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
-            print(table_format % 
-                  (fmt_lin[lin],cnt_lin[lin],ce+cl,
-                   100*(ce+cl)/cnt_lin[lin],
+            print(table_format %
+                  (fmtlin,countlin,ce+cl,
+                   100*(ce+cl)/countlin,
                    ce,cl,
                    cene,clnl,
                    100*(clnl-cene),
