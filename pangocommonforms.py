@@ -6,13 +6,12 @@ for that lineage, and show the most commmon forms.
 ## note, consensus is the most expensive part of the computation
 ## use --consensusnever to avoid that computation
 
-from collections import Counter,defaultdict
+from collections import Counter
 import argparse
 
 import verbose as v
 from hamming import hamming
 
-import sequtil
 import covid
 import mutant
 import commonforms as cf
@@ -95,7 +94,7 @@ def main(args):
         (f_date,t_date) = covid.range_of_dates(seqlist)
     except ValueError:
         (f_date,t_date) = ('Unknown','Unknown')
-        
+
     print(f"This output is based on sequences sampled{last_days} "
           "from %s to %s." % (f_date,t_date))
 

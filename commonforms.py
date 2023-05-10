@@ -23,7 +23,7 @@ def get_input_sequences(args):
 
     first,seqlist = sequtil.get_first_item(seqs,keepfirst=False)
     firstseq = first.seq
-    
+
     seqlist = list(seqlist)
     v.vprint_only_summary('Invalid date:','skipped sequences')
 
@@ -54,6 +54,3 @@ class LineagePartition:
         if lin == "EMPTY" or not lin:
             lin=""
         return self.fmt % lin
-        
-
-        

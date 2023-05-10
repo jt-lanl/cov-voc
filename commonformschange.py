@@ -9,7 +9,7 @@ can be used to look for rapidly increasing variants
 ##    but which don't make sense in the context of how common forms change
 
 import re
-from collections import Counter,defaultdict
+from collections import Counter
 import datetime
 import argparse
 import numpy as np
@@ -18,7 +18,6 @@ from scipy import stats
 import verbose as v
 from hamming import hamming
 
-import sequtil
 import covid
 import mutant
 import commonforms as cf
@@ -202,7 +201,6 @@ def main(args):
         lineage_baseline = mut_manager.get_mutation(top_comm)
         cntr_early = Counter(s.seq for s in seqlin_early)
         cntr_later = Counter(s.seq for s in seqlin_later)
-        cflag = False
         def relative_diff(comm):
             ce,cl = cntr_early[comm],cntr_later[comm]
             #den = cl/nl if cl*ne > ce*nl else ce/ne
@@ -227,7 +225,6 @@ def main(args):
                 continue
             cons_string = ""
             if comm == cons:
-                cflag = True
                 cons_string = "(consensus)"
             m = mut_manager.get_mutation(comm)
             mstring = m.relative_to(base_mut) if args.baseline else str(m)
@@ -238,7 +235,7 @@ def main(args):
             h = hamming(top_comm,comm)
             cene = ce/ne if ne>0 else np.inf
             clnl = cl/nl if nl>0 else np.inf
-            oddrat,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
+            _,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
             print(table_format %
                   (fmtlin,countlin,ce+cl,
                    100*(ce+cl)/countlin,
