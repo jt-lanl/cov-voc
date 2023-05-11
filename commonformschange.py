@@ -22,8 +22,6 @@ import covid
 import mutant
 import commonforms as cf
 
-PVALMIN = 1.26e-100 #caps neg log pvalue at 99.9
-
 def getargs():
     '''get arguments from command line'''
     ap = argparse.ArgumentParser(description=__doc__)
@@ -65,6 +63,7 @@ def print_header(args):
     print(f"Abs Differences in later vs early fractions, expressed as percent.")
     print(f"Relative Differences range between -100% and +100%, using formula: "
           "rel = 100*(later-early)/max(later,early) percent.")
+    print(f"The p-value associated with increase or decrease is meant to be used only as a rough guide to the siginficcance of the change. Since the computation is based on assumptions (such as independent and unbiased sampling) that may not hold in practice, the p-value should not be taken too literally.")
     print(f"The first line of each lineage section indicates counts "
           f"for the full lineage relative to all the sequences. "
           f"'Lineage Count' in this first line is actually the full sequence count. "
@@ -109,6 +108,14 @@ def split_date_range_bycounts(seqlist):
     later_range = (mid_date, end_date)
     return early_range, later_range
 
+PVALMIN = 1e-9
+def strpval(pval):
+    lessmin = "<" if pval < PVALMIN else " "
+    pval = max([pval,PVALMIN])
+    pval = "%5.0e" % (pval,)
+    mantissa,exponent = pval.split('e')
+    pval = '%1de%+1d' % (int(mantissa),int(exponent))
+    return lessmin + pval
 
 def main(args):
     '''commonformschange main'''
@@ -149,15 +156,15 @@ def main(args):
     ## print header for table
     print()
     print(lp.format("Pango"),
-          "Lineage    Form   Form    Counts        Fractions      "
-          "Differences  -log10")
+          "Lineage    Form   Form    Counts        Fractions     "
+          " Differences")
     print(lp.format("Lineage"),
-          "  Count   Count    Pct  Early/Later    Early/Later     "
-          "Abs Relative  pval  HD [Form as mutation string]")
+          "  Count   Count    Pct  Early/Later    Early/Later    "
+          "Abs   Relative  pval   HD [Form as mutation string]")
 
     table_format = \
         "%s %7d %7d %5.1f%% %6d/%-6d %7.5f/%7.5f "\
-        "%+6.2f%% %+6.1f%% %4.1f %3d %s %s"
+        "%+6.2f%% %+6.1f%% %s %3d %s %s"
 
     for lin in lp.lineages:
 
@@ -181,16 +188,15 @@ def main(args):
         ## Compute pval for the lineage
         if lin != "N/A":
             _,pval = stats.fisher_exact([[ne,nl],[n_early-ne,n_later-nl]])
-            pval = max([pval,PVALMIN])
             print()
             table_line = table_format % \
-                (fmtlin,n_early+n_later,ne+nl,
+                (lp.format(''),n_early+n_later,ne+nl,
                  100*(ne+nl)/(n_early+n_later),
                  ne,nl,ne/n_early,nl/n_later,
                  100*(nl/n_later-ne/n_early),
                  100*(nl*n_early-ne*n_later)/max([nl*n_early,ne*n_later]),
-                 np.log10(1/pval),
-                 0,f" Full {lin} lineage","")
+                 strpval(pval),
+                 0,f" Full {lin}","lineage")
             table_line = re.sub(" ","_",table_line)
             print(table_line)
 
@@ -243,7 +249,7 @@ def main(args):
                    cene,clnl,
                    100*(clnl-cene),
                    relative_diff(comm),
-                   neg_log_pval(comm,cap=True),
+                   strpval(pval),
                    h,mstring,cons_string))
 
 if __name__ == "__main__":
