@@ -146,7 +146,7 @@ def main(args):
     print(f"This output is based on {n_early+n_later} sequences sampled{last_days} "
           f"from {f_date} to {t_date}")
     print(f"This total interval is split into two sub-intervals.")
-    print(f"Total: {early[0]} ot {later[1]} ({n_early+n_later})")
+    print(f"Total: {early[0]} to {later[1]} ({n_early+n_later})")
     print(f"Early: {early[0]} to {early[1]} ({n_early})")
     print(f"Later: {later[0]} to {later[1]} ({n_later})")
 
