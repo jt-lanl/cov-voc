@@ -38,8 +38,10 @@ def getargs():
         help="Use this sequence as basline for mutation strings")
     paa("--lineagebaseline",action="store_true",
         help="Use each lineage most common form as mstring baseline for that lineage")
-    paa("--nopango",action="store_true",
+    paa("--nopango",action="store_true",default=True,
         help="Don't divide up sequences by pango name")
+    paa("--bylineage",dest='nopango',action="store_false",
+        help="Divide up sequences by pango lineage name")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
