@@ -34,6 +34,10 @@ def getargs():
     paa("--baseline",default=None,
         choices=tuple(covid.BASELINE_MSTRINGS),
         help="Use this sequence as basline for mutation strings")
+    paa("--bylineage",action="store_true",default=True,
+        help="Partition sequences by pango lineage")
+    paa("--notbylineage",action="store_false",dest='bylineage',
+        help="Do not partition sequences by pango lineges")
     paa("--lineagebaseline",action="store_true",
         help="Use each lineage most common form as mstring baseline for that lineage")
     paa("--verbose","-v",action="count",default=0,
@@ -41,6 +45,8 @@ def getargs():
     args = ap.parse_args()
     if args.consensusalways and args.consensusnever:
         raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
+    if args.baseline == 'Wuhan':
+        args.baseline = None
     return args
 
 def print_header(args):
@@ -82,6 +88,8 @@ def main(args):
 
     if args.baseline and args.lineagebaseline:
         raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
+    if not args.bylineage and args.lineagebaseline:
+        v.print('Warning: not recommended to use --notbylineage AND --lineagebaseline.')
 
     print_header(args)
 
@@ -101,27 +109,13 @@ def main(args):
     ## Partition seqlist by lineages, separate list for each lineage
     lin_partition = cf.LineagePartition(seqlist)
 
-    ## Get baseline:
-    ##     For Spike, use hardcoded baseline sequences
-    ##     For Other proteins, use most common form of the given baseline pango type
-    if not args.baseline:
-        base_mut = mutant.Mutation("[]")
-    elif args.protein == 'Spike':
-        base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
-    else:
-        v.vprint('Will obtain baseline from most common',args.baseline)
-        if args.baseline not in lin_partition.lineages:
-            ## should this be fatal?
-            v.vprint(f'Baseline {args.baseline} not in data!')
-        else:
-            cntr = Counter(s.seq for s in lin_partition.sequences[args.baseline])
-            base_seq = cntr.most_common(1)[0][0]
-            base_mut = mut_manager.get_mutation(base_seq)
-    if args.baseline:
-        print()
-        print("Baseline:",str(base_mut))
-        print()
+    base_mut = cf.get_baseline_mutation(args.baseline,mut_manager,
+                                        lin_partition,args.protein)
 
+    if not args.bylineage:
+        lin_partition = cf.LineagePartition(seqlist,bylineage=False)
+
+    ## Print header for table:
     print()
     print(lin_partition.format("Pango"),
           "Lineage   Form   Form")

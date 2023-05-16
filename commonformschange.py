@@ -38,13 +38,15 @@ def getargs():
         help="Use this sequence as basline for mutation strings")
     paa("--lineagebaseline",action="store_true",
         help="Use each lineage most common form as mstring baseline for that lineage")
-    paa("--nopango",action="store_true",default=True,
-        help="Don't divide up sequences by pango name")
-    paa("--bylineage",dest='nopango',action="store_false",
-        help="Divide up sequences by pango lineage name")
+    paa("--bylineage",action="store_true",default=False,
+        help="Partition sequences by pango lineage")
+    paa("--notbylineage",action="store_false",dest='bylineage',
+        help="Do not partition sequences by pango lineges")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    if args.baseline == 'Wuhan':
+        args.baseline = None
     return args
 
 def print_header(args):
@@ -114,6 +116,8 @@ def split_date_range_bycounts(seqlist):
 
 PVALMIN = 1e-9
 def strpval(pval):
+    '''convert p-value into a string of the form, eg " 2e-4", or else "<1e-9"
+    '''
     lessmin = "<" if pval < PVALMIN else " "
     pval = max([pval,PVALMIN])
     pval = "%5.0e" % (pval,)
@@ -126,19 +130,13 @@ def main(args):
 
     if args.baseline and args.lineagebaseline:
         raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
-    if args.nopango and args.lineagebaseline:
-        v.print('Warning: --nopango and --lineagebaseline not recommended.')
+    if not args.bylineage and args.lineagebaseline:
+        v.print('Warning: use --bylineage if you also want --lineagebaseline.')
 
     print_header(args)
 
     firstseq,seqlist = cf.get_input_sequences(args)
     mut_manager = mutant.MutationManager(firstseq)
-
-    ## baseline mutation for mstrings (assumes protein==Spike)
-    base_mut = mutant.Mutation(covid.get_baseline_mstring(args.baseline))
-    if args.baseline:
-        print("Baseline:",str(base_mut))
-        print()
 
     early,later = split_date_range_bycounts(seqlist)
     n_early = len(list(covid.filter_by_date(seqlist,*early)))
@@ -155,7 +153,11 @@ def main(args):
     print(f"Later: {later[0]} to {later[1]} ({n_later})")
 
     ## Partition seqlist by lineages, separate list for each lineage
-    lp = cf.LineagePartition(seqlist,nopango=args.nopango)
+    lp = cf.LineagePartition(seqlist)
+    base_mut = cf.get_baseline_mutation(args.baseline,mut_manager,lp,args.protein)
+    if not args.bylineage:
+        ## Re-partition seqlist into one big partition, not by lineage
+        lp = cf.LineagePartition(seqlist,bylineage=False)
 
     ## print header for table
     print()
