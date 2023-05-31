@@ -271,8 +271,9 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
 
             if seqtype == Total and exact is True:
                 if len(matched_seqs):
-                    exampleseq = matched_seqs[-1]
-                    row[ExampleISL] = exampleseq.ISL
+                    #exampleseq = matched_seqs[-1]
+                    #row[ExampleISL] = exampleseq.ISL
+                    row[ExampleISL] = pseq.lowest_isl(matched_seqs)
                 else:
                     row[ExampleISL] = "NA"
                     warnings.warn(f"For pango={pangofull}, no sequences "

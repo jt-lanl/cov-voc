@@ -1,6 +1,7 @@
 '''Processed sequence'''
 
 import warnings
+import re
 
 import covidfast as covid
 import mutant
@@ -16,6 +17,13 @@ def parse_seq_name(name):
     
     return isodate,isl,lineage
 
+def lowest_isl(pseqs):
+    '''for a set of ProcessedSequence's, get the lowest ISL number'''
+    if not len(pseqs):
+        return 'N/A'
+    islnumbers = [int(re.sub('EPI_ISL_','',ps.ISL)) for ps in pseqs]
+    islmin = min(islnumbers)
+    return f'EPI_ISL_{islmin}'
 
 class ProcessedSequence():
     def __init__(self,MM,s):

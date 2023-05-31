@@ -35,6 +35,8 @@ def _getargs():
         help="use file for tweaking mstrings")
     paa("--output","-o",
         help="output fasta file with reference sequences")
+    paa("--isloutput",
+        help="write tsv table of lineage names and ISL names")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = aparser.parse_args()
@@ -97,7 +99,8 @@ def _main(args):
         #matches = m_mgr.filter_seqs_by_pattern(mpatt,seqs)
         matches = pseq.filter_pseqs_by_pattern(m_mgr,mpatt,seqs,exact=True)
         islnames = [s.ISL for s in matches]
-        islnames = sorted(islnames)
+        islnames = sorted(islnames,
+                          key=lambda isl: int(re.sub('EPI_ISL_','',isl)))
         if len(islnames)==0:
             warnings.warn(f"No matches found for {nom}: {mstring}")
         v.vprint(mutfmt % mstring," ".join(islnames[:3]),
@@ -123,11 +126,18 @@ def _main(args):
     if firstref:
         outseqs.append(firstref)
 
+    if args.isloutput:
+        fp_isl = open(args.isloutput,'w')
+
     for nom,mstring in zip(nomlist,mutlist):
         islnames = isl_matches[mstring]
         matchseqs = (refseqdict.get(islname,None)
                      for islname in islnames )
         matchseqs = filter(lambda x: x is not None,matchseqs)
+        matchseqs = list(matchseqs)
+        v.vprint('islnames:',len(islnames),islnames[:5])
+        v.vprint('matchseq:',len(matchseqs))
+                 
         try:
             [(cseq,_)] = Counter(re.sub('-','',s.seq)
                                  for s in matchseqs).most_common(1)
@@ -146,11 +156,16 @@ def _main(args):
                 sname = f'{nom}__{islname}'
                 outseq = sequtil.SequenceSample(sname,sseq)
                 outseqs.append(outseq)
-                break ## just grab the first one
+                break ## just grab the first (lowest) one
+        if args.isloutput:
+            print(f'{nom}\t{islname}',file=fp_isl)
 
+    if args.isloutput:
+        fp_isl.close()
 
     if args.output:
         sequtil.write_seqfile(args.output,outseqs)
+
 
 
 if __name__ == "__main__":
