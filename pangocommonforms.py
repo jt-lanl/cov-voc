@@ -31,7 +31,7 @@ def getargs():
         help="Do not compute consensus for each form [faster compute]")
     paa("--protein",default="Spike",
         help="Protein name to be used in the header")
-    paa("--baseline",default=None,
+    paa("--baseline",default="XBB.1.5",
         choices=tuple(covid.BASELINE_MSTRINGS),
         help="Use this sequence as basline for mutation strings")
     paa("--bylineage",action="store_true",default=True,

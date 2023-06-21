@@ -33,7 +33,7 @@ def getargs():
         help="Show only patterns with at least this many counts")
     paa("--protein",default="Spike",
         help="Protein name to be used in the header")
-    paa("--baseline",default=None,
+    paa("--baseline",default="XBB.1.5",
         choices=tuple(covid.BASELINE_MSTRINGS),
         help="Use this sequence as basline for mutation strings")
     paa("--lineagebaseline",action="store_true",
