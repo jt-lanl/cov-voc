@@ -1,7 +1,11 @@
-## Updated 2023-06-14 (adding XBF and XBC [to the bottom, shades of gray]
-##                     updating XBB.1.22->XBB.1.22.1/FY
-##                              SBF-> FD.1.1
-##                              BR.2->FE.1)
+## v24 updated 2023-07-10 (merging BA.1* into BA.1,
+##                                 BA.4* into BA.4,
+##                                 BA.5*/BF.7-like into BA.5,
+##                                 BQ.1* into BQ.1,
+##                         adding  DY,CF,FR,EN,GB,FT,GE,GA,FP,FS,DZ,FZ,FB,EC,FV,FJ,FQ,GD,DL,GC,CY,FW,EP,EQ,FF
+##                                 into their appropriate lineages
+##                         simplifying the regular expressions, so now most end with (\..*)?
+##
 ## Lineage Table with pango lineages for the ancestral sequences
 ## D614G is treated as $OTHER
 ## Columns are: color, name, and pattern to match pangolin lineage
