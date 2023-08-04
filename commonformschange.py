@@ -195,11 +195,13 @@ def main(args):
         if lin != "N/A":
             _,pval = stats.fisher_exact([[ne,nl],[n_early-ne,n_later-nl]])
             print()
+            rne = ne/n_early if n_early>0 else 0
+            rnl = nl/n_later if n_later>0 else 0
             table_line = table_format % \
                 (lp.format(''),n_early+n_later,ne+nl,
                  100*(ne+nl)/(n_early+n_later),
-                 ne,nl,ne/n_early,nl/n_later,
-                 100*(nl/n_later-ne/n_early),
+                 ne,nl,rne,rnl,
+                 100*(rnl-rne),
                  100*(nl*n_early-ne*n_later)/max([nl*n_early,ne*n_later]),
                  strpval(pval),
                  0,f" Full {lin}","lineage")
@@ -245,8 +247,8 @@ def main(args):
                 mstring = m.relative_to(lineage_baseline)
 
             h = hamming(top_comm,comm)
-            cene = ce/ne if ne>0 else np.inf
-            clnl = cl/nl if nl>0 else np.inf
+            cene = ce/ne if ne>0 else (np.inf if ne>0 else 0)
+            clnl = cl/nl if nl>0 else (np.inf if nl>0 else 0)
             _,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
             print(table_format %
                   (fmtlin,countlin,ce+cl,
