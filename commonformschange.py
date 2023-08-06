@@ -45,6 +45,8 @@ def getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    if args.lineagebaseline:
+        args.baseline = None
     if args.baseline == 'Wuhan':
         args.baseline = None
     return args
