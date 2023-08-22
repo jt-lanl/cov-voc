@@ -22,8 +22,6 @@ def _getargs():
         help="pair of from/to mstrings")
     paa("--mfile","-M",action="append",
         help="read from/to mstring pairs from a file")
-    paa("--rmgapcols",action="store_true",
-        help="Remove gap-only columns as the final step")
     paa("--output","-o",
         help="output tweaked fasta file")
     paa("--jobno",type=int,default=1,
@@ -206,10 +204,6 @@ def _main(args):
     v.vprint("Changes by mstring:")
     for (ma,mb),cnt in changes_by_mstring.items():
         v.vprint(f'{cnt:8d} {ma}->{mb}')
-
-    ## After tweaking, are there any indices with dashes in /all/ sequences?
-    if args.rmgapcols:
-        seqs = sequtil.remove_gap_columns(seqs)
 
     if args.output:
         if args.jobno == 1:
