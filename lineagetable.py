@@ -3,6 +3,7 @@
 import re
 import warnings
 from collections import Counter
+import functools
 import itertools
 
 import covid
@@ -87,6 +88,12 @@ class LineageTablePatterns:
                           for color,name,patt in table}
         self.names =     {patt: name
                           for color,name,patt in table}
+
+        #debug
+        #for color,name,patt in table:
+        #    print(color,name,patt)
+        #    re.compile(r'\.('+patt+r')$')
+
         self.regexpatt = {patt: re.compile(r'\.('+patt+r')$')
                           for color,name,patt in table}
 
@@ -95,6 +102,7 @@ class LineageTablePatterns:
         return (patt for patt in patternlist
                 if self.regexpatt[patt].search(seqname))
 
+    @functools.cache
     def last_match(self,seqname,notfound=OTHER):
         '''return the last pattern found whose regexp matches the sequence name'''
         ## by "last" we mean first in the reversed list
