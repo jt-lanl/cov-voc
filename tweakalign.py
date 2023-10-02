@@ -97,6 +97,22 @@ def add_xtra_dashes(seqs,xxtras):
         s.seq = "".join(sseq)
         yield s
 
+
+def gen_seq_clumps(allseqs):
+    '''yields lists of sequences (aka clumps);
+    a clump is a list that begins with a refernce sequence
+    and has no further references sequences in it'''
+    first,seqs = sequtil.get_first_item(allseqs,keepfirst=False)
+    clump = [first]
+    for s in seqs:
+        if s.name == first.name:
+            yield clump
+            clump = [s]
+        else:
+            clump.append(s)
+    yield clump
+
+
 def _main(args):
     '''tweakalign main'''
     v.vprint(args)
@@ -159,56 +175,65 @@ def _main(args):
     v.vprint("xtras:",xtras)
 
     ## Read full sequences
-    seqs = covid.read_filter_seqfile(args)
-    first,seqs = sequtil.get_first_item(seqs)
+    allseqs = covid.read_filter_seqfile(args)
+    veryfirst = None
+    outseqs = []
+    for seqs in gen_seq_clumps(allseqs):
+        first,seqs = sequtil.get_first_item(seqs)
+        if veryfirst is None:
+            veryfirst = first
+        if args.jobno == 1 or veryfirst != first:
+            outseqs.append(first)
+        v.vprint('chunk: len=',len(seqs),'first=',first.name)
 
-    mut_mgr = mutant.MutationManager(first.seq)
-    v.vprint("len(first):",len(first.seq))
+        mut_mgr = mutant.MutationManager(first.seq)
+        v.vprint("len(first):",len(first.seq))
 
-    xxtras = dict() ## xx is ndx based instead of site based
-    for site in sorted(xtras):
-        mm_xtras = len(mut_mgr.indices_from_site(site))-1
-        if mm_xtras < xtras[site]:
-            v.print("xtras:",site,mm_xtras,"->",xtras[site])
-            ndx = mut_mgr.index_from_site(site)
-            xxtras[ndx] = xtras[site] - mm_xtras
+        xxtras = dict() ## xx is ndx based instead of site based
+        for site in sorted(xtras):
+            mm_xtras = len(mut_mgr.indices_from_site(site))-1
+            if mm_xtras < xtras[site]:
+                v.print("xtras:",site,mm_xtras,"->",xtras[site])
+                ndx = mut_mgr.index_from_site(site)
+                xxtras[ndx] = xtras[site] - mm_xtras
 
-    if len(xxtras):
-        seqs = add_xtra_dashes(seqs,xxtras)
-    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-    mut_mgr = mutant.MutationManager(first.seq)
-    v.vprint("len(first):",len(first.seq))
+        if len(xxtras):
+            seqs = add_xtra_dashes(seqs,xxtras)
+        first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+        mut_mgr = mutant.MutationManager(first.seq)
+        v.vprint("len(first):",len(first.seq))
 
-    ndx_seqs_tuples = []
-    for ma,mb in mstringpairs:
-        ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
-        ndx_seqs_tuples.append( (ma,mb,ndxlo,ndxhi,seq_a,seq_b) )
-        v.vprint(f"{ma} -> {mb}:   {seq_a} -> {seq_b}")
+        ndx_seqs_tuples = []
+        for ma,mb in mstringpairs:
+            ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
+            ndx_seqs_tuples.append( (ma,mb,ndxlo,ndxhi,seq_a,seq_b) )
+            v.vprint(f"{ma} -> {mb}:   {seq_a} -> {seq_b}")
 
-    changed_sequences=[]
-    seqs = list(seqs)
-    changes_by_mstring = Counter()
-    for s in seqs:
-        ## Normalize sequence (seq -> mut -> seq)
-        nmut = mut_mgr.get_mutation(s.seq)
-        s.seq = mut_mgr.seq_from_mutation(nmut)
-        for ma,mb,ndxlo,ndxhi,seq_a,seq_b in ndx_seqs_tuples:
-            if s.seq[ndxlo:ndxhi] == seq_a:
-                s.seq = s.seq[:ndxlo] + seq_b + s.seq[ndxhi:]
-                changed_sequences.append(s)
-                changes_by_mstring[(ma,mb)] += 1
+        changed_sequences=[]
+        seqs = list(seqs)
+        changes_by_mstring = Counter()
+        for s in seqs:
+            ## Normalize sequence (seq -> mut -> seq)
+            nmut = mut_mgr.get_mutation(s.seq)
+            s.seq = mut_mgr.seq_from_mutation(nmut)
+            for ma,mb,ndxlo,ndxhi,seq_a,seq_b in ndx_seqs_tuples:
+                if s.seq[ndxlo:ndxhi] == seq_a:
+                    s.seq = s.seq[:ndxlo] + seq_b + s.seq[ndxhi:]
+                    changed_sequences.append(s)
+                    changes_by_mstring[(ma,mb)] += 1
 
-    v.vprint("Made",len(changed_sequences),"changes, affecting",
-            len(set(changed_sequences)),"distinct sequences")
+        v.vprint("Made",len(changed_sequences),"changes, affecting",
+                len(set(changed_sequences)),"distinct sequences")
 
-    v.vprint("Changes by mstring:")
-    for (ma,mb),cnt in changes_by_mstring.items():
-        v.vprint(f'{cnt:8d} {ma}->{mb}')
+        v.vprint("Changes by mstring:")
+        for (ma,mb),cnt in changes_by_mstring.items():
+            v.vprint(f'{cnt:8d} {ma}->{mb}')
+
+        outseqs.extend(seqs)
+        v.vprint('outseqs:',len(outseqs))
 
     if args.output:
-        if args.jobno == 1:
-            seqs = [first] + seqs
-        readseq.write_seqfile(args.output,seqs)
+        readseq.write_seqfile(args.output,outseqs)
 
 if __name__ == "__main__":
 
