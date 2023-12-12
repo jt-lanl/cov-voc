@@ -68,8 +68,9 @@ def print_header(args):
           "(e.g. an extra T at position 143 is written '+143T'). ")
     print(f"Abs Differences in later vs early fractions, expressed as percent.")
     print(f"Relative Differences range between -100% and +100%, using formula: "
-          "rel = 100*(later-early)/max(later,early) percent.")
-    print(f"The p-value associated with increase or decrease is meant to be used only as a rough guide to the siginficcance of the change. Since the computation is based on assumptions (such as independent and unbiased sampling) that may not hold in practice, the p-value should not be taken too literally.")
+          "rel = 100*(later-early)/max(later,early) percent, applied to the "
+          "early and later fractions.")
+    print(f"The p-value associated with increase or decrease is computed by Fisher's exact test, and is meant to be used only as a rough guide to the significance of the change. Since the computation is based on assumptions (such as independent and unbiased sampling) that may not hold in practice, the p-value should not be taken too literally.")
     print(f"The first line of each lineage section indicates counts "
           f"for the full lineage relative to all the sequences. "
           f"'Lineage Count' in this first line is actually the full sequence count. "
