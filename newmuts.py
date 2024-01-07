@@ -12,6 +12,7 @@ Find parent/child lineage pairs for which new mutations appear
 ## note, consensus is the most expensive part of the computation
 ## use --consensusnever to avoid that computation
 
+import re
 from collections import Counter,defaultdict
 from functools import cache
 import argparse
@@ -39,10 +40,14 @@ def getargs():
         help="Restrict attention to sequences in clade's lineage")
     paa("--mincount","-m",type=int,default=0,
         help="Show only lineage mutations with at least this many appearances")
-    paa("--mutationsfile","-M",default="-",
+    paa("--skipwuhan",action="store_true",
+        help="skip mutations where Wuhan is the parent")
+    paa("--mutationsfile","-M",#default="-",
         help="Write mutations to file")
     paa("--reversionsfile","-R",
         help="Write reversions to file")
+    paa("--summaryfile","-S",
+        help="Write mutations summary file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
@@ -89,6 +94,8 @@ def count_appearances(lin_notes,muts):
     return mcount, mtotal, mtimes, ptimes
     
 def write_mutations(filename,lin_notes,muts,mincount=0):
+    if not filename:
+        return
     mcount,mtotal,mtimes,ptimes = count_appearances(lin_notes,muts)
     with xopen(filename,"w") as fout:
         for m in sorted(muts.keys()):
@@ -100,6 +107,33 @@ def write_mutations(filename,lin_notes,muts,mincount=0):
                        mcnt,
                        lin_notes.parent_of(lin),lin),
                       file=fout)
+
+def write_mutations_summary(filename,lin_notes,muts,mincount=0):
+    if not filename:
+        return
+    mcount,mtotal,mtimes,ptimes = count_appearances(lin_notes,muts)
+    header = "\t".join(["site",
+                        "mutation",
+                        "parent_lineages",
+                        "child_lineages",
+                        "lineage_sequences",
+                        "total_sequences",
+                        ])
+    fmt = "\t".join("%d %s %d %d %d %d".split())
+    with xopen(filename,"w") as fout:
+        print(header,file=fout)
+        v.print('muts',len(muts))
+        for m in sorted(muts.keys()):
+            if mcount[m] < mincount:
+                continue
+            try:
+                site = int(re.sub(r'\D*(\d+)\D*',r'\1',str(m)))
+                v.print_only(5,'site',site,str(m))
+            except TypeError:
+                v.print(f'{m=}')
+                raise RuntimeError
+            print(fmt % (site,m,ptimes[m],mtimes[m],mcount[m],mtotal[m]),
+                  file=fout)
 
     
 
@@ -127,10 +161,10 @@ def main(args):
     lin_partition = cf.LineagePartition(seqlist)
             
     mut_total  = Counter() ## seqs with mut, regardless of lin
-    for lin in lin_partition.lineages:
-        if lin not in lineage_set:
-            continue
+    for lin in lineage_set: ## only consider lineages in clade
         parent = lin_notes.parent_of(lin)
+        if args.skipwuhan and parent=="Wuhan":
+            continue
         parmut = mcf_dict.get(parent,set([]))
         seqlin = lin_partition.sequences[lin]
         cntr = Counter(s.seq for s in seqlin)
@@ -160,6 +194,11 @@ def main(args):
     write_mutations(args.reversionsfile,
                     lin_notes,mut_reversions,
                     mincount=args.mincount)
+
+    write_mutations_summary(args.summaryfile,
+                            lin_notes,mut_appearances,
+                            mincount=args.mincount)
+                            
                   
 
 if __name__ == "__main__":
