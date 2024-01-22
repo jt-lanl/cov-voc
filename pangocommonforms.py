@@ -91,10 +91,15 @@ def main(args):
     if not args.bylineage and args.lineagebaseline:
         v.print('Warning: not recommended to use --notbylineage AND --lineagebaseline.')
 
-    print_header(args)
-
     firstseq,seqlist = cf.get_input_sequences(args)
     mut_manager = mutant.MutationManager(firstseq)
+
+    if len(seqlist) < 1:
+        v.print(args)
+        v.print(f'Only {len(seqlist)} sequences -- aborting.')
+        return
+
+    print_header(args)
 
     last_days = f" in the last {args.days} days from our last update,"
     last_days = last_days if args.days else ""
