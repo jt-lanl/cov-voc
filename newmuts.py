@@ -108,7 +108,7 @@ def write_mutations(filename,lin_notes,muts,mincount=0):
                        lin_notes.parent_of(lin),lin),
                       file=fout)
 
-def write_mutations_summary(filename,lin_notes,muts,mincount=0):
+def write_mutations_summary(filename,lin_notes,muts,denominator,mincount=0):
     if not filename:
         return
     mcount,mtotal,mtimes,ptimes = count_appearances(lin_notes,muts)
@@ -118,29 +118,38 @@ def write_mutations_summary(filename,lin_notes,muts,mincount=0):
                         "child_lineages",
                         "lineage_sequences",
                         "total_sequences",
+                        "denominator",
+                        "lineage_transitions"
                         ])
-    fmt = "\t".join("%d %s %d %d %d %d".split())
+    fmt = "\t".join("%d %s %d %d %d %d %d %s".split())
     with xopen(filename,"w") as fout:
         print(header,file=fout)
-        v.print('muts',len(muts))
+        v.vprint('muts',len(muts))
         for m in sorted(muts.keys()):
             if mcount[m] < mincount:
                 continue
             try:
                 site = int(re.sub(r'\D*(\d+)\D*',r'\1',str(m)))
-                v.print_only(5,'site',site,str(m))
+                v.vprint_only(5,'site',site,str(m))
             except TypeError:
                 v.print(f'{m=}')
                 raise RuntimeError
-            print(fmt % (site,m,ptimes[m],mtimes[m],mcount[m],mtotal[m]),
+            lintrans = ", ".join(f'{lin_notes.parent_of(lin)}->{lin}'
+                                for lin,_,_ in muts[m])
+            print(fmt % (site,m,ptimes[m],mtimes[m],mcount[m],
+                         mtotal[m],denominator,lintrans),
                   file=fout)
 
     
 
 def main(args):
     '''newmuts main'''
+    v.vprint(args)
 
     lin_notes = LineageNotes(args.notesfile)
+    for fix in lin_notes.fix_inconsistencies():
+        v.vprint(fix)
+    ## if any inconsistencies remain, remove them
     for bad in lin_notes.inconsistencies(remove=True):
         v.print(bad)
     v.vprint(lin_notes.report_size())
@@ -159,6 +168,10 @@ def main(args):
     mcf_dict = most_common_forms(seqlist,mut_manager)
     #lin_info = get_lineage_info(firstseq,seqlist)
     lin_partition = cf.LineagePartition(seqlist)
+
+    denominator = sum(1 for s in seqlist
+                      if covid.get_lineage_from_name(s.name) in lineage_set)
+    v.vprint(f'{denominator=}/{len(seqlist)}')
             
     mut_total  = Counter() ## seqs with mut, regardless of lin
     for lin in lineage_set: ## only consider lineages in clade
@@ -172,6 +185,8 @@ def main(args):
         mut_revert = Counter() ## seqs where parent has mut, child does not
         for seq,cnt in cntr.items():
             mut = set( mut_manager.get_mutation(seq) )
+            ## cull out the X's
+            mut = set(m for m in mut if "X" not in str(m))
             for m in mut:
                 mut_total[m] += cnt
             if cnt < args.cutoff:
@@ -197,6 +212,7 @@ def main(args):
 
     write_mutations_summary(args.summaryfile,
                             lin_notes,mut_appearances,
+                            denominator,
                             mincount=args.mincount)
                             
                   
