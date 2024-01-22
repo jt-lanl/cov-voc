@@ -184,7 +184,7 @@ class Mutation(list):
         return mergedmut
 
     def __init__(self,ssms=None,exact=False):
-        super().__init__(self)
+        super().__init__()
         self.exact = exact
         try:
             ## initialization according to what ssms is
