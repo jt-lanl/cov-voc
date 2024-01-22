@@ -38,6 +38,9 @@ def _getargs():
         help="how many colors")
     paa("--colorscolumn","--cc",
         help="column name of quantity used for assigning colors")
+    paa("--dithercolumns",nargs='+',
+        default=["parent","child","total","lineage_seq"],
+        help="list of columns whose values should be dithered")
     paa("--cmap",default="gist_rainbow",
         help="color map for ncolors>1")
     paa("--xlog",action="store_true",
@@ -78,30 +81,34 @@ def _main(args):
     except FileNotFoundError:
         v.print(f'File {args.input} not found!')
         return
+
+    def fixname(name):
+        ## conveniently shorter name for oft-used construction
+        return numu.match_column_name(df.columns,name)
+
+    dithercolumns = set(fixname(name) for name in args.dithercolumns)
     
-    column_names = [numu.match_column_name(df.columns,name)
-                    for name in args.columns]
-
-    xname,yname = column_names
-
+    xname,yname = [fixname(name) for name in args.columns]
     if xname is None or yname is None:
-        v.print(f'Will not output {args.output}')
+        v.print(f'Invalid columns {args.columns}; '
+                f'will not output {args.output}')
         return
 
-    xvals=[]
-    yvals=[]
-    zvals=[]
-    for nr,row in df.iterrows():
-        xvals.append( df.iloc[nr][xname] )
-        yvals.append( df.iloc[nr][yname] )
+    xvals=[ df.iloc[nr][xname] for nr,_ in df.iterrows() ]
+    yvals=[ df.iloc[nr][yname] for nr,_ in df.iterrows() ]
+
+    rng = np.random.default_rng()
+    if xname in dithercolumns:
+        xvals=[x+0.5*rng.random() for x in xvals]
+    if yname in dithercolumns:
+        yvals=[y+0.5*rng.random() for y in yvals]
 
     zcolors = ['Black'] * len(xvals)
-
     if args.ncolors and not args.colorscolumn:
         args.colorscolumn = yname
 
     if args.colorscolumn:
-        colorscolumn = numu.match_column_name(df.columns,args.colorscolumn)
+        colorscolumn = fixname(args.colorscolumn)
         zvals=[]
         for nr,row in df.iterrows():
             zvals.append( float(df.iloc[nr][colorscolumn]) )
@@ -109,7 +116,12 @@ def _main(args):
         noff = max([1,int(ncolors/10)])
         set_colormap(args.cmap,ncolors,noff=noff)
         pct = [100*i/ncolors for i in range(ncolors+1)]
-        zcut = np.nanpercentile(zvals,pct,
+        if colorscolumn == fixname("total"):
+            ## include 0 but don't let zero's overwhelm
+            ztmp = [0]+[z for z in zvals if z>0]
+        else:
+            ztmp = z
+        zcut = np.nanpercentile(ztmp, pct,
                                 method='closest_observation')
 
         for n in range(len(zcut)-1):
@@ -123,8 +135,22 @@ def _main(args):
                 if zcut[nc] <= zval <= zcut[nc+1]:
                     zcolors[nr] = nth_color(nc,ncolors+1)
 
+        if 0:
+            zndx = np.argsort(zvals)
+            v.vprint('zndx:',zndx[:5])
+            xvals = [xvals[n] for n in zndx]
+            yvals = [yvals[n] for n in zndx]
+
     plt.figure()
-    plt.scatter(xvals,yvals,c=zcolors)
+    if args.colorscolumn:
+        zzero = [n for n in range(len(zvals)) if zvals[n]==0]
+        zelse = [n for n in range(len(zvals)) if zvals[n]!=0]
+        for ndx in (zzero,zelse):
+            plt.scatter([xvals[n] for n in ndx],
+                        [yvals[n] for n in ndx],
+                        c=[zcolors[n] for n in ndx])
+    else:
+        plt.scatter(xvals,yvals,c=zcolors)
     if args.xlog:
         plt.xscale('log')
     if args.ylog:
