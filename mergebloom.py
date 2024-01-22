@@ -55,9 +55,18 @@ def _main(args):
     if args.verbose:
         df.to_csv('df.tsv',sep='\t',index=False)
 
+    init_columns = [numu.match_column_name(df.columns,name)
+                    for name in ["parent","child","lineage_seq","total_seq"]]
+
     df = df.merge(jdf,how='outer',on="tmstring")
     if args.verbose:
         df.to_csv('dfm.tsv',sep='\t',index=False)
+
+    if 1: ## replace NA with 0 for init_columns
+        for col in init_columns:
+            for nr,row in df.iterrows():
+                if pd.isna(df.loc[nr,col]):
+                    df.loc[nr,col] = 0
 
     if args.clade:
         wild = numu.match_column_name(df.columns,'wild')
