@@ -136,10 +136,15 @@ def main(args):
     if not args.bylineage and args.lineagebaseline:
         v.print('Warning: use --bylineage if you also want --lineagebaseline.')
 
-    print_header(args)
-
     firstseq,seqlist = cf.get_input_sequences(args)
     mut_manager = mutant.MutationManager(firstseq)
+
+    if len(seqlist) < 2:
+        v.print(args)
+        v.print(f'Only {len(seqlist)} sequences -- aborting.')
+        return
+
+    print_header(args)
 
     early,later = split_date_range_bycounts(seqlist)
     n_early = len(list(covid.filter_by_date(seqlist,*early)))
