@@ -27,8 +27,6 @@ def _getargs():
         help="Plot only RBD region (328-528) to plotfile")
     paa("--title",
         help="Title to put on plot")
-    paa("--xlog",action="store_true",
-        help="plot x-axis with log scale")
     paa("--ylog",action="store_true",
         help="plot y-axis with log scale")
     paa("--output","-o",
@@ -100,6 +98,8 @@ def _main(args):
 
 
     plt.ylabel(column_name)
+    if args.ylog:
+        plt.yscale('log')
     if args.title:
         plt.title(args.title)
     plt.tight_layout()
