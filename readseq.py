@@ -25,10 +25,14 @@ import warnings
 
 from seqsample import SequenceSample
 
+DEV_NAMES = "- /dev/null /dev/stdin /dev/stderr /dev/stdout".split()
+
 def xopen(filename,rw,gz=False,xz=False,binaryfile=False):
     ''' equivalent of open that works w/ and w/o gzip '''
+
     if filename == "-":
         return sys.stdout if rw=="w" else sys.stdin
+
     rwstr = rw + "b" if binaryfile else rw
     if (gz or xz) and not binaryfile:
         rwstr += "t"
@@ -172,7 +176,7 @@ def auto_filetype(filename,filetypes=None):
         if filename.lower().endswith("."+t):
             return t,gz,xz
 
-    if filename == "-":
+    if filename in DEV_NAMES:
         ## default for stdin or stdout is fasta
         return 'fasta',gz,xz
 
@@ -180,6 +184,36 @@ def auto_filetype(filename,filetypes=None):
     raise RuntimeWarning(f"Filename extension [{ext}] "
                          f"not among supported filetypes: "
                          f"{filetypes}")
+
+def get_fileinfo(filename,filetype,filetypelist):
+    '''return: filename,filetype,gz,xz,binaryfile'''
+
+    ## check that keyword argument filetype is valid
+    filetype = filetype.lower()
+    if filetype not in ["auto"] + list(filetypelist):
+        raise RuntimeError(f"{filetype=} not supported")
+
+    filename = os.fspath(filename) ## if pathlib input, make a string
+    atype,gz,xz = auto_filetype(filename,filetypes=filetypelist)
+
+    if filetype != "auto" and atype and atype != filetype:
+        raise RuntimeError(f'Specified {filetype=} but {filename=} '
+                           f'suggests file type is {atype}')
+
+    if filetype == "auto":
+        filetype = atype
+
+    if filetype not in filetypelist:
+        raise RuntimeError(f"Unknown {filetype=} for sequence {filename=}")
+
+    binaryfile = bool(filetype in ["ipkl","pkl"])
+
+    for dev in DEV_NAMES:
+        if filename.startswith(dev):
+            filename=dev
+
+    return filename,filetype,gz,xz,binaryfile
+
 
 def rd_seqfile(filename,filetype="auto"):
     '''
@@ -191,28 +225,11 @@ def rd_seqfile(filename,filetype="auto"):
     ## read arbitrarily large files, but only save into memory those
     ## sequences we need  (ie, filter as we read)
 
-    filename = os.fspath(filename)
+    (filename,filetype,
+     gz,xz,binaryfile) = get_fileinfo(filename,
+                                      filetype,
+                                      FILETYPES)
 
-    filetype = filetype.lower()
-    if filetype not in ["auto"] + FILETYPES:
-        raise RuntimeError("filetype="+filetype+" not supported")
-
-    atype,gz,xz = auto_filetype(filename)
-
-    if filetype != "auto" and atype and FILEFUNCS[atype] != FILEFUNCS[filetype]:
-        raise RuntimeWarning("filetype="+filetype+
-                             " but file appears of filetype "+atype)
-
-    if filetype == "auto":
-        filetype = atype
-    if filetype not in FILETYPES:
-        raise RuntimeError("Unknown filetype ["+filetype+
-                           "] of sequence file ["+filename+"]")
-
-    binaryfile = bool(filetype in ["ipkl","pkl"])
-
-    ## having gone through all that to determine what kind
-    ## of file this is, now start reading it
     read_fcn = FILEFUNCS[filetype]
     with xopen(filename,'r',gz=gz,xz=xz,binaryfile=binaryfile) as fp:
         yield from read_fcn(fp)
@@ -396,8 +413,9 @@ def write_rawseq(filename,seq_samples,gz=False,xz=False):
             fout.write("%s\n" % s.seq)
 
 def write_pickle(filename,seq_samples,gz=False,xz=False):
+    ## use list(seq_samples) in case it's a generator
     with xopen(filename,'w',gz=gz,xz=xz,binaryfile=True) as fout:
-        pickle.dump(seq_samples,fout)
+        pickle.dump(list(seq_samples),fout)
 
 def write_incr_pickle(filename,seq_samples,gz=False,xz=False):
     with xopen(filename,'w',gz=gz,xz=xz,binaryfile=True) as fout:
@@ -431,26 +449,12 @@ W_FILETYPES = list(W_FILEFUNCS)
 
 def write_seqfile(filename,seq_samples,filetype="auto"):
 
-    filename = os.fspath(filename) ## enables pathlib input
-
-    atype,gz,xz = auto_filetype(filename,filetypes=W_FILETYPES)
-
-    if filetype != "auto" and filetype not in W_FILETYPES:
-        raise RuntimeError("filetype="+filetype+" not supported")
-    if filetype != "auto" and atype and atype != filetype:
-        raise RuntimeError("filetype="+filetype+" but file appears of filetype "+atype)
-    #if gz and atype != "pgz":
-    #    raise RuntimeError("gzip not currently supported for writing files")
-
-    if filetype == "auto":
-        filetype = atype
-    if filetype in W_FILETYPES:
-        write_fcn = W_FILEFUNCS[filetype]
-        write_fcn(filename,seq_samples,gz=gz,xz=xz)
-    else:
-        raise RuntimeError("Unknown filetype ["+filetype+
-                           "] of sequence file ["+filename+"]")
-
+    (filename,filetype,
+     gz,xz,binaryfile) = get_fileinfo(filename,
+                                      filetype,
+                                      W_FILETYPES)
+    write_fcn = W_FILEFUNCS[filetype]
+    write_fcn(filename,seq_samples,gz=gz,xz=xz)
 
 if __name__ == "__main__":
 
@@ -470,16 +474,10 @@ if __name__ == "__main__":
 
     args = argparser.parse_args()
 
-    seqs = read_seqfile(args.filename,filetype=args.filetype,rmdash=args.rmdash)
-
-    seqlist=[]
-    for n,s in enumerate(seqs):
-        if n>10:
-            break
-        seqlist.append(s)
-
-    for s in seqlist[:5]:
-        print(s.name,s.seq[:10],"...")
+    seqs = read_seqfile(args.filename,
+                        filetype=args.filetype,
+                        rmdash=args.rmdash)
 
     if args.output:
-        write_seqfile(args.output,seqlist,filetype=args.ofiletype)
+        write_seqfile(args.output,seqs,
+                      filetype=args.ofiletype)
