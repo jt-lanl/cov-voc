@@ -210,6 +210,9 @@ class Mutation(list):
         ''' initialize Mutation from mstring, eg [A222V,D614G] '''
         mat = re.match(r".*\[(.*)\](!?).*",mstring)
         if not mat:
+            mstring = f'[{mstring}]'
+            mat = re.match(r".*\[(.*)\](!?).*",mstring)
+        if not mat:
             raise ValueError(f"Invalid mstring: {mstring}")
         if exact is None:
             exact = bool(mat[2])
