@@ -9,7 +9,7 @@ import random
 import itertools as it
 import argparse
 
-from verbose import verbose as v
+import verbose as v
 import readseq
 import sequtil
 import intlist
@@ -34,6 +34,8 @@ def getargs():
         help="write sitelist in a compact way with no room for insertions")
     paa("-N",type=int,default=0,
         help="show at most this many sequences")
+    paa("--count",action="store_true",
+        help="Only output a count of the number of sequences that match")
     paa("--nlist",
         help="list of sequences (before filtering); eg. 1-100, or 3-6")
     paa("--output","-o",type=Path,
@@ -42,6 +44,8 @@ def getargs():
         help="require all non-listed sites to match reference sequence")
     paa("--uniq",action="store_true",
         help="eliminate sequences with duplicate names")
+    paa("--uniqisl",action="store_true",
+        help="eliminate sequences with duplicate ISL numbers")
     paa("--showmutants",action="store_true",
         help="show mutant string after sequence name")
     paa("--jobno",type=int,default=1,
@@ -96,9 +100,20 @@ def keepuniq(seqs):
     sname_set = set()
     for s in seqs:
         if s.name in sname_set:
-            print('Dup: ',s.name,file=sys.stderr)
+            v.vprint('Dup: ',s.name)
             continue
         sname_set.add(s.name)
+        yield s
+
+def keepuniqisl(seqs):
+    '''yield input sequences but with duplicate ISL numbers filtered out'''
+    isl_set = set()
+    for s in seqs:
+        isl = covid.get_isl(s.name)
+        if isl in isl_set:
+            v.vprint('Dup: ',s.name)
+            continue
+        isl_set.add(isl)
         yield s
 
 def main(args):
@@ -137,15 +152,23 @@ def main(args):
     if args.uniq:
         seqs = keepuniq(seqs)
 
+    if args.uniqisl:
+        seqs = keepuniqisl(seqs)
+
     if args.N:
         seqs = it.islice(seqs,args.N+1)
+
+    if args.count:
+        seqs = list(seqs)
+        print(f'{len(seqs)} sequences match')
 
     if args.output:
         seqs = list(seqs)
         if args.jobno == 1:
             seqs = [first] + seqs
         readseq.write_seqfile(args.output,seqs)
-    else:
+
+    if not (args.count or args.output):
         ndxlist,sitelist = ndx_and_site_lists(m_mgr,sites,
                                               compact=args.compact)
         for line in intlist.write_numbers_vertically(sitelist):
