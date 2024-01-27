@@ -14,6 +14,8 @@ def _getargs():
         help="Name of reference list of ISL #s")
     paa("--output","-o",
         help="Write restricted seqeunces to this file")
+    paa("--badisl","-b",
+        help="Write names of input sequences that are not among ref sequences")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
@@ -32,15 +34,27 @@ def _main(args):
     ref_isls = set(covid.get_isl(s.name) for s in refseqs)
     v.vprint(f'Obtained {len(ref_isls)} ISL numbers from {args.reference}')
 
+    bad_isls=[]
     outseqs = [first]
     orig_seqcount=1
     for s in seqs:
         orig_seqcount += 1
-        if covid.get_isl(s.name) in ref_isls:
+        isl = covid.get_isl(s.name)
+        if isl in ref_isls:
             outseqs.append(s)
+        else:
+            bad_isls.append(s.name)
 
     v.vprint(f'Read {orig_seqcount} sequences from {args.input}')
+
+    if args.badisl:
+        v.vprint(f'Writing bad ISLs: {len(bad_isls)}')
+        with open(args.badisl,"w") as fout:
+            for isl in bad_isls:
+                print(isl,file=fout)
+
     v.vprint(f'Writing {len(outseqs)} sequences to {args.output}')
+    sequtil.write_seqfile(args.output,outseqs)
 
 if __name__ == "__main__":
 
