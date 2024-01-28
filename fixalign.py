@@ -176,10 +176,15 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
                                          site_offset))
             v.vprint(f"{badseq} bad {bad_mstring} "
                      f"count={badseqs_counter[badseq]}")
-            v.vprint(f'fix-mstring: {bad_mstring} {good_mstring}')
+            v.vprint(f'ffix-mstring: {bad_mstring} {good_mstring}') ## full fix
+            ## remove common ssm's
             commonmut = set(badmut) & set(goodmut)
             xbadmut = set(badmut) - commonmut
             xgoodmut = set(goodmut) - commonmut
+            xbad_mstring = str(siteadjust(mutant.Mutation(xbadmut),site_offset))
+            xgood_mstring = str(siteadjust(mutant.Mutation(xgoodmut),site_offset))
+            v.vprint(f'sfix-mstring: {bad_mstring} {good_mstring}') ## short fix (too short?)
+            ## add back common ssm's that are in range
             minsite = min(min(mut.site for mut in xbadmut),
                           min(mut.site for mut in xgoodmut))
             maxsite = max(max(mut.site for mut in xbadmut),
@@ -192,7 +197,17 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
             xgoodmut = mutant.Mutation(xgoodmut)
             xbad_mstring = str(siteadjust(xbadmut,site_offset))
             xgood_mstring = str(siteadjust(xgoodmut,site_offset))
-            v.vprint(f'xfix-mstring: {xbad_mstring} {xgood_mstring}')
+            v.vprint(f'xfix-mstring: {xbad_mstring} {xgood_mstring}') ## corrected fix
+            ## add back explicit identity ssm's
+            for site in range(minsite,maxsite+1):
+                ref = mut_mgr.refval(site)
+                if site not in [ssm.site for ssm in xbadmut]:
+                    xbadmut.append(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+                if site not in [ssm.site for ssm in xgoodmut]:
+                    xgoodmut.append(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+            xbad_mstring = str(siteadjust(xbadmut,site_offset))
+            xgood_mstring = str(siteadjust(xgoodmut,site_offset))
+            v.vprint(f'zfix-mstring: {xbad_mstring} {xgood_mstring}') ## corrected fix
             fix_table[badseq] = goodseq
             if badgoodmuts is not None:
                 badmut = mut_mgr.get_mutation(badseq)
