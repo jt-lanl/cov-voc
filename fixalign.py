@@ -26,6 +26,10 @@ def _getargs():
         help="partition full sequence into subsequences")
     paa("--windowsize","-w",type=int,default=0,
         help="subsequence window size")
+    paa("--nsweeps",type=int,default=2,
+        help="number of sweeps through the sequences, to get overlaps")
+    paa("--phases",type=int,nargs='+',
+        help="Which sweeps to do in this run: subset of 0,...,nsweeps-1")
     paa("--na",action="store_true",
         help="set for nucleotide alignment (default is amino acid alignment)")
     paa("--verbose","-v",action="count",default=0,
@@ -104,16 +108,22 @@ def check_subsequences(subseqset):
     ## strategy is to ensure that if two "gapped" subseqs (gseqs)
     ## have the same de-gapped string (dseq), then they are identical
 
+    v.vvvprint('distinct subsequences:',len(subseqset))
+
     gseq_with_dseq = dict()
+    retval=True
     for gseq in subseqset:
         dseq = de_gap(gseq)
+        v.vvvprint_only(5,'gseq/dseq:',f'{gseq=} {dseq=}')
         if dseq in gseq_with_dseq:
             if gseq != gseq_with_dseq[dseq]:
                 v.print(f'{dseq=}: {gseq} != {gseq_with_dseq[dseq]}')
-                return False
+                retval=False
+                return False ## comment out if you want to see all inconsistencies
         else:
             gseq_with_dseq[dseq]=gseq
-    return True
+    #return True
+    return retval
 
 def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
     '''return a list of subsequences that are aligned'''
@@ -140,6 +150,7 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
         goodseq = firstseq if dseq==dfirstseq \
             else choose_alignment(mut_mgr,gseqs,nuc_align=nuc_align)
         goodmut = mut_mgr.get_mutation(goodseq)
+        good_mstring = str(siteadjust(goodmut,site_offset))
 
         ## check for a special case; doesn't happen very often
         if not nuc_align and any(ssm.mut != '-' for ssm in goodmut):
@@ -150,6 +161,7 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
                 ## if so, then use it instead
                 goodseq = dos
                 goodmut = mut_mgr.get_mutation(goodseq)
+                good_mstring = str(siteadjust(goodmut,site_offset))
 
         badseqs = [seq for seq in gseqs if seq != goodseq]
         if not badseqs:
@@ -159,9 +171,28 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
         v.vprint(f"{goodseq} good {siteadjust(goodmut,site_offset)} "
                f"count={len(gseqs)-len(badseqs)}")
         for badseq in badseqs_counter:
-            v.vprint(f"{badseq} bad  "
-                     f"{siteadjust(mut_mgr.get_mutation(badseq),site_offset)} "
+            badmut = mut_mgr.get_mutation(badseq)
+            bad_mstring = str(siteadjust(badmut,
+                                         site_offset))
+            v.vprint(f"{badseq} bad {bad_mstring} "
                      f"count={badseqs_counter[badseq]}")
+            v.vprint(f'fix-mstring: {bad_mstring} {good_mstring}')
+            commonmut = set(badmut) & set(goodmut)
+            xbadmut = set(badmut) - commonmut
+            xgoodmut = set(goodmut) - commonmut
+            minsite = min(min(mut.site for mut in xbadmut),
+                          min(mut.site for mut in xgoodmut))
+            maxsite = max(max(mut.site for mut in xbadmut),
+                          max(mut.site for mut in xgoodmut))
+            for mut in commonmut:
+                if minsite < mut.site < maxsite:
+                    xbadmut.add(mut)
+                    xgoodmut.add(mut)
+            xbadmut = mutant.Mutation(xbadmut)
+            xgoodmut = mutant.Mutation(xgoodmut)
+            xbad_mstring = str(siteadjust(xbadmut,site_offset))
+            xgood_mstring = str(siteadjust(xgoodmut,site_offset))
+            v.vprint(f'xfix-mstring: {xbad_mstring} {xgood_mstring}')
             fix_table[badseq] = goodseq
             if badgoodmuts is not None:
                 badmut = mut_mgr.get_mutation(badseq)
@@ -170,10 +201,15 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
 
     return [firstseq] + [fix_table.get(gseq,gseq) for gseq in subseqs]
 
-def mk_subseq_ranges(top,window):
-    ''' return a list of site lo,hi pairs '''
+def mk_subseq_site_ranges(top,window,nsweeps=2,phases=None):
+    ''' return a list of site lo,hi pairs with lo starting at 1,
+and hi ending at top, with hi-lo=window (or smaller than window
+on the edges), and with nsweeps separate overlapping sweeps'''
+    assert nsweeps <= window
     pairs = []
-    for offset in [1,1-window//2]:
+    phases = phases or range(nsweeps)
+    offsetlist = [1-n*window//nsweeps for n in phases]
+    for offset in offsetlist:
         r = range(offset,top+window,window)
         for lo,hi in zip(r[:-1],r[1:]):
             pairs.append( (max([1,lo]),min([top,hi])) )
@@ -217,7 +253,6 @@ def _main(args):
 
     seqs = sequtil.read_seqfile(args.input)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
-    seqs=list(seqs)
 
     xlator = mutant.SiteIndexTranslator(first.seq)
 
@@ -227,16 +262,24 @@ def _main(args):
     ## partition seq into overlapping windows of width 2*stepsize
     winsize = 60 if args.na else 20
     if args.windowsize:
-        assert not args.sitepartition
         winsize = args.windowsize
         if args.na:
             winsize = 3*(winsize//3)
 
-    subseq_ranges = mk_subseq_ranges(xlator.topsite+1,winsize)
+    subseq_ranges = mk_subseq_site_ranges(xlator.topsite+1,winsize,
+                                          nsweeps=args.nsweeps,
+                                          phases=args.phases)
 
     if args.sitepartition:
-        subseq_ranges = zip(args.sitepartition[:-2],
-                            args.sitepartition[2:])
+        ## over-rides windowsize/nsweep
+        subseq_ranges = list(zip(args.sitepartition[:-2],
+                                 args.sitepartition[2:]))
+
+    v.vvvprint('ranges:',subseq_ranges)
+
+    ## save til now to make generator a list
+    ## that way, can debug subseq_ranges
+    seqs=list(seqs)
 
     for lo,hi,ndxlo,ndxhi in ndx_ranges(xlator,subseq_ranges):
 
@@ -259,19 +302,21 @@ def _main(args):
             if s.seq[ndxlo:ndxhi] != subseq:
                 countbad += 1
                 assert len(s.seq[ndxlo:ndxhi]) == len(subseq)
+                v.vvprint_only(1,f'{s.seq[ndxlo:ndxhi]} -> {subseq}:',s.name)
                 s.seq = s.seq[:ndxlo] + subseq + s.seq[ndxhi:]
-                v.vvvprint(f'{s.seq[ndxlo:ndxhi]} -> {subseq}')
                 changed_sequences.append(s)
 
-        if countbad or args.verbose>1:
+        if countbad:
             v.vprint("Changed",countbad,"inconsistent sequences in range:",lo,hi-1)
 
     v.vprint("Total:",
-          len(changed_sequences),"changes in",
-          len(set(changed_sequences)),"distict sequences")
+             len(changed_sequences),"changes in",
+             len(set(changed_sequences)),"distict sequences",
+             f"{args.windowsize=} {args.phases=}")
     print("Total:",
           len(changed_sequences),"changes in",
-          len(set(changed_sequences)),"distict sequences")
+          len(set(changed_sequences)),"distict sequences",
+          f"{args.windowsize=} {args.phases=}")
 
     if args.mstringpairs:
         with open(args.mstringpairs,"w") as fileptr:
