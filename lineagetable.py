@@ -102,7 +102,7 @@ class LineageTablePatterns:
         return (patt for patt in patternlist
                 if self.regexpatt[patt].search(seqname))
 
-    @functools.cache
+    @functools.lru_cache(maxsize=None)
     def last_match(self,seqname,notfound=OTHER):
         '''return the last pattern found whose regexp matches the sequence name'''
         ## by "last" we mean first in the reversed list

@@ -14,7 +14,7 @@ Find parent/child lineage pairs for which new mutations appear
 
 import re
 from collections import Counter,defaultdict
-from functools import cache
+from functools import lru_cache
 import argparse
 
 import verbose as v
@@ -72,7 +72,7 @@ def most_common_forms(seqlist,mut_manager):
 
     return mcf_dict
     
-@cache
+@lru_cache(maxsize=NJone)
 def mutations_fromseq(mut_manager,seq):
     return set( mut_manager.get_mutation(seq) )
 
@@ -132,7 +132,7 @@ def write_mutations_summary(filename,lin_notes,muts,denominator,mincount=0):
                 site = int(re.sub(r'\D*(\d+)\D*',r'\1',str(m)))
                 v.vprint_only(5,'site',site,str(m))
             except TypeError:
-                v.print(f'{m=}')
+                v.print(f'm={m}')
                 raise RuntimeError
             lintrans = ", ".join(f'{lin_notes.parent_of(lin)}->{lin}'
                                 for lin,_,_ in muts[m])
@@ -171,7 +171,7 @@ def main(args):
 
     denominator = sum(1 for s in seqlist
                       if covid.get_lineage_from_name(s.name) in lineage_set)
-    v.vprint(f'{denominator=}/{len(seqlist)}')
+    v.vprint(f'denominator={denominator}/{len(seqlist)}')
             
     mut_total  = Counter() ## seqs with mut, regardless of lin
     for lin in lineage_set: ## only consider lineages in clade

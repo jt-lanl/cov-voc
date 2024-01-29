@@ -2,7 +2,7 @@
 ## Available at:
 ## https://github.com/cov-lineages/pango-designation/blob/master/lineage_notes.txt
 import re
-from functools import cache
+from functools import lru_cache
 import verbose as v
 
 def first_last_splits(name,reverse=False):
@@ -139,7 +139,8 @@ class LineageNotes:
         return self.inconsistencies(remove=True,fix=False)
     def fix_inconsistencies(self):
         return self.inconsistencies(remove=False,fix=True)
-    @cache
+
+    @lru_cache(maxsize=None)
     def parent_of(self,child):
         '''return the lineage name that is the parent of the input lineage'''
         full = self.fullname.get(child,child)
@@ -187,7 +188,7 @@ if __name__ == "__main__":
         
     if 0:
         parent = "BA.2"
-        print(f'{parent=}')
+        print(f'parent={parent}')
         print("Children:\n",
               ",".join(lins.allchildren_of(parent,
                                            excludeparent=True)))

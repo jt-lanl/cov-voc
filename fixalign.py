@@ -1,7 +1,7 @@
 '''fix alignemnt by enforcing consistency over various subregions'''
 
 import re
-from functools import cache
+from functools import lru_cache
 from collections import defaultdict,Counter
 import argparse
 
@@ -40,7 +40,7 @@ def _getargs():
 
 dedash = re.compile("-")
 
-@cache
+@lru_cache(maxsize=None)
 def de_gap(seq):
     '''remove '-'s from sequence'''
     return dedash.sub("",seq)
@@ -114,10 +114,10 @@ def check_subsequences(subseqset):
     retval=True
     for gseq in subseqset:
         dseq = de_gap(gseq)
-        v.vvvprint_only(5,'gseq/dseq:',f'{gseq=} {dseq=}')
+        v.vvvprint_only(5,'gseq/dseq:',f'gseq={gseq} dseq={dseq}')
         if dseq in gseq_with_dseq:
             if gseq != gseq_with_dseq[dseq]:
-                v.vprint(f'{dseq=}: {gseq} != {gseq_with_dseq[dseq]}')
+                v.vprint(f'dseq={dseq}: {gseq} != {gseq_with_dseq[dseq]}')
                 retval=False
                 return False ## comment out if you want to see all inconsistencies
         else:
@@ -334,11 +334,11 @@ def _main(args):
     v.vprint("Total:",
              len(changed_sequences),"changes in",
              len(set(changed_sequences)),"distict sequences",
-             f"{args.windowsize=} {args.phases=}")
+             f"args.windowsize={args.windowsize} args.phases={args.phases}")
     print("Total:",
           len(changed_sequences),"changes in",
           len(set(changed_sequences)),"distict sequences",
-          f"{args.windowsize=} {args.phases=}")
+          f"args.windowsize={args.windowsize} args.phases={args.phases}")
 
     if args.mstringpairs:
         with open(args.mstringpairs,"w") as fileptr:

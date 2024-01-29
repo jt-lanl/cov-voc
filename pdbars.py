@@ -67,7 +67,7 @@ def _main(args):
             sitelist = xbysite.topsites(n=args.top,thresh=1)
         if args.rbd:
             sitelist = list(range(328,529))
-        v.vprint(f'{len(sitelist)=}')
+        v.vprint(f'len(sitelist)={len(sitelist)}')
         if not sitelist:
             v.print('Empty sitelist, no sites satisfy threshold')
             v.print(f'File {args.output} will not be created')

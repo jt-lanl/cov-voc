@@ -56,7 +56,7 @@ def _main(args):
     ndxdict = {str(mut): sndxtrans.index_from_site(3*mut.site-2)
                for mut in mutations}
 
-    v.vvprint(f'{ndxdict=}')
+    v.vvprint(f'ndxdict={ndxdict}')
 
     SEQNAME="Lineage_Parent_EPI_ISL_number_[MCF]?_Mutations"
 

@@ -83,7 +83,7 @@ def _main(args):
                 newclusters.append(cluster)
                 continue
             aseqs,bseqs,(sitesplit,mut) = split_seqs(first,cluster,sitelist)
-            v.vprint(f'{sitesplit=}')
+            v.vprint(f'sitesplit={sitesplit}')
             if len(aseqs) < args.minclustersize:
                 ## then don't split
                 cluster.splittable=False
@@ -119,7 +119,7 @@ def _main(args):
     ## get class counts
     if len(clusters) == 1:
         raise RuntimeError(f'No clustering: consider reducing '
-                           f'{args.minclustersize=}')
+                           f'args.minclustersize={args.minclustersize}')
     classcounts = Counter()
     class_number = 1
     for cluster in clusters:

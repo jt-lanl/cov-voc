@@ -110,7 +110,7 @@ def get_transitions(mutsfile):
     df = pd.read_table(mutsfile)
     lintran = numu.match_column_name(df.columns,"lineage_trans")
     v.vprint(f'{df.columns}')
-    v.vprint(f'{lintran=}')
+    v.vprint(f'lintran={lintran}')
     if not lintran:
         return
     parents = set()
@@ -125,7 +125,7 @@ def get_transitions(mutsfile):
         transitions = [t.strip() for t in transitions]
         for trans in transitions:
             parent,child = trans.split("->")
-            v.vprint_only(5,'Trans:',f'{mut}: {parent=} {child=}')
+            v.vprint_only(5,'Trans:',f'mut}: {parent={mut}: {parent} child={child}')
             parents.add(parent)
             children.add(MutLin(mut,child))
 
@@ -141,10 +141,10 @@ def _main(args):
     parents,children = get_transitions(args.mutsfile)
 
     for child in children:
-        v.vprint_only(5,'Child:',f'{child=} mut={child.mut}, lin={child.lin}')
+        v.vprint_only(5,'Child:',f'child={child} mut={child.mut}, lin={child.lin}')
 
     lin_notesfile = covid.default_seqfile(seqfilename=args.notesfile)
-    v.vprint(f'{lin_notesfile=}')
+    v.vprint(f'lin_notesfile={lin_notesfile}')
     lin_notes = LineageNotes(lin_notesfile)
     for fix in lin_notes.fix_inconsistencies():
         v.vprint(fix)
