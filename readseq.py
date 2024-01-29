@@ -191,20 +191,20 @@ def get_fileinfo(filename,filetype,filetypelist):
     ## check that keyword argument filetype is valid
     filetype = filetype.lower()
     if filetype not in ["auto"] + list(filetypelist):
-        raise RuntimeError(f"{filetype=} not supported")
+        raise RuntimeError(f"filetype={filetype} not supported")
 
     filename = os.fspath(filename) ## if pathlib input, make a string
     atype,gz,xz = auto_filetype(filename,filetypes=filetypelist)
 
     if filetype != "auto" and atype and atype != filetype:
-        raise RuntimeError(f'Specified {filetype=} but {filename=} '
+        raise RuntimeError(f'Specified filetype={filetype} but filename={filename} '
                            f'suggests file type is {atype}')
 
     if filetype == "auto":
         filetype = atype
 
     if filetype not in filetypelist:
-        raise RuntimeError(f"Unknown {filetype=} for sequence {filename=}")
+        raise RuntimeError(f"Unknown filetype={filetype} for sequence filename={filename}")
 
     binaryfile = bool(filetype in ["ipkl","pkl"])
 
