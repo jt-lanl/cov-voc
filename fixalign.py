@@ -18,7 +18,7 @@ def _getargs():
         help="input sequence file")
     paa("--badseqs","-b",
         help="output inconsistent sequences")
-    paa("--mstringpairs",
+    paa("--mstringpairs","-M",
         help="write file of mstring pairs")
     paa("--fix",
         help="fix sequences and write output to this fasta file")
@@ -117,7 +117,7 @@ def check_subsequences(subseqset):
         v.vvvprint_only(5,'gseq/dseq:',f'{gseq=} {dseq=}')
         if dseq in gseq_with_dseq:
             if gseq != gseq_with_dseq[dseq]:
-                v.print(f'{dseq=}: {gseq} != {gseq_with_dseq[dseq]}')
+                v.vprint(f'{dseq=}: {gseq} != {gseq_with_dseq[dseq]}')
                 retval=False
                 return False ## comment out if you want to see all inconsistencies
         else:
@@ -125,11 +125,51 @@ def check_subsequences(subseqset):
     #return True
     return retval
 
+def get_bad_good_mstring(badmut,goodmut,mut_mgr,mstringify):
+    '''
+    return tuple bad_mstring,good_mstring with adjustments to 
+    ensure mstrings can be used to tweak future sequences
+    '''
+    def show_mstrings(title,bmut,gmut):
+        return f'{title}-mstring: {mstringify(bmut)} {mstringify(gmut)}'
+
+    v.vvprint(show_mstrings('ffix',badmut,goodmut))
+
+    ## Adjustment 1: remove common ssm's
+    commonmut = set(badmut) & set(goodmut)
+    bmut = set(badmut) - commonmut
+    gmut = set(goodmut) - commonmut
+    v.vvprint(show_mstrings('sfix',bmut,gmut))
+
+    ## Adjustment 2: add back common ssm's that are in range
+    ## (note: at this piont bmut,gmut are sets of ssm's)
+    minsite = min(mut.site for mut in (bmut|gmut))
+    maxsite = max(mut.site for mut in (bmut|gmut))
+    for mut in commonmut:
+        if minsite < mut.site < maxsite:
+            bmut.add(mut)
+            gmut.add(mut)
+    v.vvprint(show_mstrings('xfix',bmut,gmut))
+
+    ## Adjustment 3: add back explicit identity ssm's (eg, 'S247S')
+    for site in range(minsite,maxsite+1):
+        ref = mut_mgr.refval(site)
+        if site not in [ssm.site for ssm in bmut]:
+            bmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+        if site not in [ssm.site for ssm in gmut]:
+            gmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+    v.vprint(show_mstrings('zfix',bmut,gmut))
+
+    return mstringify(bmut),mstringify(gmut)
+
 def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
     '''return a list of subsequences that are aligned'''
 
     firstseq,subseqs = subseqs[0],subseqs[1:]
     mut_mgr = mutant.MutationManager(firstseq)
+
+    def mstringify(mutlike):
+        return str(siteadjust(mutant.Mutation(mutlike),site_offset))
 
     ## two forms of every sequence: gseq (gapped), dseq (de-gapped)
 
@@ -150,7 +190,6 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
         goodseq = firstseq if dseq==dfirstseq \
             else choose_alignment(mut_mgr,gseqs,nuc_align=nuc_align)
         goodmut = mut_mgr.get_mutation(goodseq)
-        good_mstring = str(siteadjust(goodmut,site_offset))
 
         ## check for a special case; doesn't happen very often
         if not nuc_align and any(ssm.mut != '-' for ssm in goodmut):
@@ -160,69 +199,37 @@ def align_subsequences(subseqs,site_offset=0,nuc_align=False,badgoodmuts=None):
             if dos:
                 ## if so, then use it instead
                 goodseq = dos
-                goodmut = mut_mgr.get_mutation(goodseq)
-                good_mstring = str(siteadjust(goodmut,site_offset))
 
         badseqs = [seq for seq in gseqs if seq != goodseq]
         if not badseqs:
             continue
-        badseqs_counter = Counter(seq for seq in badseqs)
-        v.vprint(f"{firstseq} ref")
-        v.vprint(f"{goodseq} good {siteadjust(goodmut,site_offset)} "
-               f"count={len(gseqs)-len(badseqs)}")
-        for badseq in badseqs_counter:
-            badmut = mut_mgr.get_mutation(badseq)
-            bad_mstring = str(siteadjust(badmut,
-                                         site_offset))
-            v.vprint(f"{badseq} bad {bad_mstring} "
-                     f"count={badseqs_counter[badseq]}")
-            v.vprint(f'ffix-mstring: {bad_mstring} {good_mstring}') ## full fix
-            ## remove common ssm's
-            commonmut = set(badmut) & set(goodmut)
-            xbadmut = set(badmut) - commonmut
-            xgoodmut = set(goodmut) - commonmut
-            xbad_mstring = str(siteadjust(mutant.Mutation(xbadmut),site_offset))
-            xgood_mstring = str(siteadjust(mutant.Mutation(xgoodmut),site_offset))
-            v.vprint(f'sfix-mstring: {bad_mstring} {good_mstring}') ## short fix (too short?)
-            ## add back common ssm's that are in range
-            minsite = min(min(mut.site for mut in xbadmut),
-                          min(mut.site for mut in xgoodmut))
-            maxsite = max(max(mut.site for mut in xbadmut),
-                          max(mut.site for mut in xgoodmut))
-            for mut in commonmut:
-                if minsite < mut.site < maxsite:
-                    xbadmut.add(mut)
-                    xgoodmut.add(mut)
-            xbadmut = mutant.Mutation(xbadmut)
-            xgoodmut = mutant.Mutation(xgoodmut)
-            xbad_mstring = str(siteadjust(xbadmut,site_offset))
-            xgood_mstring = str(siteadjust(xgoodmut,site_offset))
-            v.vprint(f'xfix-mstring: {xbad_mstring} {xgood_mstring}') ## corrected fix
-            ## add back explicit identity ssm's
-            for site in range(minsite,maxsite+1):
-                ref = mut_mgr.refval(site)
-                if site not in [ssm.site for ssm in xbadmut]:
-                    xbadmut.append(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
-                if site not in [ssm.site for ssm in xgoodmut]:
-                    xgoodmut.append(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
-            xbad_mstring = str(siteadjust(xbadmut,site_offset))
-            xgood_mstring = str(siteadjust(xgoodmut,site_offset))
-            v.vprint(f'zfix-mstring: {xbad_mstring} {xgood_mstring}') ## corrected fix
+
+        for badseq in badseqs:
             fix_table[badseq] = goodseq
+
+        v.vprint(f"{firstseq} ref")
+        v.vprint(f"{goodseq} good {mstringify(goodmut)} "
+               f"count={len(gseqs)-len(badseqs)}")
+        badseqs_counter = Counter(seq for seq in badseqs)
+        for badseq,badcount in badseqs_counter.items():
+            badmut = mut_mgr.get_mutation(badseq)
+            v.vprint(f"{badseq} bad {mstringify(badmut)} count={badcount}")
+            mstring_tuple = get_bad_good_mstring(badmut,goodmut,mut_mgr,mstringify)
             if badgoodmuts is not None:
-                badmut = mut_mgr.get_mutation(badseq)
-                badgoodmuts.append( (str(siteadjust(badmut,site_offset)),
-                                     str(siteadjust(goodmut,site_offset))) )
+                badgoodmuts.append( mstring_tuple )
 
     return [firstseq] + [fix_table.get(gseq,gseq) for gseq in subseqs]
 
 def mk_subseq_site_ranges(top,window,nsweeps=2,phases=None):
-    ''' return a list of site lo,hi pairs with lo starting at 1,
-and hi ending at top, with hi-lo=window (or smaller than window
-on the edges), and with nsweeps separate overlapping sweeps'''
+    ''' 
+    return a list of site lo,hi pairs with lo starting at 1,
+    and hi ending at top, with hi-lo=window (or smaller than window
+    on the edges), and with nsweeps separate overlapping sweeps
+    '''
     assert nsweeps <= window
     pairs = []
     phases = phases or range(nsweeps)
+    phases = [phase%nsweeps for phase in phases]
     offsetlist = [1-n*window//nsweeps for n in phases]
     for offset in offsetlist:
         r = range(offset,top+window,window)
