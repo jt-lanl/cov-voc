@@ -45,9 +45,7 @@ def getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
-    if args.lineagebaseline:
-        args.baseline = None
-    if args.baseline == 'Wuhan':
+    if args.lineagebaseline or args.baseline == 'Wuhan':
         args.baseline = None
     return args
 
@@ -131,8 +129,6 @@ def strpval(pval):
 def main(args):
     '''commonformschange main'''
 
-    if args.baseline and args.lineagebaseline:
-        raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
     if not args.bylineage and args.lineagebaseline:
         v.print('Warning: use --bylineage if you also want --lineagebaseline.')
 

@@ -45,7 +45,8 @@ def getargs():
     args = ap.parse_args()
     if args.consensusalways and args.consensusnever:
         raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
-    if args.baseline == 'Wuhan':
+    if args.lineagebaseline or args.baseline in ['Wuhan']:
+        ## lineagebaseline over-rides baseline
         args.baseline = None
     return args
 
@@ -86,10 +87,8 @@ def print_header(args):
 def main(args):
     '''pangocommonforms main'''
 
-    if args.baseline and args.lineagebaseline:
-        raise RuntimeError('Cannot have both --baseline and --lineagebaseline')
     if not args.bylineage and args.lineagebaseline:
-        v.print('Warning: not recommended to use --notbylineage AND --lineagebaseline.')
+        v.print('Warning: use --bylineage if you also want --lineagebaseline.')
 
     firstseq,seqlist = cf.get_input_sequences(args)
     mut_manager = mutant.MutationManager(firstseq)
