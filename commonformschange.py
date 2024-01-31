@@ -27,26 +27,12 @@ def getargs():
     ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--npatterns","-n",type=int,default=0,
-        help="How many of the most common patterns per lineage (0=all)")
-    paa("--mincount","-m",type=int,default=10,
-        help="Show only patterns with at least this many counts")
-    paa("--protein",default="Spike",
-        help="Protein name to be used in the header")
-    paa("--baseline",default="XBB.1.5",
-        choices=tuple(covid.BASELINE_MSTRINGS),
-        help="Use this sequence as basline for mutation strings")
-    paa("--lineagebaseline",action="store_true",
-        help="Use each lineage most common form as mstring baseline for that lineage")
-    paa("--bylineage",action="store_true",default=False,
-        help="Partition sequences by pango lineage")
-    paa("--notbylineage",action="store_false",dest='bylineage',
-        help="Do not partition sequences by pango lineges")
+    cf.commonforms_args(ap)
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
+    ap.set_defaults(bylineage=False)
     args = ap.parse_args()
-    if args.lineagebaseline or args.baseline == 'Wuhan':
-        args.baseline = None
+    args = cf.commonforms_fixargs(args)
     return args
 
 def print_header(args):
@@ -68,7 +54,11 @@ def print_header(args):
     print(f"Relative Differences range between -100% and +100%, using formula: "
           "rel = 100*(later-early)/max(later,early) percent, applied to the "
           "early and later fractions.")
-    print(f"The p-value associated with increase or decrease is computed by Fisher's exact test, and is meant to be used only as a rough guide to the significance of the change. Since the computation is based on assumptions (such as independent and unbiased sampling) that may not hold in practice, the p-value should not be taken too literally.")
+    print(f"The p-value associated with increase or decrease is computed by "
+          f"Fisher's exact test, and is meant to be used only as a rough guide "
+          f"to the significance of the change. Since the computation is based on "
+          f"assumptions (such as independent and unbiased sampling) that may not "
+          f"hold in practice, the p-value should not be taken too literally.")
     print(f"The first line of each lineage section indicates counts "
           f"for the full lineage relative to all the sequences. "
           f"'Lineage Count' in this first line is actually the full sequence count. "
@@ -129,16 +119,8 @@ def strpval(pval):
 def main(args):
     '''commonformschange main'''
 
-    if not args.bylineage and args.lineagebaseline:
-        v.print('Warning: use --bylineage if you also want --lineagebaseline.')
-
-    firstseq,seqlist = cf.get_input_sequences(args)
+    firstseq,seqlist = cf.get_input_sequences(args,minseqs=2)
     mut_manager = mutant.MutationManager(firstseq)
-
-    if len(seqlist) < 2:
-        v.print(args)
-        v.print(f'Only {len(seqlist)} sequences -- aborting.')
-        return
 
     print_header(args)
 
@@ -244,13 +226,13 @@ def main(args):
             cons_string = ""
             if comm == cons:
                 cons_string = "(consensus)"
-            m = mut_manager.get_mutation(comm)
-            mstring = m.relative_to(base_mut) if args.baseline else str(m)
+            mut = mut_manager.get_mutation(comm)
+            mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
 
             if args.lineagebaseline:
-                mstring = m.relative_to(lineage_baseline)
+                mstring = mut.relative_to(lineage_baseline)
 
-            h = hamming(top_comm,comm)
+            hdist = hamming(top_comm,comm)
             cene = ce/ne if ne>0 else (np.inf if ne>0 else 0)
             clnl = cl/nl if nl>0 else (np.inf if nl>0 else 0)
             _,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
@@ -262,7 +244,7 @@ def main(args):
                    100*(clnl-cene),
                    relative_diff(comm),
                    strpval(pval),
-                   h,mstring,cons_string))
+                   hdist,mstring,cons_string))
 
 if __name__ == "__main__":
 

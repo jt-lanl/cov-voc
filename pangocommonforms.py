@@ -21,33 +21,18 @@ def getargs():
     ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--npatterns","-n",type=int,default=0,
-        help="How many of the most common patterns per lineage (0=all)")
-    paa("--mincount","-m",type=int,default=10,
-        help="Show only patters with at least this many counts")
+    cf.commonforms_args(ap)
     paa("--consensusalways","-c",action="store_true",
         help="Always show consensus, even if not common")
     paa("--consensusnever",action="store_true",
         help="Do not compute consensus for each form [faster compute]")
-    paa("--protein",default="Spike",
-        help="Protein name to be used in the header")
-    paa("--baseline",default="XBB.1.5",
-        choices=tuple(covid.BASELINE_MSTRINGS),
-        help="Use this sequence as basline for mutation strings")
-    paa("--bylineage",action="store_true",default=True,
-        help="Partition sequences by pango lineage")
-    paa("--notbylineage",action="store_false",dest='bylineage',
-        help="Do not partition sequences by pango lineges")
-    paa("--lineagebaseline",action="store_true",
-        help="Use each lineage most common form as mstring baseline for that lineage")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
+    ap.set_defaults(bylineage=True)
     args = ap.parse_args()
+    args = cf.commonforms_fixargs(args)
     if args.consensusalways and args.consensusnever:
         raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
-    if args.lineagebaseline or args.baseline in ['Wuhan']:
-        ## lineagebaseline over-rides baseline
-        args.baseline = None
     return args
 
 def print_header(args):
@@ -87,16 +72,9 @@ def print_header(args):
 def main(args):
     '''pangocommonforms main'''
 
-    if not args.bylineage and args.lineagebaseline:
-        v.print('Warning: use --bylineage if you also want --lineagebaseline.')
 
     firstseq,seqlist = cf.get_input_sequences(args)
     mut_manager = mutant.MutationManager(firstseq)
-
-    if len(seqlist) < 1:
-        v.print(args)
-        v.print(f'Only {len(seqlist)} sequences -- aborting.')
-        return
 
     print_header(args)
 
@@ -151,14 +129,14 @@ def main(args):
             if comm == cons:
                 cflag = True
                 cons_string = "(consensus)"
-            m = mut_manager.get_mutation(comm)
-            mstring = m.relative_to(base_mut) if args.baseline else str(m)
+            mut = mut_manager.get_mutation(comm)
+            mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
 
             if args.lineagebaseline:
                 if n==0:
-                    lineage_baseline = m
+                    lineage_baseline = mut
                 else:
-                    mstring = m.relative_to(lineage_baseline)
+                    mstring = mut.relative_to(lineage_baseline)
 
             if n == 0:
                 top_comm = comm
@@ -167,13 +145,13 @@ def main(args):
                   (fmtlin,countlin,cnt,100*cnt/countlin,
                    h,mstring,cons_string))
         if args.consensusalways and not cflag:
-            h = hamming(top_comm,cons)
-            m = mut_manager.get_mutation(cons)
-            mstring = m.relative_to(base_mut) if args.baseline else str(m)
+            hdist = hamming(top_comm,cons)
+            mut = mut_manager.get_mutation(cons)
+            mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
             cnt = cntr[cons]
             print("%s %7d %6d %5.1f%% %3d %s %s" %
                   (fmtlin,countlin,cnt,100*cnt/countlin,
-                   h,mstring,"(consensus)"))
+                   hdist,mstring,"(consensus)"))
 
 if __name__ == "__main__":
 

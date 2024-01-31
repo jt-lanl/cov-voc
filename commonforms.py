@@ -1,23 +1,53 @@
 '''
 definitions and subroutines for both pangocommonforms and commonformschange
 '''
+
+import sys
 from collections import Counter,defaultdict
 import verbose as v
 import sequtil
 import mutant
 import covid
 
+def commonforms_args(argparser):
+    '''args for arparse common to pangocommonforms and commonformschange'''
+    paa = argparser.add_argument
+    paa("--npatterns","-n",type=int,default=0,
+        help="How many of the most common patterns per lineage (0=all)")
+    paa("--mincount","-m",type=int,default=10,
+        help="Show only patterns with at least this many counts")
+    paa("--protein",default="Spike",
+        help="Protein name to be used in the header")
+    paa("--baseline",default="XBB.1.5",type=str.upper,
+        choices=tuple(map(str.upper,covid.BASELINE_MSTRINGS)),
+        help="Use this sequence as basline for mutation strings")
+    paa("--lineagebaseline",action="store_true",
+        help="Use each lineage most common form as mstring baseline for that lineage")
+    paa("--bylineage",action="store_true",
+        help="Partition sequences by pango lineage")
+    paa("--notbylineage",action="store_false",dest='bylineage',
+        help="Do not partition sequences by pango lineges")
+
+def commonforms_fixargs(args):
+    '''after args are parsed, do some checks and fixes'''
+    if args.lineagebaseline or args.baseline == 'WUHAN':
+        args.baseline = None
+    if not args.bylineage and args.lineagebaseline:
+        v.print('Warning: use --bylineage if you also want --lineagebaseline.')
+
+    return args
+
 def mostcommonchar(clist):
     '''return the most common item in the list'''
-    [(c,_)] = Counter(clist).most_common(1)
-    return c
+    [(item,_)] = Counter(clist).most_common(1)
+    return item
 
 def consensus(seqlist):
     '''create a consesnsus sequence from the sequence list'''
     return "".join(mostcommonchar(clist)
                    for clist in sequtil.gen_columns_seqlist(seqlist))
 
-def get_input_sequences(args):
+def get_input_sequences(args,minseqs=1):
     '''read input file and return firstseq and seqlist'''
     seqs = covid.read_filter_seqfile(args)
     seqs = sequtil.checkseqlengths(seqs)
@@ -27,6 +57,11 @@ def get_input_sequences(args):
 
     seqlist = list(seqlist)
     v.vprint_only_summary('Invalid date:','skipped sequences')
+
+    if len(seqlist) < minseqs:
+        v.print(args)
+        v.print(f'Only {len(seqlist)} sequences -- aborting.')
+        sys.exit(1) ## avoid 'RuntimeError' because of its longwinded traceback
 
     return firstseq,seqlist
 
