@@ -160,7 +160,7 @@ def sixtydays_seqs(seqs,days=60,file=None):
     t = covid.date_fromiso(lastdate)
     f = t - datetime.timedelta(days=days)
     v.vprint("Sixty days:",f,t)
-    return covid.filter_by_date(seqs,f,t,keepfirst=False)
+    return covid.filter_by_date(seqs,f,t,firstisref=False)
 
 def sixtydays_pseqs(pseqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
@@ -203,9 +203,10 @@ def read_input_file(filename):
             try:
                 pango,mstring = line.split('\t',1)
                 pango = pango.strip()
+                pango = re.sub(r' ','',pango)
                 mstring = mstringfix.mstring_brackets(mstring)
             except ValueError:
-                warnings.warn("Problem reading line:",line)
+                warnings.warn(f'Problem reading line: {line}')
                 continue
             yield (pango,mstring)
 
@@ -352,11 +353,8 @@ def _main(args):
     seqs = sequtil.checkseqlengths(seqs)
 
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-    firstseq = first.seq
+    m_mgr = mutant.MutationManager(first.seq)
 
-    m_mgr = mutant.MutationManager(firstseq)
-
-    #seqs = list(seqs)
     seqs = [pseq.ProcessedSequence(m_mgr,s) for s in seqs]
 
     v.vprint("Sequences processed:",len(seqs))
@@ -373,7 +371,8 @@ def _main(args):
         print(format_row(row),flush=True)
         #print(end="",flush=True) ## what does this do? just flush?
 
-    v.print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences")
+    if args.jobno == 1:
+        v.print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences")
 
 if __name__ == "__main__":
 
