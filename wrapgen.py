@@ -7,23 +7,38 @@ or some other error condition arises, or the program exits.
 import sys
 from collections.abc import Iterable, Iterator
 
-def _keepcount_iterator(seqs,msg_prefix="",file=sys.stderr):
+def _keepcount_iterator_action(seqs,action):
     '''
     seqs is an iterator (eg, a generator)
-    return value is an iterator that wraps seqs 
-    and keeps count of how many items are consumed
-    '''
+    action is a function with argument n
+    and that function will be called when the generator is done
+    return value is an iterator that keeps count of n, the number of items consumed
+   '''
     assert isinstance(seqs,Iterator)
     n=0
     try:
         while True:
-            n += 1
             yield next(seqs)
+            n += 1
     except StopIteration:
-        n -= 1 ## undo the n+=1 before for next(seqs) above
+        pass
     finally:
-        print(msg_prefix,n,file=file)
+        action(n)
 
+def _keepcount_iterator(seqs,msg_prefix=None,file=sys.stderr):
+    '''
+    seqs is an iterator (eg, a generator)
+    return value is an iterator that keeps count of how many items are consumed
+    when the iterator is done, a message is printed to file
+    and
+    '''
+    def action(n):
+        if msg_prefix:
+            print(msg_prefix,n,file=file)
+        else:
+            print(n,file=file)
+
+    yield from _keepcount_iterator_action(seqs,action)
 
 def keepcount(seqs,msg_prefix="",file=sys.stderr):
     '''
@@ -40,7 +55,7 @@ def keepcount(seqs,msg_prefix="",file=sys.stderr):
         raise RuntimeError(f"[msg_prefix] input is not an iterable!")
 
 
-        
+
 if __name__ == '__main__':
 
     ### Here's some code to demonstrate use of wrapgen.keepcount
@@ -58,19 +73,19 @@ if __name__ == '__main__':
         print(m,x)
         if m>5:
             break
-    
+
     lst = [n for n in range(10)]
     lxst = keepcount(lst,"lst items:")
     print("lxst:",type(lst),type(lxst))
     #print("lxst:",lxst[:2])
     print("lst:",[x for x in lst])
-    
+
     for m,x in enumerate(lxst):
         print(m,x)
         if m>5:
             break
 
     j = keepcount(7,"hello")  ## This SHOULD raise an error
-        
+
     #lxst = list(lxst)
-    
+
