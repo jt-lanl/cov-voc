@@ -19,7 +19,6 @@ import random
 import argparse
 
 import verbose as v
-import readseq
 import sequtil
 import wrapgen
 import intlist
@@ -39,25 +38,29 @@ def getargs():
     paa("--codonalign",action="store_true",
         help="Add dashes to keep seqeunces aligned in triples")
     paa("--padlength",action="store_true",
-        help="Pad seqs with dashes so all are the same length")
-    paa("--rmgapcols",action="store_true",
-        help="Remove gap-only columns")
-    paa("--snipsites",
-        help="List of sites (eg 1-4,7,9-240) to be sent to output")
-    paa("--sniprange",type=int,nargs=2,
-        ## like snipsites, less flexible, but maybe faster?
-        help="site range given as two integers, lo and hi")
-    paa("--rmdash",action="store_true",
-        help="remove all the dashes in each sequence")
+        help="Pad seqs with dashes so all are the same length (as longest seq)")
+    paa("--toomanyx",type=int,default=0,
+        help="Remove sequences that have too many total X's")
     paa("--toomanygaps",type=int,default=0,
         help="Remove sequences with too many gaps in a single stretch")
-    paa("--splitout",
-        help="split the output into a separate file for each sequence")
+    paa("--rmdash",action="store_true",
+        help="remove all the dashes in each sequence")
+    paa("--rmgapcols",action="store_true",
+        help="Remove gap-only columns")
+    paa("--stripdashcols",action="store_true",
+        help="Strip columns with dash in reference sequence")
+    paa("--islreplace",
+        help="file of sequences used to replace existing seqs based on ISL")
+    paa("--keepsites",
+        help="List of sites (eg 1-4,7,9-240) to be sent to output [FLAKY]")
     paa("--output","-o",type=Path,
         help="output fasta file")
+    paa("--jobno",type=int,default=1,
+        help="when running multiple jobs in parallel, use --jobno {#}")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 codon_to_aa_table = {
@@ -148,7 +151,7 @@ def codon_align_seqs(seqs,ndxlist=None):
         s.seq = "".join(slist)
         yield s
 
-def getisls(file):
+def isls_from_file(file):
     '''read list of ISL numbers from text file'''
     isls=[]
     with open(file,"r") as isl_file:
@@ -158,34 +161,51 @@ def getisls(file):
                 isls.append(m[1])
     return isls
 
-def get_max_length(seqs):
-    '''get length of longest sequence'''
-    return max(len(s.seq) for s in seqs)
+def seqs_indexed_by_isl(file):
+    '''read file and make dict of sequences indexed by ISL number'''
+    seqdict = dict()
+    seqs = sequtil.read_seqfile(file,badchar='X')
+    for s in seqs:
+        isl = covid.get_isl(s.name)
+        seqdict[isl] = s
+    return seqdict
+
+def islreplace(seqdict,seqs):
+    '''filter seqs, replacing any that are in seqdict with the seqdict value'''
+    for s in seqs:
+        isl = covid.get_isl(s.name)
+        if isl in seqdict:
+            lin_a = covid.get_lineage_from_name(s.name)
+            lin_b = covid.get_lineage_from_name(seqdict[isl].name)
+            v.vprint(f"updated ISL: {isl} {lin_a} -> {lin_b}")
+            v.vprint(f"             {s.name}")
+            v.vprint(f"         ->  {seqdict[isl].name}")
+        yield seqdict.get(isl,s)
 
 def pad_to_length(seqs,length=None):
     '''pads all sequences to a common length'''
-    seqs=list(seqs) ## will consume seqs if iterator
     if not length:
-        length = get_max_length(seqs)
+        seqs=list(seqs) ## will consume seqs if iterator
+        length = max(len(s.seq) for s in seqs)
     for s in seqs:
-        s.seq = s.seq + "-"*(length-len(s.seq))
-    return seqs
+        if len(s.seq) > length:
+            ## if seq too long, truncate
+            s.seq = s.seq[:length]
+        elif len(s.seq) < length:
+            s.seq = s.seq + "-"*(length-len(s.seq))
+        yield s
 
-def snipsites(seqs,sitestring,offset=1):
+def keepsites(seqs,sitestring,offset=1):
     '''replace sequence with shorter sequence including only sites in list'''
     ## offset=1 for 1-based counting, eg 1'st site is 1
+    v.vprint('--keepsites is flaky! they are not really sites (but indexes), and code is slow')
+    ## Right way to do this:
+    ## 1/ convert sites to indices (will need first.seq to do that) and mutant.SiteIndexTranslator
+    ## 2/ use intlist_to_rangelist to join ranges instead of individual bases (see sequtil.remove_gap_columns)
+
     sitelist = intlist.string_to_intlist(sitestring)
     for s in seqs:
         s.seq = "".join(s.seq[offset+n] for n in sitelist)
-        yield s
-
-def sniprange(seqs,lohi,offset=1):
-    '''replace sequence with shorter sequence in range lo:hi+1'''
-    v.vprint('lohi:',lohi)
-    lo,hi = lohi
-    lo,hi = lo+offset,hi+offset
-    for s in seqs:
-        s.seq = s.seq[lo:hi+1]
         yield s
 
 def rmdashes(seqs):
@@ -210,68 +230,89 @@ def rm_toomanygaps(toomany,seqs):
     if count_removed:
         v.vprint(f'Removed {count_removed} sequences with gap > {toomany}')
 
+def vcount(seqs,*p,**kw):
+    "count items in the generator as they go by"
+    return wrapgen.keepcount(seqs,*p,**kw) if args.verbose else seqs
+
 def main(args):
     '''fixfasta main'''
     v.vprint(args)
 
-    def vcount(seqs,*p,**kw):
-        "count items in the generator as they go by"
-        return wrapgen.keepcount(seqs,*p,**kw) if args.verbose else seqs
-
     seqs = covid.read_filter_seqfile(args)
 
-    if args.badisls:
-        bads = getisls(args.badisls)
-        seqs = (s for s in seqs
-                   if not any( b in s.name for b in bads ))
-        seqs = vcount(seqs,"Sequences after removing bad ISLs:")
-
-    if args.random:
-        seqs = list(seqs)
-        seqs = seqs[:1] + random.sample(seqs[1:],k=len(seqs[1:]))
+    ## First set of filters here, we want to apply to ALL sequences
+    ## including the first (which, for now, is included in the seqs array)
 
     if args.codonalign:
+        v.print('Warning: need to keep first for this too...')
         seqs = codon_align_seqs(seqs)
         seqs = vcount(seqs,"Sequences codon aligned")
 
     if args.translate:
+        v.print('Warning: need to also translate first')
         seqs = translate_to_aa_alt(seqs)
         seqs = vcount(seqs,"Sequences translated")
 
     if args.padlength:
         seqs = pad_to_length(seqs)
 
-    if args.snipsites:
-        seqs = snipsites(seqs,args.snipsites)
-
-    if args.sniprange:
-        seqs = sniprange(seqs,args.sniprange)
-
-    if args.rmgapcols:
-        first,seqs = sequtil.get_first_item(seqs)
-        initlen = len(first.seq)
-        seqs = sequtil.remove_gap_columns(seqs)
-        first,seqs = sequtil.get_first_item(seqs)
-        v.vprint(f"Removed {initlen-len(first.seq)} dashes")
+    if args.keepsites:
+        seqs = keepsites(seqs,args.keepsites)
 
     if args.rmdash:
         seqs = rmdashes(seqs)
 
+    ## next batch of filters are not meant to be applied
+    ## to the reference sequence, so take it out
+    ## if jobno==1, then ref seq is first sequence
+    ## if jobno!=1, then ref is not first sequence
+    ##              so in that case keep the first seq in seqs
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=bool(args.jobno != 1))
+
+    if args.stripdashcols:
+        seqs = sequtil.stripdashcols(first.seq,seqs)
+
+    if args.islreplace:
+        isl_seqs = seqs_indexed_by_isl(args.islreplace)
+        seqs = islreplace(isl_seqs,seqs)
+
+    if args.badisls:
+        bads = isls_from_file(args.badisls)
+        seqs = (s for s in seqs
+                if not any( b in s.name for b in bads ))
+        seqs = vcount(seqs,"Sequences after removing bad ISLs:")
+
     if args.toomanygaps:
         seqs = rm_toomanygaps(args.toomanygaps,seqs)
 
+    if args.toomanyx:
+        seqs = (s for s in seqs
+                if s.seq.count('X') < args.toomanyx)
+
+    ## these next filters will require that we FULL list of sequence
+    ## be available. so we cannot be parallelizing the sequence list
+    ## which means that jobno != 1 will be an error
+    ## if jobno==1, then the first has already been taken out of the seqs
+
+    if args.random:
+        v.vprint("Randomizing sequence order...",end="")
+        assert args.jobno == 1
+        seqs = list(seqs)
+        seqs = random.sample(seqs,k=len(seqs))
+        v.vprint("ok")
+
+    if args.rmgapcols:
+        v.vprint("Removing columns that are all-gaps...",end="")
+        assert args.jobno == 1
+        initlen = len(first.seq)
+        first,seqs = sequtil.remove_gap_columns(first,seqs)
+        v.vprint(f"ok. Removed {initlen-len(first.seq)} dashes")
+
     if args.output:
-        readseq.write_seqfile(args.output,seqs)
-
-    if args.splitout:
-        if "." in args.splitout:
-            base,ext = args.splitout.split(".")
-        else:
-            base = args.splitout
-            ext = ".fasta"
-
-        for n,s in enumerate(seqs,start=1):
-            readseq.write_seqfile("%s-%03d.%s" % (base,n,ext), [s])
+        if args.jobno == 1:
+            ## we need to put that first seq back in
+            seqs = it.chain([first],seqs)
+        sequtil.write_seqfile(args.output,seqs)
 
 if __name__ == "__main__":
 
