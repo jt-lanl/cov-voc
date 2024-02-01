@@ -64,7 +64,7 @@ Latest.fasta: ztkfx-$(XIDF)
 
 Latest-nox.fasta: ztkfx-nox-$(XIDF)
 	cp $< $@
-	/bin/rm ztkfx-nox-$(XIDF)
+	/bin/rm $<
 
 ## if done, compress intermediate fastas
 
