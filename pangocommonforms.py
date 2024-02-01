@@ -20,7 +20,6 @@ def getargs():
     '''get arguments from command line'''
     ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
-    covid.corona_args(ap)
     cf.commonforms_args(ap)
     paa("--consensusalways","-c",action="store_true",
         help="Always show consensus, even if not common")
@@ -30,9 +29,10 @@ def getargs():
         help="verbose")
     ap.set_defaults(bylineage=True)
     args = ap.parse_args()
-    args = cf.commonforms_fixargs(args)
     if args.consensusalways and args.consensusnever:
-        raise RuntimeError("Cannot have both --consensusalways and --consensusnever")
+        raise RuntimeError("Cannot have both --consensusalways "
+                           "and --consensusnever")
+    args = cf.commonforms_fixargs(args)
     return args
 
 def print_header(args):
