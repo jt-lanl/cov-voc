@@ -99,8 +99,8 @@ def main(args):
     ## read sequences, filter by pattern and by padded dates
     seqs = covid.read_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-    seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
-    seqs = emu.filter_seqs_by_padded_dates(seqs,args)
+    seqs = covid.filter_seqs_by_pattern(seqs,args,firstisref=False)
+    seqs = emu.filter_seqs_by_padded_dates(seqs,args,firstisref=False)
     seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 

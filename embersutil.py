@@ -95,6 +95,7 @@ def get_ord_daterange(datecounter,argsdates):
 
     ordplotmin = ordmin
     ordplotmax = ordmax
+    v.vprint('argsdates:',argsdates)
     if argsdates and argsdates[0] and argsdates[0] != ".":
         ordplotmin = date_fromiso(argsdates[0]).toordinal()
     if argsdates and argsdates[1] and argsdates[1] != ".":
@@ -105,7 +106,7 @@ def get_ord_daterange(datecounter,argsdates):
 
     return (ordmin, ordmax), (ordplotmin, ordplotmax)
 
-def filter_seqs_by_padded_dates(seqs,args,keepfirst=False):
+def filter_seqs_by_padded_dates(seqs,args,firstisref=True)
     '''
     filter input data to keep only data in date range specified...except
     pad the date range so that weekly or cumulative plots are still correct
@@ -114,7 +115,7 @@ def filter_seqs_by_padded_dates(seqs,args,keepfirst=False):
     start_date,stop_date = covid.date_range_from_args(args)
     args.dates = [start_date,stop_date]
     start_date,stop_date = covid.expand_date_range([start_date,stop_date],args.daily)
-    seqs = covid.filter_by_date(seqs,start_date,stop_date,keepfirst=keepfirst)
+    seqs = covid.filter_by_date(seqs,start_date,stop_date,firstisref=firstisref)
 
     if args.nseq:
         seqs = it.islice(seqs,args.nseq+1)
@@ -314,6 +315,41 @@ def embersplot(counts,
             Ylabels.append(kwargs.get('label',None))
             Ycolors.append(kwargs['color'])
 
+    ## HACK!
+    if 0: #num_cases is not None:
+        def datemax(values,*xtravalues):
+            for xtra in xtravalues:
+                values = [v+x for v,x in zip(values,xtra)]
+            maxval = max(values)
+            ordval = ordmin + values.index(maxval)
+            dt = datetime.date.fromordinal(ordval).isoformat()
+            return round(maxval),dt
+            
+            
+        valdict = dict()
+        datedict = dict()
+        for lab,vals in zip(Ylabels,Y):
+            lab = lab[1:9]
+            valdict[lab] = vals
+
+        valdict['BA.5'] =    [u+v+w for u,v,w in zip(valdict['BA.5/B[E'],
+                                                     valdict['BA.4/CS '],
+                                                     valdict['BA.4.6/D'])]
+        valdict['XBB']  =    [v for v in valdict['XBB     ']]
+        valdict['BQ'] =      [u+v for u,v in zip(valdict['BQ.1    '],
+                                                 valdict['BQ.1.1/C'])]
+        valdict['BA.2.75'] = [u+v for u,v in zip(valdict['BA.2.75.'],
+                                                 valdict['BA.2.75/'])]
+        print(' PEAKS ',end='')
+        for ndx in ['BA.5','BA.2.75','XBB','BQ']:
+            print('%9d %s' % datemax(valdict[ndx]),
+                  end='')
+        print()
+
+        
+
+
+            
     if not lineplot:
         ## instead of multiple calls to plt.bar, single call to plt.stackplot
         plt.stackplot(range(num_days),Y,

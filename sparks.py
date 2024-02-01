@@ -51,8 +51,8 @@ def main(args):
     v.vprint(args)
 
     seqs = covid.read_seqfile(args)
-    seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
-    seqs = emu.filter_seqs_by_padded_dates(seqs,args)
+    seqs = covid.filter_seqs_by_pattern(seqs,args,firstisref=False)
+    seqs = emu.filter_seqs_by_padded_dates(seqs,args,firstisref=False)
     v.vvprint(args)
 
     if args.lineagetable and args.lineagetable.upper() == "FROMSEQS":
