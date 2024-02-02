@@ -98,20 +98,23 @@ class SingleSiteMutation():
     def init_from_ssmstring(self,ssmstring):
         '''initialize from ssmstring; eg "D614G" '''
         ssmstring = ssmstring.strip()
-        m = re.match(r"(.)(\d+)(.[A-Z-_]*)",ssmstring)  ## what's that second '.' doing?
+        m = re.match(r"(\D+)(\d+)(.[A-Z-_]*)",ssmstring)  ## that '.' in mut-string: eg, 'x'for +123x'
         if not m:
             raise RuntimeError(f"SingleSiteMutation string /{ssmstring}/ invalid")
         self.ref = m[1]
         self.site = int(m[2])
         self.mut = m[3]
 
+        if not re.match(r'([A-Z+])|(ins)',self.ref):
+            raise RuntimeError(f'Invalid ref string {self.ref} in ssm {ssmstring}')
+        if self.ref =="ins":
+            self.ref = "+"
         if "_" in self.mut:
             ## recognize that ssm.mut might have multiple characters
             self.mut = re.sub("_",self.ref,self.mut)
-
         if self.mut == "x":
             if self.ref == "+":
-                ## +123x means no insertion at 123
+                ## +123x means no insertion at 123 (Q: would +123- be a better notation?)
                 self.mut = ""
             else:
                 ## D123x is not a valid formulation; use D123- for deletion at site 123
