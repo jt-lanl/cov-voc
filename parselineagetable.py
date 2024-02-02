@@ -32,6 +32,7 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def main(args):
@@ -45,12 +46,15 @@ def main(args):
     T = lineagetable.get_lineage_table(args.lineagetable)
     
     for s in seqs:
-        lineage = covid.get_lineage_from_name(s.name)
+        lineage = covid.get_lineage(s)
         if args.skipnone:
-            if lineage in ["None","Unassigned",""]:
+            if lineage in [None,"None","Unassigned",""]:
                 v.vprint_only(5,"skip None:",f'[{s.name}]')
                 continue
-        voc = T.last_match("."+lineage)
+        if lineage is not None:
+            voc = T.last_match("."+lineage)
+        else:
+            voc = lineagetable.OTHER
         if args.skipother and voc == lineagetable.OTHER:
             v.vprint_only(5,"skip Other:",f'[{s.name}]')
             continue
