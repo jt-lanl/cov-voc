@@ -17,8 +17,8 @@ def _getargs():
     ap = argparse.ArgumentParser(description=__doc__,
                                  conflict_handler='resolve')
     covid.corona_args(ap)
-    ap.set_defaults(input=covid.default_seqfile(DEFAULTNAMESFILE))
-    emu.embers_args(ap)
+    ap.set_defaults(input=covid.find_seqfile(DEFAULTNAMESFILE))
+    emu.embers_args(ap) ## between this and corona_args, total overkill!
     paa = ap.add_argument
     paa("--lineagetable","-l",
         help="read lineage table from file")
@@ -27,14 +27,14 @@ def _getargs():
     args = ap.parse_args()
     return args
 
-
 def main(args):
     '''sparks main'''
     v.vprint(args)
 
     seqs = covid.read_seqfile(args)
-    seqs = covid.filter_seqs_by_pattern(seqs,args,keepfirst=False)
-    seqs = emu.filter_seqs_by_padded_dates(seqs,args)
+    ## for names file, the reference seq has already been stripped (so firstisref=False)
+    seqs = covid.filter_seqs_by_pattern(seqs,args,firstisref=False)
+    seqs = emu.filter_seqs_by_padded_dates(seqs,args,firstisref=False)
     v.vvprint(args)
 
     T = lineagetable.get_lineage_table(args.lineagetable)
@@ -47,7 +47,7 @@ def main(args):
     other_lineages = Counter()
     for s in seqs:
 
-        pango = covid.get_lineage_from_name(s.name)
+        pango = covid.get_lineage(s)
         voc = T.last_match("."+pango)
         pango_names_by_lineage[voc].add(pango)
         pango_counts[pango] += 1
