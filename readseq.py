@@ -388,9 +388,9 @@ def columnize(str,col=0):
 def write_fasta(filename,seq_samples,gz=False,xz=False):
     with xopen(filename,'w',gz=gz,xz=xz) as fout:
         for s in seq_samples:
-            fout.write(">" + s.name + "\n")
-            for str in columnize(s.seq):
-                fout.write(str)
+            fout.write(">" + str(s.name) + "\n")
+            for seq in columnize(s.seq):
+                fout.write(seq)
                 fout.write("\n")
 
 def write_mase(filename,seq_samples,gz=False,xz=False):
