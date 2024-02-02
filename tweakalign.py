@@ -29,6 +29,7 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def de_gap(seq):
@@ -158,9 +159,9 @@ def _main(args):
 
 
     ## Now we have all of our mstrings
-    v.vprint("mstring pairs:")
+    v.vprint("mstring pairs:",len(mstringpairs))
     for mspair in mstringpairs:
-        v.vprint("%s -> %s" % mspair)
+        v.vvprint("%s -> %s" % mspair)
 
     ## characterize extra chars: xtras[site] = number of extra chars after site
     ## Add xtra chars for all the +nnnABC mstring components
@@ -207,7 +208,7 @@ def _main(args):
         for ma,mb in mstringpairs:
             ndxlo,ndxhi,seq_a,seq_b = mstrings_to_ndx_seqs(mut_mgr,ma,mb)
             ndx_seqs_tuples.append( (ma,mb,ndxlo,ndxhi,seq_a,seq_b) )
-            v.vprint(f"{ma} -> {mb}:   {seq_a} -> {seq_b}")
+            v.vvprint(f"{ma} -> {mb}:   {seq_a} -> {seq_b}")
 
         changed_sequences=[]
         seqs = list(seqs)
