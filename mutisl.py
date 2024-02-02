@@ -60,6 +60,7 @@ def read_mutantfile(filename):
                 mutlist.append(mstring)
 
                 nom = nom.strip()
+                nom = re.sub(r' ','',nom)
                 nomlist.append(nom)
 
             except ValueError:
@@ -158,7 +159,7 @@ def _main(args):
                 outseqs.append(outseq)
                 break ## just grab the first (lowest) one
         if args.isloutput:
-            print(f'{nom}\t{islname}',file=fp_isl)
+            print(f'{nom}\t{islnames[0]}\t{islname}',file=fp_isl)
 
     if args.isloutput:
         fp_isl.close()
