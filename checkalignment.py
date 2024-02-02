@@ -7,6 +7,7 @@ from functools import lru_cache
 
 from seqsample import SequenceSample
 import readseq
+import sequtil
 import mutant
 import covid
 
@@ -119,7 +120,7 @@ def main(args):
 
     args.keepdashcols = True
     seqs = covid.read_filter_seqfile(args)
-    first,seqs = covid.get_first_item(seqs)
+    first,seqs = sequtil.get_first_item(seqs)
 
     seqs=list(seqs)
 
