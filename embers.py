@@ -28,6 +28,7 @@ def _getargs():
         help="verbosity")
     ap.set_defaults(legend=0)
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def relativepattern(master,mutant,dittochar='_',noditto='-'):
@@ -101,7 +102,6 @@ def main(args):
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     seqs = covid.filter_seqs_by_pattern(seqs,args,firstisref=False)
     seqs = emu.filter_seqs_by_padded_dates(seqs,args,firstisref=False)
-    seqs = covid.fix_seqs(seqs,args)
     seqs = sequtil.checkseqlengths(seqs)
 
     if args.colormut:
