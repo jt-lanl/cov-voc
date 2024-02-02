@@ -101,6 +101,7 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def print_sequence_counts_by_continent2(Continents,counts):
@@ -129,7 +130,6 @@ def main(args):
     allfullseqs = covid.read_seqfile(args)
     allfullseqs = vcount(allfullseqs,"Total sequences:")
     allfullseqs = covid.filter_seqs_by_date(allfullseqs,args)
-    allfullseqs = covid.fix_seqs(allfullseqs,args)
     allfullseqs = sequtil.checkseqlengths(allfullseqs)
     allfullseqs = list(allfullseqs)
     vprint("Read",len(allfullseqs),"sequences")
