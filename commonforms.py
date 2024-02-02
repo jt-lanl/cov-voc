@@ -12,6 +12,7 @@ import covid
 def commonforms_args(argparser):
     '''args for arparse common to pangocommonforms and commonformschange'''
     paa = argparser.add_argument
+    covid.corona_args(ap)
     paa("--npatterns","-n",type=int,default=0,
         help="How many of the most common patterns per lineage (0=all)")
     paa("--mincount","-m",type=int,default=10,
@@ -34,7 +35,7 @@ def commonforms_fixargs(args):
         args.baseline = None
     if not args.bylineage and args.lineagebaseline:
         v.print('Warning: use --bylineage if you also want --lineagebaseline.')
-
+    args = covid.corona_fixargs(args)
     return args
 
 def mostcommonchar(clist):

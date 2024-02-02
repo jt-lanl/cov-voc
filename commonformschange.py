@@ -26,7 +26,6 @@ def getargs():
     '''get arguments from command line'''
     ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
-    covid.corona_args(ap)
     cf.commonforms_args(ap)
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
