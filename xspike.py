@@ -56,9 +56,12 @@ def getargs():
         help="Dont make mutant list at end of lines")
     paa("--colormut",
         help="name of color mutation file (mutation_string,lineage_name) are 2nd,3rd columns")
+    paa("--title",
+        help="Use this TITLE in plots")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def stripxs_orig(alist,blist,badchar='X'):
@@ -231,7 +234,6 @@ def main(args):
     allseqs = vcount(allseqs,"All sequences:")
     allseqs = covid.filter_seqs_by_date(allseqs,args)
     allseqs = vcount(allseqs,"All sequences in date range:")
-    allseqs = covid.fix_seqs(allseqs,args)
     allseqs = list(allseqs)
     seqs = covid.filter_seqs_by_pattern(allseqs,args)
     seqs = vcount(seqs,"Sequences after filtering by pattern:")
