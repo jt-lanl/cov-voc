@@ -175,8 +175,8 @@ def islreplace(seqdict,seqs):
     for s in seqs:
         isl = covid.get_isl(s.name)
         if isl in seqdict:
-            lin_a = covid.get_lineage_from_name(s.name)
-            lin_b = covid.get_lineage_from_name(seqdict[isl].name)
+            lin_a = covid.get_lineage(s.name)
+            lin_b = covid.get_lineage(seqdict[isl].name)
             v.vprint(f"updated ISL: {isl} {lin_a} -> {lin_b}")
             v.vprint(f"             {s.name}")
             v.vprint(f"         ->  {seqdict[isl].name}")
