@@ -8,7 +8,7 @@ from collections import Counter
 import numpy as np
 from scipy import stats
 
-
+import verbose as v
 from seqsample import SequenceSample
 from readseq import read_seqfile,write_seqfile
 import intlist
@@ -33,8 +33,7 @@ def getcolumn(seqs,n,keepx=False):
     ## note, site number is one + zero-based index; so n+1 is site number
     if keepx:
         return [s.seq[n] for s in seqs]
-    else:
-        return [s.seq[n] for s in seqs if "X" not in s.seq[n]]
+    return [s.seq[n] for s in seqs if "X" not in s.seq[n]]
 
 def multicolumn(seqs,nlist,keepx=False):
     ''' return a list of aa strings, corresponding to the columns indicated by nlist '''
@@ -105,8 +104,8 @@ def relativename(master,mutant,matchchar="."):
 
 def get_first_item(items,keepfirst=True):
     '''
-    get first item in an iterable, and return item,iterable
-    if keepfirst, then first item remains in iterable
+    get first item in an iterable, and return (item,iterable) as a tuple
+    if keepfirst==True, then first item remains in iterable
     note that the iterable can be a list or an iterator
     returned iterable will be list or iterator, depending on input
     '''
@@ -153,16 +152,17 @@ def str_indexes(s,c):
 def stripdashcols(master,seqs,dashchar="-"):
     '''strips positions from each sequence in seqs array,
     based on dashes in master sequence'''
+    if dashchar not in master:
+        yield from seqs
     ndx = str_indexes(master,dashchar)
     keep = [n for n in range(len(master)) if n not in ndx]
     for s in seqs:
         s.seq = "".join(s.seq[n] for n in keep)
         yield s
 
-def get_gap_columns(seqs,dashchar='-'):
+def get_gap_columns(first,seqs,dashchar='-'):
     '''find indexes associated with gap-only columns'''
     ## ie, indices such that s.seq[n]==dashchar for all s in seqs
-    first,seqs = get_first_item(seqs)
     dashindexes = str_indexes(first.seq,dashchar)
     distinct_sequences = set(s.seq for s in seqs)
     for seq in distinct_sequences:
@@ -171,41 +171,42 @@ def get_gap_columns(seqs,dashchar='-'):
             break
     return dashindexes
 
-def remove_gap_columns(seqs,dashchar='-'):
+def remove_gap_columns(first,seqs,dashchar='-'):
     '''remove the gap-only columns'''
     seqs = list(seqs) ## to ensure get_gap_column() doesn't consume seqs
-    dashindexes = get_gap_columns(seqs,dashchar=dashchar)
-    first,seqs = get_first_item(seqs)
+    dashindexes = get_gap_columns(first,seqs,dashchar=dashchar)
     keepndx = [n for n in range(len(first.seq)) if n not in dashindexes]
     keepranges = intlist.intlist_to_rangelist(keepndx)
-    print("ndx:",len(keepndx))
-    print("rng:",len(keepranges))
+    v.vprint("ndx:",len(keepndx))
+    v.vprint("rng:",len(keepranges))
+    first.seq = "".join(first.seq[lo:hi] for lo,hi in keepranges)
     for s in seqs:
         #s.seq = "".join(s.seq[n] for n in keepndx)
         s.seq = "".join(s.seq[lo:hi] for lo,hi in keepranges)
-    return seqs
+    return first,seqs
+
+
 
 ######################## Filter based on pattens in the name of seq
 
-def filter_by_patternlist(seqs,patternlist,exclude=False,
-                          keepfirst=False,ignorecase=True):
+def filter_by_patternlist(seqs,patternlist,
+                          exclude=False,
+                          ignorecase=True):
     '''
-    return an iterator of SequenceSample's that match
-    any of the patterns in the patternlist
+    return an iterator of SequenceSample's whose names
+    match any of the patterns in the patternlist
     '''
-
-    if "Global" in patternlist: ## should test in calling routine
+    if not patternlist:
+        ## empty list means no filtering
         yield from seqs
 
     flags = re.I if ignorecase else 0
-    if keepfirst:
-        first,seqs = get_first_item(seqs,keepfirst=False)
-        yield first
     for s in seqs:
         ## if exclude is False, then yield if any matches
         ## if exclude is True, then yield if not any matches
-        if bool(exclude) ^ bool(any(re.search(pattern,s.name,flags)
-                                    for pattern in patternlist)):
+        anymatches = any(re.search(pattern,s.name,flags)
+                         for pattern in patternlist)
+        if bool(exclude) ^ bool(anymatches):
             yield s
 
 def filter_by_patternlist_exclude(seqs,patternlist,**kwargs):
@@ -229,11 +230,11 @@ def filter_by_pattern_exclude(seqs,pattern,**kwargs):
 
 if __name__ == "__main__":
 
-    import sys
     import argparse
     import readseq
 
     def getargs():
+        '''get arguments from command line'''
         ap = argparse.ArgumentParser()
         paa = ap.add_argument
         paa("--input","-i",
@@ -244,14 +245,7 @@ if __name__ == "__main__":
         return args
 
     xargs = getargs()
-    def vprint(*p,**kw):
-        '''verbose print'''
-        if xargs.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        '''print if very verbose'''
-        if xargs.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
+    v.verbosity(xargs.verbose)
 
     if xargs.input:
         sequences = readseq.read_seqfile(xargs.input)
