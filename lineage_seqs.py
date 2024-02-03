@@ -29,7 +29,7 @@ def _getargs():
     argparser = argparse.ArgumentParser(description=__doc__)
     paa = argparser.add_argument
     covid.corona_args(argparser)
-    paa("--notesfile",default="lineage_notes.txt",
+    paa("--notesfile",default=covid.find_seqfile("lineage_notes.txt"),
         help="file with lineage_notes")
     paa("--mutsfile","-M",
         help="File (typically tsv) with new mutations, by lineage")
@@ -44,6 +44,7 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def earliest_seq(seqlist):
@@ -125,7 +126,7 @@ def get_transitions(mutsfile):
         transitions = [t.strip() for t in transitions]
         for trans in transitions:
             parent,child = trans.split("->")
-            v.vprint_only(5,'Trans:',f'mut}: {parent={mut}: {parent} child={child}')
+            v.vprint_only(5,'Trans:',f'mut={mut}: parent={parent} child={child}')
             parents.add(parent)
             children.add(MutLin(mut,child))
 
@@ -143,7 +144,7 @@ def _main(args):
     for child in children:
         v.vprint_only(5,'Child:',f'child={child} mut={child.mut}, lin={child.lin}')
 
-    lin_notesfile = covid.default_seqfile(seqfilename=args.notesfile)
+    lin_notesfile = covid.find_seqfile(args.notesfile)
     v.vprint(f'lin_notesfile={lin_notesfile}')
     lin_notes = LineageNotes(lin_notesfile)
     for fix in lin_notes.fix_inconsistencies():
