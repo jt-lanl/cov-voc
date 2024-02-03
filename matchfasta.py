@@ -53,6 +53,7 @@ def getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 
@@ -67,31 +68,41 @@ def ndx_and_site_lists(m_mgr,sites,compact=True):
     sitelist = [m_mgr.site_from_index(ndx) for ndx in ndxlist]
     return ndxlist,sitelist
 
-
-def read_seqfile(args):
+def read_seqfile(args,firstisref=True):
     '''get seqs from file, and filter accordingly'''
 
-    maxseqs = max(intlist.string_to_intlist(args.nlist))+1 \
-        if args.nlist else None
-
+    maxseqs = None
+    if args.nlist:
+        maxseqs = max(intlist.string_to_intlist(args.nlist))
+        if firstisref:
+            maxseqs += 1
     seqs = covid.read_seqfile(args,maxseqs=maxseqs)
     if args.nlist:
-        nset = set([0] + intlist.string_to_intlist(args.nlist))
+        nset = set(intlist.string_to_intlist(args.nlist))
+        if firstisref:
+            nset.add(0)
         seqs = (s for n,s in enumerate(seqs) if n in nset)
         seqs = vcount(seqs,"Sequences in nlist:")
 
+    ## comment: i think covid.filter_seqs also filters if args.keepx is set
+    ## but this is here, i guess, so that the vcount will deal with keepx=False
     if not args.keepx:
         ## neeed [:-1] here because haven't 'fixed' data yet
         ## via the covid.filter_seqs() call
         seqs = (s for s in seqs if "X" not in s.seq[:-1])
         seqs = vcount(seqs,"Sequences w/o X:")
 
-    seqs = covid.filter_seqs(seqs,args)
+    seqs = covid.filter_seqs(seqs,args,firstisref=firstisref)
 
     seqs = sequtil.checkseqlengths(seqs)
     if args.random:
         seqlist = list(seqs)
-        seqs = seqlist[:1] + random.sample(seqlist[1:],k=len(seqlist[1:]))
+        if firstisref:
+            first,seqlist = seqlist[0],seqlist[1:]
+        seqlist = random.sample(seqlist,k=len(seqlist))
+        if firstisref:
+            seqlist = [first]+seqlist
+        seqs = seqlist
 
     return seqs
 
@@ -119,7 +130,7 @@ def keepuniqisl(seqs):
 def main(args):
     '''main'''
 
-    seqs = read_seqfile(args)
+    seqs = read_seqfile(args,firstisref=True)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
 
     if args.mutant or args.sites or args.showmutants:
@@ -147,7 +158,6 @@ def main(args):
         seqs = m_mgr.filter_seqs_by_pattern(mpatt,seqs,exact=args.exact)
         if args.verbose:
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
-        seqs = it.chain([first],seqs)
 
     if args.uniq:
         seqs = keepuniq(seqs)
@@ -158,26 +168,37 @@ def main(args):
     if args.N:
         seqs = it.islice(seqs,args.N+1)
 
+    ## how many seqs still in the generator after all that filtering/matching
+    if args.verbose:
+        ## how many sequences match
+        seqs = wrapgen.keepcount(seqs,"Sequences match:")
     if args.count:
-        seqs = list(seqs)
-        print(f'{len(seqs)} sequences match')
+        ## if --count, then send the count to stdout (w/o msg prefix)
+        seqs = wrapgen.keepcount(seqs,None,file=sys.stdout)
 
     if args.output:
-        seqs = list(seqs)
-        if args.jobno == 1:
-            seqs = [first] + seqs
+        if args.jobno==1:
+            seqs = it.chain([first],seqs)
         readseq.write_seqfile(args.output,seqs)
 
     if not (args.count or args.output):
+        ## write summary to stdout
         ndxlist,sitelist = ndx_and_site_lists(m_mgr,sites,
                                               compact=args.compact)
-        for line in intlist.write_numbers_vertically(sitelist):
-            print(line)
+        if args.jobno == 1:
+            for line in intlist.write_numbers_vertically(sitelist):
+                print(line)
         for s in seqs:
             print( "".join(s.seq[n] for n in ndxlist), s.name, end=" ")
             if args.showmutants:
                 print(m_mgr.get_mutation(s.seq),end="")
             print()
+
+    ## Remaining sequences? send them to oblivion...
+    ## (we need to do this in order for count to work)
+    if seqs:
+        for s in seqs:
+            pass
 
 def _mainwrapper(args):
     '''
