@@ -94,7 +94,7 @@ def split_date_range_bycounts(seqlist):
        with the split chosen so that there is a
        roughly equal number of sequences in each range
     '''
-    datelist = [covid.date_from_seqname(s.name) for s in seqlist]
+    datelist = [covid.get_date(s.name) for s in seqlist]
     datelist = [d for d in datelist if d is not None]
     datelist = sorted(datelist)
     start_date = datelist[0]
