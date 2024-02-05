@@ -7,7 +7,7 @@
 
 MAKEFLAGS := --jobs=3
 
-ID := 20240124
+ID := 20240202
 #INITALIGN := data/SPIKE.protein.$(ID).fasta
 INITALIGN := data/SPIKE.protein.Human.$(ID).fasta
 KEEPX := --keepx
@@ -21,7 +21,7 @@ XIDGZ := $(XID).fasta.xz
 
 .DEFAULT_GOAL := all
 
-.PHONY: all clean compress Latest
+.PHONY: all clean compress Latest beep
 
 # get mstring pairs associated with inconsistent alignment
 # for now, this is advisory
@@ -69,13 +69,13 @@ Latest-nox.fasta: ztkfx-nox-$(XIDF)
 ## if done, compress intermediate fastas
 
 fx-$(XIDGZ): fx-$(XIDF) tkfx-$(XIDF)
-	xz -T8 $<
+	xz -f -T8 $<
 
 tkfx-$(XIDGZ): tkfx-$(XIDF) ztkfx-$(XIDF)
-	xz -T8 $<
+	xz -f -T8 $<
 
 ztkfx-$(XIDGZ): ztkfx-$(XIDF) Latest.fasta
-	xz -T8 $< 
+	xz -f -T8 $<
 
 compress: fx-$(XIDGZ) tkfx-$(XIDGZ) ztkfx-$(XIDGZ)
 
