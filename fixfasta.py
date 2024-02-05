@@ -22,6 +22,7 @@ import verbose as v
 import sequtil
 import wrapgen
 import intlist
+import mutant
 import covid
 
 def getargs():
@@ -52,7 +53,7 @@ def getargs():
     paa("--islreplace",
         help="file of sequences used to replace existing seqs based on ISL")
     paa("--keepsites",
-        help="List of sites (eg 1-4,7,9-240) to be sent to output [FLAKY]")
+        help="List of sites (eg 1-4,7,9-240) to be sent to output")
     paa("--output","-o",type=Path,
         help="output fasta file")
     paa("--jobno",type=int,default=1,
@@ -195,18 +196,6 @@ def pad_to_length(seqs,length=None):
             s.seq = s.seq + "-"*(length-len(s.seq))
         yield s
 
-def keepsites(seqs,sitestring,offset=1):
-    '''replace sequence with shorter sequence including only sites in list'''
-    ## offset=1 for 1-based counting, eg 1'st site is 1
-    v.vprint('--keepsites is flaky! they are not really sites (but indexes), and code is slow')
-    ## Right way to do this:
-    ## 1/ convert sites to indices (will need first.seq to do that) and mutant.SiteIndexTranslator
-    ## 2/ use intlist_to_rangelist to join ranges instead of individual bases (see sequtil.remove_gap_columns)
-
-    sitelist = intlist.string_to_intlist(sitestring)
-    for s in seqs:
-        s.seq = "".join(s.seq[offset+n] for n in sitelist)
-        yield s
 
 def rmdashes(seqs):
     '''remove dashes in sequences'''
@@ -257,20 +246,25 @@ def main(args):
         seqs = pad_to_length(seqs)
 
     if args.keepsites:
-        seqs = keepsites(seqs,args.keepsites)
+        first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+        mut_mgr = mutant.MutationManager(first.seq)
+        seqs = covid.keepsites(mut_mgr,seqs,args.keepsites)
 
     if args.rmdash:
         seqs = rmdashes(seqs)
 
     ## next batch of filters are not meant to be applied
     ## to the reference sequence, so take it out
-    ## if jobno==1, then ref seq is first sequence
-    ## if jobno!=1, then ref is not first sequence
-    ##              so in that case keep the first seq in seqs
-    first,seqs = sequtil.get_first_item(seqs,keepfirst=bool(args.jobno != 1))
+    first,seqs = covid.get_first_item(seqs,keepfirst=False)
 
     if args.stripdashcols:
+        '''removes all the columns that have dashes in first.seq'''
+        ## actually, we /do/ want first among the seqs here
+        seqs = it.chain([first],seqs)
         seqs = sequtil.stripdashcols(first.seq,seqs)
+        ## and now we take the first back out again...
+        first,seqs = sequtil.get_first_item(sesqs,keepfirst=False)
+        covid.test_isref(first)
 
     if args.islreplace:
         isl_seqs = seqs_indexed_by_isl(args.islreplace)
