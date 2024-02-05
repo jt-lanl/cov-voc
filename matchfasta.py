@@ -94,7 +94,7 @@ def read_seqfile(args,firstisref=True):
 
     seqs = covid.filter_seqs(seqs,args,firstisref=firstisref)
 
-    seqs = sequtil.checkseqlengths(seqs)
+    #seqs = sequtil.checkseqlengths(seqs)
     if args.random:
         seqlist = list(seqs)
         if firstisref:
@@ -188,6 +188,7 @@ def main(args):
         if args.jobno == 1:
             for line in intlist.write_numbers_vertically(sitelist):
                 print(line)
+            seqs = it.chain([first],seqs)
         for s in seqs:
             print( "".join(s.seq[n] for n in ndxlist), s.name, end=" ")
             if args.showmutants:
