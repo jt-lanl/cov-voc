@@ -56,10 +56,12 @@ def date_fromiso(s):
     except ValueError:
         if s == ".":
             return None
+        v.vprint_only(5,'try:',f's={s}')
         try:
             yyyy,mm = s.split("-")
             day = random.randint(1,days_in_month(yyyy,mm))
             dt = datetime.date(int(yyyy),int(mm),day)
+            v.vprint_only(5,'Random day:',f'string {s} assigned {yyyy}-{mm}-{day}')
             return dt
         except ValueError:
             return None
@@ -68,7 +70,13 @@ def date_fromiso(s):
 
 def date_from_seqname(sname):
     '''parses date (as a string) from sequence name'''
-    ## faster, but less robust, than covid.date_from_seqname
+    ## faster, but less robust, than covid.get_date
+    ## Q: is it really faster?
+    ## Main difference is that it calls local date_from_iso, which chooses random days if days are not supplied
+    ## But that only happens if those bad dates have not already been filtered.  They will have been if any --dates
+    ## or --days have been specified, because covid.filter_by_date does that. Since we virtually ALWAYS do confine
+    ## those dates, this random day thing is mostly just vestigal code; it's maybe a dubious idea anyway; not as though
+    ## there are a lot of them.
     tokens = sname.split('.')
     try:
         date = date_fromiso(tokens[4])
@@ -106,7 +114,7 @@ def get_ord_daterange(datecounter,argsdates):
 
     return (ordmin, ordmax), (ordplotmin, ordplotmax)
 
-def filter_seqs_by_padded_dates(seqs,args,firstisref=True)
+def filter_seqs_by_padded_dates(seqs,args,firstisref=False):
     '''
     filter input data to keep only data in date range specified...except
     pad the date range so that weekly or cumulative plots are still correct
@@ -115,7 +123,8 @@ def filter_seqs_by_padded_dates(seqs,args,firstisref=True)
     start_date,stop_date = covid.date_range_from_args(args)
     args.dates = [start_date,stop_date]
     start_date,stop_date = covid.expand_date_range([start_date,stop_date],args.daily)
-    seqs = covid.filter_by_date(seqs,start_date,stop_date,firstisref=firstisref)
+    if not (start_date is None and stop_date is None):
+        seqs = covid.filter_by_date(seqs,start_date,stop_date,firstisref=firstisref)
 
     if args.nseq:
         seqs = it.islice(seqs,args.nseq+1)
