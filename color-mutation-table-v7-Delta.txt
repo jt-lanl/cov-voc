@@ -1,1 +1,0 @@
-../cmt/color-mutation-table-v7-Delta.txt
