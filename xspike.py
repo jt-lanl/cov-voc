@@ -257,7 +257,8 @@ def main(args):
     #### SINGLE-SITE ENTROPY
     v.vprint("Single-site entropy...",end="")
     ## If args.entropysamples, then use subsampling of the sequences to estimate entropy
-    sampleseqs = random.choices(seqs,k=args.entropysamples) if N>args.entropysamples>0 else seqs
+    sampleseqs = random.choices(seqs,k=args.entropysamples) \
+        if N>args.entropysamples>0 else seqs
     E = sequtil.chunked_entropy(sampleseqs)
     v.vprint("ok")
 
