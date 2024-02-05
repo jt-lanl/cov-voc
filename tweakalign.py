@@ -2,6 +2,7 @@
 import re
 import itertools as it
 from collections import Counter
+import random
 import argparse
 
 import warnings
@@ -22,6 +23,8 @@ def _getargs():
         help="pair of from/to mstrings")
     paa("--mfile","-M",action="append",
         help="read from/to mstring pairs from a file")
+    paa("--shuffletweaks",action="store_true",
+        help="apply the mstring-pair tweaks in random order")
     paa("--output","-o",
         help="output tweaked fasta file")
     paa("--jobno",type=int,default=1,
@@ -64,7 +67,8 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
 
     ## None of these should happen
     if seq_r == seq_a:
-        raise RuntimeError(f"Edit {mstring_a} will be inconsistent with ref sequence!")
+        raise RuntimeError(f"Edit {mstring_a} will be inconsistent "
+                           "with ref sequence!")
     if seq_a == seq_b:
         v.vprint(f"Edit {mstring_a}->{mstring_b} will do nothing!")
     if de_gap(seq_a) != de_gap(seq_b):
@@ -72,7 +76,8 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
         v.print(f'   r: {seq_r}')
         v.print(f'   a: {seq_a}')
         v.print(f'   b: {seq_b}')
-        warnings.warn(f"Edit {mstring_a}->{mstring_b} will change actual sequence!"
+        warnings.warn(f"Edit {mstring_a}->{mstring_b} "
+                      "will change actual sequence!"
                       " not just the alignment\n"
                       f"  {seq_a}->{seq_b}")
         ## this shouldn't happen...but if it does, then don't do any replacing
@@ -101,8 +106,8 @@ def add_xtra_dashes(seqs,xxtras):
 
 def gen_seq_clumps(allseqs):
     '''yields lists of sequences (aka clumps);
-    a clump is a list that begins with a refernce sequence
-    and has no further references sequences in it'''
+    a clump is a list that begins with a reference sequence
+    and has no further reference sequences in it'''
     first,seqs = sequtil.get_first_item(allseqs,keepfirst=False)
     clump = [first]
     for s in seqs:
@@ -114,16 +119,16 @@ def gen_seq_clumps(allseqs):
     yield clump
 
 
-def _main(args):
-    '''tweakalign main'''
-    v.vprint(args)
-
-    ## Get pairs of mutation strings
-    ## each pair has a from_mstring and a to_mstring
+def get_mstring_pairs(args):
+    '''
+    Return a list of 2-tuples of m-strings;
+    Each pair has a from_mstring and a to_mstring
+    '''
     mstringpairs = []
 
     ## first: read the file(s) indicated by '-M file'
     ## A file named '.' indicates that one should use the defaults
+    ## (which are currently listed in mstringfix.py) 
     ## Note that '-M' can be invoked more than once
     ##   That is: '-M file1 -M file2' is okay
     ##   Invalid: '-M file1 file2'
@@ -146,7 +151,8 @@ def _main(args):
 
     ## ensure mstrings have brackets around them
     mstringpairs = [ (mstringfix.mstring_brackets(a),
-                      mstringfix.mstring_brackets(b)) for a,b in mstringpairs ]
+                      mstringfix.mstring_brackets(b))
+                     for a,b in mstringpairs ]
 
     ## are there any duplicates?
     if len(mstringpairs) != len(set(mstringpairs)):
@@ -157,14 +163,20 @@ def _main(args):
             mspairs_sofar.add(mspair)
         raise RuntimeError('Duplicated pair(s) of mstrings specified')
 
-
     ## Now we have all of our mstrings
     v.vprint("mstring pairs:",len(mstringpairs))
     for mspair in mstringpairs:
         v.vvprint("%s -> %s" % mspair)
 
-    ## characterize extra chars: xtras[site] = number of extra chars after site
-    ## Add xtra chars for all the +nnnABC mstring components
+    return mstringpairs
+
+
+def get_extra_chars(mstringpairs):
+    '''
+    Characterize extra chars:
+    xtras[site] = number of extra chars after site
+    Add xtra chars for all the +nnnABC mstring component
+    '''
     xtras = dict()
     for mspair in mstringpairs:
         for mstring in mspair:
@@ -172,7 +184,18 @@ def _main(args):
                 if ssm.ref == "+":
                     xtras[ssm.site] = max( [xtras.get(ssm.site,0),
                                             len(ssm.mut)] )
+    return xtras
 
+def _main(args):
+    '''tweakalign main'''
+    v.vprint(args)
+
+    ## Get all the mstring pair
+    mstringpairs = get_mstring_pairs(args)
+    if args.shuffletweaks:
+        mstringpairs = random.sample(mstringpairs,k=len(mstringpairs))
+    ## Identify where extra columns are needed
+    xtras = get_extra_chars(mstringpairs)
     v.vprint("xtras:",xtras)
 
     ## Read full sequences
