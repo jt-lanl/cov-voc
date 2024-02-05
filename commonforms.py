@@ -12,7 +12,7 @@ import covid
 def commonforms_args(argparser):
     '''args for arparse common to pangocommonforms and commonformschange'''
     paa = argparser.add_argument
-    covid.corona_args(ap)
+    covid.corona_args(argparser)
     paa("--npatterns","-n",type=int,default=0,
         help="How many of the most common patterns per lineage (0=all)")
     paa("--mincount","-m",type=int,default=10,
@@ -76,7 +76,7 @@ class LineagePartition:
     def __init__(self,fullseqlist,bylineage=True):
         self.sequences = defaultdict(list) ## dict of lists
         for s in fullseqlist:
-            lin = covid.get_lineage_from_name(s.name) if bylineage else "N/A"
+            lin = covid.get_lineage(s) if bylineage else "N/A"
             lin = lin or "None"
             self.sequences[lin].append(s)
         self.counts = {lin: len(self.sequences[lin])
