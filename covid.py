@@ -8,7 +8,7 @@ import itertools as it
 from pathlib import Path
 import warnings
 
-from verbose import verbose as v
+import verbose as v
 import intlist
 import wrapgen
 import readseq
@@ -17,36 +17,33 @@ import mstringfix
 import mutant
 
 MAX_TITLE_LENGTH=60 ## truncate long title names
-ISO_DATE_REGEX = re.compile(r'\d\d\d\d-\d\d(-\d\d)?')
-ISO_DATE_REGEX_DOTS = re.compile(r'\.(\d\d\d\d-\d\d-\d\d)\.')
-EPI_ISL_REGEX = re.compile(r'EPI_ISL_\d+')
-LINEAGE_REGEX = re.compile(r'EPI_ISL_\d+\.(.*)')
 
 DEFAULTSEQFILE="Latest.fasta"
+DEFAULTSEQFILE_NOX="Latest-nox.fasta"
+REF_SEQUENCE_NAME="NC_045512_spike_surface_glycoprotein"
 
-def default_seqfile(seqfilename=DEFAULTSEQFILE):
+
+def find_seqfile(seqfilename,skipx=False):
     '''
     return the default file for input sequences;
     hunt around in various directories until you find it
     '''
-    for d in [os.getenv('DATA'),
-              '.',
-              'data',
-              '..',
-              '../data',
-    ]:
-        if not d:
-            continue
-        seqfile = Path(d) / seqfilename
-        if seqfile.exists():
-            return seqfile
-        seqfile = Path(d) / (seqfilename + ".gz")
-        if seqfile.exists():
-            return seqfile
-        seqfile = Path(d) / (seqfilename + ".xz")
-        if seqfile.exists():
-            return seqfile
+    if not seqfilename:
+        seqfilename = DEFAULTSEQFILE_NOX if skipx else DEFAULTSEQFILE
 
+    for special in ['-', '/dev/stdin']:
+        if str(seqfilename) == special:
+            return seqfilename
+
+    for dir in ['.',os.getenv('DATA'),'data','..','../data',]:
+        if not dir:
+            continue
+        for ext in ("",".gz",".xz"):
+            seqfile = Path(dir) / Path(str(seqfilename) + ext)
+            if seqfile.exists():
+                return seqfile
+
+    v.print(f'Input sequence file "{seqfilename}" not found')
     return None
 
 
@@ -78,7 +75,7 @@ def corona_args(ap):
     paa = ap.add_argument
     #faa = ap.add_argument_group('File input options').add_argument
     paa("--input","-i",type=Path,
-        default=default_seqfile(),
+        default=None,
         help="input file with aligned sequences (first is reference)")
     paa("--nseq",type=int,default=0,
         help="read at most NSEQ sequences")
@@ -90,8 +87,6 @@ def corona_args(ap):
         help="Only use seqs in range of dates (two dates, yyyy-mm-dd format)")
     paa("--days",type=int,default=0,
         help="Consider date range of DAYS days ending on the last sampled date")
-    paa("--stripdashcols",action="store_true",
-        help="Strip columns with dash in reference sequence")
     paa("--keeplastchar",action="store_true",
         help="Do not strip final stop codon from end of sequences")
     paa("--keepx",action="store_true",
@@ -99,10 +94,35 @@ def corona_args(ap):
     paa("--skipx",action="store_false",dest='keepx',
         help="Skip sequences that include bad characters, denoted X")
     ap.set_defaults(keepx=False)
-    paa("--title",
-        help="use this TITLE in plots")
 
-#### Routines for parsing sequence names
+def corona_fixargs(args):
+    '''after argparser.parse_args() has been called,
+    then call this for cleanup'''
+    args.input = find_seqfile(args.input,
+                              skipx=(not args.keepx))
+    return args
+
+
+## Routine for post-arg manipulation
+def get_title(args):
+    '''produce default title for plots and tables'''
+    if args.title:
+        return "Global" if args.title=='.' else args.title
+    if args.filterbyname:
+        newfilterbynames = [re.sub('-minus-',' w/o ',name)
+                            for name in args.filterbyname]
+        title = "+".join(newfilterbynames)
+    else:
+        title = "Global"
+    if args.xfilterbyname:
+        title = title + " w/o " + "+".join(args.xfilterbyname)
+    if len(title) > MAX_TITLE_LENGTH:
+        title = title[:MAX_TITLE_LENGTH-3]+"..."
+    return title
+
+
+#### Routines for dealing with lineages, expand name, baselin seqs
+#### (could some of this be merged with lineagenotes.py ??)
 
 xpand_WHO_Pangolin = {
     ## dict to convert WHO lineage names to pango pattern
@@ -145,86 +165,381 @@ def reset_baseline(firstseq,lineage):
         return firstseq
     base_mutant = mutant.Mutation(base_mstring)
     base_seq = mut_mgr.seq_from_mutation(base_mutant)
-    return base_seq    
+    return base_seq
 
-def get_isl(fullname):
+def ndxlist_from_sites(m_mgr,sites,compact=False,contig=False):
+    '''return list of indices associated with sites'''
+    ndxlist = []
+    for site in sites:
+        if compact:
+            ndxlist.append(m_mgr.index_from_site(site))
+        else:
+            ndxlist.extend(m_mgr.indices_from_site(site))
+    ndxlist = sorted(ndxlist)
+    if contig:
+        ndxlist = list(range(min(ndxlist),max(ndxlist)+1))
+    return ndxlist
+
+def keepsites(mut_mgr,seqs,sitestring):
+    '''replace sequence with shorter sequence including only sites in list'''
+
+    sitelist = intlist.string_to_intlist(sitestring)
+    keepndx = ndxlist_from_sites(mut_mgr,sitelist)
+    keepranges = intlist.intlist_to_rangelist(keepndx)
+    v.vprint('keepranges:',keepranges)
+    for s in seqs:
+        s.seq = "".join(s.seq[lo:hi] for lo,hi in keepranges)
+        yield s
+
+## Routines for parsing sequence names, which for the LANL database look like:
+## HDF-IPP45030.Europe.France.Hauts-de-France_Denain.2021-11-22.EPI_ISL_9089887.AY.42
+## corresponding to dot-separated components:
+## idstring.Location.Location.Location.Date.EPI-number.Lineage
+## Note that the locations are (generally): Continent.Country.Region(State,Province,etc)
+## And that the Lineage may have further dots (thus, only the first six dots are deliminters).
+
+ISO_DATE_REGEX = re.compile(r'\d\d\d\d-\d\d(-\d\d)?')
+ISO_DATE_REGEX_DOTS = re.compile(r'\.(\d\d\d\d-\d\d-\d\d)\.')
+EPI_ISL_REGEX = re.compile(r'EPI_ISL_\d+')
+LINEAGE_REGEX = re.compile(r'EPI_ISL_\d+\.(.*)')
+
+def parse_seqname(myparser):
+    '''decorator function that allows argument to be s or s.name
+    where s is a SequenceSample'''
+    def wrapper(seq_or_name,*args,**kwargs):
+        if isinstance(seq_or_name, sequtil.SequenceSample):
+            name = seq_or_name.name
+        elif isinstance(seq_or_name, str):
+            name = seq_or_name
+        else:
+            raise TypeError(f'argument seq_or_seqname in function {myparser.__name__} '
+                            f'is of type {type(seq_or_name)}, but it needs to be '
+	                    'either a string or a SequenceSample')
+        return myparser(name,*args,*kwargs)
+    return wrapper
+
+def deprecated(usefcn=None):
+    '''decrator that indentifies functions as deprecated'''
+    def decorator(myfcn):
+        def wrapper(*args,**kwargs):
+            warning = f'Warning: "{myfcn.__name__}" is deprecated; '
+            if usefcn:
+                warning += f'use function "{usefcn}" instead.'
+            v.print_only(1,warning)
+            return myfcn(*args,**kwargs)
+        return wrapper
+    return decorator
+
+
+@parse_seqname
+def get_isl(seqname,nomatch="X"):
     '''return EPI_ISL number from the sequence name'''
-    epi_match = EPI_ISL_REGEX.search(fullname)
-    return epi_match[0] if epi_match else "X"
+    epi_match = EPI_ISL_REGEX.search(seqname)
+    return epi_match[0] if epi_match else nomatch
 
-def get_lineage_from_name(name):
+@parse_seqname
+def get_lineage(seqname):
     '''get pango lineage by parsing the sequence name'''
-    m = LINEAGE_REGEX.search(name)
+    m = LINEAGE_REGEX.search(seqname)
     linpatt = m[1] if m else None
     #try:
-    #    tokens = name.split('.',6)
+    #    tokens = seqname.split('.',6)
     #    lintok = tokens[6]
     #except IndexError:
     #    lintok = None
     #if linpatt != lintok:
-    #    print("name=",name,"patt:",linpatt,"token:",lintok)
+    #    print("name=",seqname,"patt:",linpatt,"token:",lintok)
     return linpatt
 
-def date_fromiso(s):
+@deprecated(usefcn='get_lineage')
+def get_lineage_from_name(seqname):
+    '''same as get_lineage(), this is deprecated longer name'''
+    return get_lineage(seqname)
+
+def date_fromiso(yyyymmdd):
     '''return datetime.date object from date string in yyyy-mm-dd format'''
     ## if "." or invalid (quite different cases!), return None
     ## problem with raising error is that many badly formatted dates out there
     ## this routine is necessary since date.fromisoformat() function is
     ## not available until python version 3.7
-    if isinstance(s, datetime.date):
-        return s
+    if isinstance(yyyymmdd, datetime.date):
+        return yyyymmdd
     try:
-        yyyy,mm,dd = s.split("-")
+        yyyy,mm,dd = yyyymmdd.split("-")
         dt = datetime.date(int(yyyy),int(mm),int(dd))
         return dt
     except (ValueError,AttributeError,TypeError):
         ## various things can go wrong
         return None
 
-def date_from_seqname(sname):
+@parse_seqname
+def get_date(sname,as_string=False):
     '''extract date string from sequence name'''
     try:
         tokens = sname.split('.')
         datestr = tokens[4]
     except IndexError:
-        v.vprint_only(5,"Invalid name:",sname)
+        v.vvprint_only(5,"Invalid name:",sname)
         datestr = sname
     if not ISO_DATE_REGEX.match(datestr):
-        v.vprint_only(5,"Invalid date:",datestr,sname)
+        v.vvprint_only(5,"Invalid date:",datestr,sname)
         m = ISO_DATE_REGEX_DOTS.search(sname)
         datestr = m[1] if m else None
+    if as_string:
+        return datestr
     return date_fromiso(datestr)
 
+@deprecated(usefcn='get_date')
+def date_from_seqname(seqname,**kwargs):
+    return get_date(seqname,**kwargs)
+
+## Parse info in all the seqnames
+
 def count_bad_dates(seqlist):
-    return sum(date_from_seqname(s.name) is None for s in seqlist)
+    if hasattr(seqlist, '__iter__') and not hasattr(seqlist, '__len__'):
+        raise RuntimeError(f'argument is of type {type(seqlist)} and should be a list')
+    return sum(get_date(s.name) is None for s in seqlist)
 
 def range_of_dates(seqlist):
     '''return tuple of iso-formatted dates'''
     assert isinstance(seqlist,list)
-    dates = [date_from_seqname(s.name) for s in seqlist]
+    dates = map(get_date,seqlist)
     dates = [d for d in dates if d is not None]
     v.vprint("Range of dates based on",len(dates),"sequences")
     return (min(dates).isoformat(),
             max(dates).isoformat())
 
-def filter_by_date(seqs,fromdate,todate,keepfirst=False):
+
+### Routines for filtering sequences (usually based on parsing sequence name)
+
+
+def test_isref(first):
+    '''is this sequence actually the reference sequence?'''
+    assert isinstance(first,sequtil.SequenceSample)
+    if REF_SEQUENCE_NAME not in first.name:
+        warnings.warn(f'first seq is not reference sequence')
+        return False
+    return True
+
+def get_first_item(seqs,keepfirst=None):
+    '''wraps the sequtil version, checking if the first really is a ref'''
+    kwargs = {'keepfirst': keepfirst} if keepfirst else {}
+    first,seqs = sequtil.get_first_item(seqs,**kwargs)
+    test_isref(first)
+    return first,seqs
+
+
+
+def check_firstisref(myfilter):
+    '''decorator function adds 'firstisref' to the keywordlist of myfilter,
+    then checks for 'firstisref=True' keyword in the call to myfilter
+    and if that it the case, then it pulls first sequence out before filtering;
+    then puts unfiltered first sequence back in'''
+    def wrapper(seqs,*args,**kwargs):
+        firstisref = kwargs.pop('firstisref',False)
+        keepfirst = kwargs.pop('keepfirst',None)
+        if keepfirst is not None:
+            warnings.warn(f'The keepfirst={keepfirst} keyword is deprecated; use refisfirst={~bool(keepfirst)} instead.')
+        if not firstisref:
+            seqs = myfilter(seqs,*args,**kwargs)
+        else:
+            first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+            test_isref(first)
+            seqs = myfilter(seqs,*args,**kwargs)
+            seqs = it.chain([first],seqs)
+        return seqs
+    return wrapper
+
+@check_firstisref
+def filter_by_date(seqs,fromdate,todate):
     '''input seqs is iterable (list or iterator); output is generator'''
 
-    f_date = date_fromiso(fromdate)
-    t_date = date_fromiso(todate)
+    f_date = date_fromiso(fromdate) or datetime.date.min
+    t_date = date_fromiso(todate) or datetime.date.max
 
-    for n,s in enumerate(seqs):
-        if keepfirst and n == 0:
-            yield s
-            continue
-        d = date_from_seqname(s.name)
+    for s in seqs:
+        d = get_date(s)
         if not d:
             continue
-        if f_date and f_date > d:
-            continue
-        if t_date and t_date < d:
-            continue
+        if f_date <= d <= t_date:
+            yield s
+
+@check_firstisref
+def filter_seqs_by_date(seqs,args):
+    '''passes through seq's whose date is in range specified by args;
+    also, ensures that args.dates is set to range of dates (eg, if range
+    specified by --days, then set args.dates to be consistent with that)
+    '''
+
+    if not args.days and not args.dates:
+        return seqs
+    if args.days and args.dates:
+        raise RuntimeError("Cannot specify both --days AND --dates")
+
+    if args.days:
+        args.dates = date_range_from_args(args)
+
+    if args.dates:
+        seqs = filter_by_date(seqs,args.dates[0],args.dates[1])
+
+    return seqs
+
+@check_firstisref
+def filter_seqs_by_pattern(seqs,args):
+    '''input is iterable seqs; output is generator seqs'''
+
+    keepers = []
+    xcludes = []
+    if args.filterbyname:
+        for name in args.filterbyname:
+            patt,_,xpat = name.partition("-minus-")
+            patt = expand_who_name_to_pangolin_pattern(patt)
+            if patt != "Global":
+                keepers.append(patt)
+            if xpat:
+                xcludes.append(xpat)
+    if args.xfilterbyname:
+        for name in args.xfilterbyname:
+            name = expand_who_name_to_pangolin_pattern(name)
+            xcludes.append(name)
+
+    ## Use r"\b" to ensure that whole names are matched; thus patt="India" should not match "Indiana"
+    keepers = [r"\b"+patt+r"\b" for patt in keepers]
+    xcludes = [r"\b"+xpat+r"\b" for xpat in xcludes]
+
+    if keepers:
+        seqs = sequtil.filter_by_patternlist(seqs,keepers)
+    if xcludes:
+        seqs = sequtil.filter_by_patternlist_exclude(seqs,xcludes)
+
+    return seqs
+
+@check_firstisref
+def filter_seqs(seqs,args):
+    '''filter sequences according to args: by date, by pattern, by nseq'''
+    ## by date first so multiple runs will have the same date range
+    ## with --days option
+    seqs = filter_seqs_by_date(seqs,args)
+    seqs = filter_seqs_by_pattern(seqs,args)
+    if args.nseq:
+        seqs = it.islice(seqs,args.nseq)
+    if not args.keepx:
+        seqs = (s for s in seqs if "X" not in s.seq)
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
+
+    return seqs
+
+def truncate_seqs(seqs,seqlen):
+    '''
+    truncate all sequences to length seqlen;
+    '''
+    for s in seqs:
+        s.seq = s.seq[:seqlen]
         yield s
+
+def fix_seqs(first,seqs,args):
+    '''
+    seqs = fix_seqs(first,seqs, args)
+    Does not care if seqs includes first sequence; returned seqs will or will not
+    include first sequence according to whether or not the input seqs includes it.
+
+    sequences will have stripdashcols (if requested by args.stripdashcols, now mostly unused)
+    and will have the last character stipped (if it's a stop codon, indicated by $)
+    and finally, keepx will be applied
+    '''
+
+    if not(hasattr(first,'seq') and first.seq):
+        ## since .nm file doesn't even have .seq attribute
+        return seqs
+
+    if not args.keeplastchar and first.seq and first.seq[-1] in "$*X":
+        seqs = truncate_seqs(seqs,len(first.seq[:-1]))
+
+    return seqs
+
+def read_seqfile(args,firstisref=True,**kwargs):
+    '''
+    read sequences file from args.input
+    return a generator of sequences
+    '''
+    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
+    if firstisref:
+        first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+        seqs = fix_seqs(first,seqs,args)
+    if args.verbose:
+        seqs = wrapgen.keepcount(seqs,"Sequences read:")
+    return seqs
+
+def read_filter_seqfile(args,firstisref=True,**kwargs):
+    '''
+    read sequence file from args.input,
+    and filter according to args,
+    return a generator of sequences
+    '''
+    seqs = read_seqfile(args,firstisref=firstisref,**kwargs)
+    seqs = filter_seqs(seqs,args,firstisref=firstisref)
+
+    return seqs
+
+def lastdate_byfile(file,seqs=None):
+    '''return the last date in the range of dates'''
+    ## to get last date
+    ## 1/ get modification date of input file
+    ## 2/ if that doesn't work (eg, if file not found), get today's date
+    ## 3/ if that doesn't work (but why wouldn't it?), get last date in dataset
+    ## 4/ if that doesn't work, raise RuntimeError
+    ## Note, if seqs is None, then skip step 3
+
+    lastdate=None ## in case nothing works!
+    try:
+        mtime = os.path.getmtime(file)
+        lastdate = datetime.date.fromtimestamp(mtime).isoformat()
+    except FileNotFoundError:
+        try:
+            lastdate = datetime.date.today().isoformat()
+        except: ## don't think this will ever happen
+            if seqs:
+                seqs = list(seqs)
+                _,lastdate = range_of_dates(seqs)
+
+    if lastdate is None:
+        raise RuntimeError('Cannot find last date for date range')
+
+    return lastdate
+
+## Filtering seqs, helper function
+## Parsing args (used for filter-by-date, coming later
+def date_range_from_args(args):
+    '''return list of two iso-formatted dates (start and stop);
+    obtain what /should/ be in args.dates, but if it is not set,
+    then infer what it should be from args.days'''
+    if args.dates:
+        return [(None if date=='.' else date)
+                for date in args.dates]
+    if args.days:
+        lastdate = lastdate_byfile(args.input)
+        t = date_fromiso(lastdate)
+        f = t - datetime.timedelta(days=args.days)
+        return [f.isoformat(),t.isoformat()]
+    return [None,None]
+
+def expand_date_range(daterange,daysperweek=7):
+    '''pad the date range by a few (or many) days out front
+    so that weekly and/or cumulative counts are mainteined
+    correctly'''
+    start_date,stop_date = daterange
+    if start_date is None or start_date == '.':
+        return daterange
+    if daysperweek == 0:
+        start_date = None
+    elif daysperweek > 1:
+        start_date = date_fromiso(start_date)
+        start_date = start_date - datetime.timedelta(days=daysperweek-1)
+        start_date = start_date.isoformat()
+    return [start_date,stop_date]
+
+
 
 site_specifications = {
     "RBD"         : "330-521",
@@ -312,231 +627,6 @@ def parse_continents(withglobal=False):
         cx_c_x.append((cx,c,x))
     return cx_c_x
 
-def filename_prepend(pre,file):
-    '''prepend a string to a file name; eg
-       "pre","file" -> "prefile", but also
-       "pre","directory/file" -> "directory/prefile"
-    '''
-    ## alt: re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
-    if not file:
-        return file
-    directory,base = os.path.split(file)
-    return os.path.join(directory,pre+base)
-
-def get_title(args):
-    '''produce default title for plots and tables'''
-    if args.title:
-        return "Global" if args.title=='.' else args.title
-    if args.filterbyname:
-        newfilterbynames = [re.sub('-minus-',' w/o ',name)
-                            for name in args.filterbyname]
-        title = "+".join(newfilterbynames)
-    else:
-        title = "Global"
-    if args.xfilterbyname:
-        title = title + " w/o " + "+".join(args.xfilterbyname)
-    if len(title) > MAX_TITLE_LENGTH:
-        title = title[:MAX_TITLE_LENGTH-3]+"..."
-    return title
-
-def get_first_item(items,keepfirst=True):
-    '''
-    get first item in iterable, and and put it back;
-    works when the iterable is a list or an iterator
-    if keepfirst==False, then don't put it back
-    '''
-    warnings.warn("use sequtil.get not covid.get")
-    return sequtil.get_first_item(items,keepfirst=keepfirst)
-
-def read_filter_seqfile(args,**kwargs):
-    '''
-    read sequence file from args.input,
-    and filter according to args,
-    return a generator of sequences
-    '''
-    seqs = read_seqfile(args,**kwargs)
-    seqs = filter_seqs(seqs,args)
-
-    return seqs
-
-def read_seqfile(args,**kwargs):
-    '''
-    read sequences file from args.input
-    return a generator of sequences
-    '''
-    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-    if args.verbose:
-        seqs = wrapgen.keepcount(seqs,"Sequences read:")
-    return seqs
-
-
-def fix_seqs(seqs,args):
-    '''
-    seqs = fix_seqs(seqs,args)
-    will return sequences with stripdashcols (obsolete)
-    and with last character (if it's $) stripped
-    and
-    '''
-    ## ...a bit heavy-handed, and assumes first seq is still there
-
-    ## we peek at first sequence, but do not remove it from seqs
-    first,seqs = sequtil.get_first_item(seqs)
-
-    if "-" in first.seq and args.stripdashcols:
-        seqs = sequtil.stripdashcols(first.seq,seqs)
-
-    if not args.keeplastchar:
-        if first.seq and first.seq[-1] in "$*X":
-            stop_codon = first.seq[-1]
-            first.seq = first.seq[:-1]
-            seqs = striplastchars(seqs,len(first.seq))
-
-    if not args.keepx:
-        seqs = (s for s in seqs if "X" not in s.seq)
-
-    return seqs
-
-def striplastchars(seqs,seqlen):
-    '''
-    truncate all sequences to length seqlen;
-    '''
-    for s in seqs:
-        s.seq = s.seq[:seqlen]
-        yield s
-
-def filter_seqs(seqs,args):
-    '''filter sequences according to args: by date, by pattern, by nseq'''
-    ## by date first so multiple runs will have the same date range
-    ## with --days option
-    seqs = filter_seqs_by_date(seqs,args)
-    seqs = filter_seqs_by_pattern(seqs,args)
-    seqs = fix_seqs(seqs,args)
-    if args.nseq:
-        seqs = it.islice(seqs,args.nseq+1)
-    if args.verbose:
-        seqs = wrapgen.keepcount(seqs,"Sequences filtered:")
-
-    return seqs
-
-def xrepair(seqs,X='X'):
-    '''replace all occurrences of X with the ancestral form in first sequence'''
-    ## This seems dangerous!! Use with care ... or not at all.
-    first,seqs = sequtil.get_first_item(seqs)
-    ref = first.seq
-    for s in seqs:
-        if X in s.seq:
-            ss = list(s.seq)
-            for n in range(len(ss)):
-                if ss[n] == X:
-                    ss[n] = ref[n]
-            s.seq = "".join(ss)
-        yield s
-
-def lastdate_byfile(file,seqs=None):
-    '''return the last date in the range of dates'''
-    ## to get last date
-    ## 1/ get modification date of input file
-    ## 2/ if that doesn't work (eg, if file not found), get today's date
-    ## 3/ if that doesn't work (but why wouldn't it?), get last date in dataset
-    ## 4/ if that doesn't work, raise RuntimeError
-    ## Note, if seqs is None, then skip step 3
-
-    lastdate=None ## in case nothing works!
-    try:
-        mtime = os.path.getmtime(file)
-        lastdate = datetime.date.fromtimestamp(mtime).isoformat()
-    except FileNotFoundError:
-        try:
-            lastdate = datetime.date.today().isoformat()
-        except: ## don't think this will ever happen
-            if seqs:
-                seqs = list(seqs)
-                _,lastdate = range_of_dates(seqs)
-
-    if lastdate is None:
-        raise RuntimeError('Cannot find last date for date range')
-
-    return lastdate
-
-def date_range_from_args(args):
-    '''return list of two iso-formatted dates (start and stop);
-    obtain what /should/ be in args.dates, but if it is not set,
-    then infer what it should be from args.days'''
-    if args.dates:
-        return [(None if date=='.' else date)
-                for date in args.dates]
-    if args.days:
-        lastdate = lastdate_byfile(args.input)
-        t = date_fromiso(lastdate)
-        f = t - datetime.timedelta(days=args.days)
-        return [f.isoformat(),t.isoformat()]
-    return [None,None]
-
-def expand_date_range(daterange,daysperweek=7):
-    '''pad the date range by a few (or many) days out front
-    so that weekly and/or cumulative counts are mainteined
-    correctly'''
-    start_date,stop_date = daterange
-    if start_date is None or start_date == '.':
-        return daterange
-    if daysperweek == 0:
-        start_date = None
-    elif daysperweek > 1:
-        start_date = date_fromiso(start_date)
-        start_date = start_date - datetime.timedelta(days=daysperweek-1)
-        start_date = start_date.isoformat()
-    return [start_date,stop_date]
-
-
-def filter_seqs_by_date(seqs,args,keepfirst=True):
-    '''passes through seq's whose date is in range specified by args;
-    also, ensures that args.dates is set to range of dates (eg, if range
-    specified by --days, then set args.dates to be consistent with that)
-    '''
-
-    if not args.days and not args.dates:
-        return seqs
-    if args.days and args.dates:
-        raise RuntimeError("Cannot specify both --days AND --dates")
-
-    if args.days:
-        args.dates = date_range_from_args(args)
-
-    if args.dates:
-        seqs = filter_by_date(seqs,args.dates[0],args.dates[1],keepfirst=keepfirst)
-
-    return seqs
-
-def filter_seqs_by_pattern(seqs,args,keepfirst=True):
-    '''input is iterable seqs; output is generator seqs'''
-
-    keepers = []
-    xcludes = []
-    if args.filterbyname:
-        for name in args.filterbyname:
-            patt,_,xpat = name.partition("-minus-")
-            patt = expand_who_name_to_pangolin_pattern(patt)
-            if patt != "Global":
-                keepers.append(patt)
-            if xpat:
-                xcludes.append(xpat)
-    if args.xfilterbyname:
-        for name in args.xfilterbyname:
-            name = expand_who_name_to_pangolin_pattern(name)
-            xcludes.append(name)
-
-    ## Use r"\."+ to ensure that names have to be preceded by a dot
-    keepers = [r"\."+patt for patt in keepers]
-    xcludes = [r"\."+xpat for xpat in xcludes]
-
-    if keepers:
-        seqs = sequtil.filter_by_patternlist(seqs,keepers,
-                                             keepfirst=keepfirst)
-    if xcludes:
-        seqs = sequtil.filter_by_patternlist_exclude(seqs,xcludes,
-                                                     keepfirst=keepfirst)
-
-    return seqs
 
 SARS_REGIONS = '''
 SP     1   13
@@ -592,13 +682,14 @@ def get_srlist(virus="SARS"):
             y.append(int(srs[2]))
     return n,x,y
 
-## EXAMPLE USAGE:
-#        f = max(e)/2
-#        dy = -0.04*f
-#        dyl = -0.12*f
-#
-#        for srx,sry,srn in zip(srlistx,srlisty,srlistn):
-#            plt.plot([srx,sry],[dy,dy],label=srn,linewidth=4)
-#            delta = 8 if sry-srx < 15 else 3 if sry-srx < 25 else 0
-#            plt.text(srx-delta,dyl,srn)
-#        plt.legend(loc="upper left",title="Regions",bbox_to_anchor=(1,1))
+### generic utility (only used by xspike)
+def filename_prepend(pre,file):
+    '''prepend a string to a file name; eg
+       "pre","file" -> "prefile", but also
+       "pre","directory/file" -> "directory/prefile"
+    '''
+    ## alt: re.sub(r"(.*/)?([^/]+)",r"\1"+pre+r"\2",file)
+    if not file:
+        return file
+    directory,base = os.path.split(file)
+    return os.path.join(directory,pre+base)
