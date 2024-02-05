@@ -34,6 +34,8 @@ def getargs():
         help="randomize input data order")
     paa("--badisls",
         help="File with list of EPI_ISL numbers to exclude")
+    paa("--keepisls",
+        help="File with list of EPI_ISL numbers to keep")
     paa("--translate",action="store_true",
         help="Translate from nucleotides to amino acids")
     paa("--codonalign",action="store_true",
@@ -160,6 +162,7 @@ def isls_from_file(file):
             m = re.match(r".*(EPI_ISL_\d+).*",line.strip())
             if m:
                 isls.append(m[1])
+    v.vprint(f'ISL file {file} has {len(set(isls))} distinct ISL numbers')
     return isls
 
 def seqs_indexed_by_isl(file):
@@ -219,10 +222,6 @@ def rm_toomanygaps(toomany,seqs):
     if count_removed:
         v.vprint(f'Removed {count_removed} sequences with gap > {toomany}')
 
-def vcount(seqs,*p,**kw):
-    "count items in the generator as they go by"
-    return wrapgen.keepcount(seqs,*p,**kw) if args.verbose else seqs
-
 def main(args):
     '''fixfasta main'''
     v.vprint(args)
@@ -276,6 +275,12 @@ def main(args):
                 if not any( b in s.name for b in bads ))
         seqs = vcount(seqs,"Sequences after removing bad ISLs:")
 
+    if args.keepisls:
+        keepers = set(isls_from_file(args.keepisls))
+        seqs = (s for s in seqs
+                if covid.get_isl(s) in keepers)
+        seqs = vcount(seqs,"Sequences found with specified ISLs:")
+
     if args.toomanygaps:
         seqs = rm_toomanygaps(args.toomanygaps,seqs)
 
@@ -312,4 +317,8 @@ if __name__ == "__main__":
 
     _args = getargs()
     v.verbosity(_args.verbose)
+    def vcount(seqs,*p,**kw):
+        "count items in the generator as they go by"
+        return wrapgen.keepcount(seqs,*p,**kw) if _args.verbose else seqs
+
     main(_args)
