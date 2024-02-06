@@ -7,19 +7,19 @@ import argparse
 import covid
 import sequtil
 import mutant
-from verbose import verbose as v
+import verbose as v
 from hamming import hamming
 
 
 def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
-    paa = argparser.add_argument
     covid.corona_args(argparser)
+    paa = argparser.add_argument_group('Hamming Options').add_argument
     paa("-T",type=int,default=10,
         help="show the top T sequences, sorted by Hamming distance")
     paa("--ref","-r",
-        help="mutant string to be used as reference sequence")
+        help="mutant string (or baseline) to be used as reference sequence")
     paa("--nearby",action="store_true",
         help="look for small instead of large Hamming distances")
     paa("--mincount","-m",type=int,default=1,
@@ -29,11 +29,12 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def earliest_sequence(seqs):
     '''from a list of sequences, return the one with the earliest date'''
-    slist = [(covid.date_from_seqname(s.name),s) for s in seqs]
+    slist = [(covid.get_date(s.name),s) for s in seqs]
     slist = [(d,s) for d,s in slist if d]
     if not slist:
         ## if none of the sequences has a good date
@@ -53,7 +54,8 @@ def _main(args):
     m_mgr = mutant.MutationManager(first.seq)
 
     if args.ref:
-        refmut = mutant.Mutation(args.ref)
+        ref = covid.BASELINE_MSTRINGS.get(args.ref,args.ref)
+        refmut = mutant.Mutation(ref)
         refseq = m_mgr.seq_from_mutation(refmut)
     else:
         refseq = first.seq
@@ -68,7 +70,7 @@ def _main(args):
                      key=itemgetter(0),
                      reverse=False if args.nearby else True)
 
-    outseqs=[]
+    outseqs=[first]
     count=0
     for (hamdist,seqlist) in hamlist:
         if count >= args.T:

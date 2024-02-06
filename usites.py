@@ -1,4 +1,4 @@
-DESCRIPTION='''
+'''
 USITES: union over all continents of high-entropy sites 
 '''
 
@@ -11,23 +11,25 @@ import scipy.stats as sst
 
 import argparse
 
-
+import verbose as v
 import readseq
 import sequtil
 import intlist
 import covid
 
-def getargs():
-    ap = argparse.ArgumentParser(description=DESCRIPTION)
+def _getargs():
+    ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
     covid.corona_args(ap)
     paa("--sites",type=int,default=30,
         help="Number of highest-entropy sites to use")
     paa("--restrictsites",
-        help="Consider only these sites (RBD, NTD, NTD+RBD, or comma-separated list)")
+        help=("Consider only these sites "
+              "(RBD, NTD, NTD+RBD, or comma-separated list)"))
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
+    args = covid.corona_fixargs(args)
     return args
 
 def xentropy(clist,keepx=False):
@@ -46,7 +48,7 @@ def stripxs(alist,blist,badchar='X'):
     alist,blist = zip(*ab)
     return alist,blist
 
-def main(args):
+def _main(args):
 
     allseqs = covid.read_filter_seqfile(args)
     allseqs = list(allseqs)
@@ -65,7 +67,7 @@ def main(args):
                 seqs.append(s)
 
         if len(seqs)==0:
-            vprint(f"No sequences in {cx}")
+            v.vprint(f"No sequences in {cx}")
             esites[cx]=[]
             continue
 
@@ -73,10 +75,10 @@ def main(args):
         M = len(firstseq)
 
         #### SINGLE-SITE ENTROPY
-        vprint(f"Single-site entropy {cx}...",end="")
+        v.vprint(f"Single-site entropy {cx}...",end="")
         E = [xentropy(clist,keepx=args.keepx)
              for clist in sequtil.gen_columns_seqlist(seqs)]
-        vprint("ok")
+        v.vprint("ok")
 
         etop = [e+1 for e in np.argsort(E)[::-1]]
         if args.restrictsites:
@@ -91,7 +93,7 @@ def main(args):
             esitelist.extend( esites[cx][:n] )
 
         esitelist = sorted(set(esitelist))
-        vprint(n,len(esitelist))
+        v.vprint(n,len(esitelist))
         if len(esitelist) >= args.sites:
             break
         
@@ -99,15 +101,9 @@ def main(args):
 
 if __name__ == "__main__":
 
-    args = getargs()
-    def vprint(*p,**kw):
-        if args.verbose:
-            print(*p,file=sys.stderr,flush=True,**kw)
-    def vvprint(*p,**kw):
-        if args.verbose and args.verbose>1:
-            print(*p,file=sys.stderr,flush=True,**kw)
-
-    main(args)
+    _args = _getargs()
+    v.verbosity(_args.verbose)
+    _main(_args)
 
   
 
