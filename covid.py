@@ -322,7 +322,7 @@ def test_isref(first):
 
 def get_first_item(seqs,keepfirst=None):
     '''wraps the sequtil version, checking if the first really is a ref'''
-    kwargs = {'keepfirst': keepfirst} if keepfirst else {}
+    kwargs = {'keepfirst': keepfirst} if keepfirst is not None else {}
     first,seqs = sequtil.get_first_item(seqs,**kwargs)
     test_isref(first)
     return first,seqs
