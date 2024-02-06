@@ -72,8 +72,7 @@ def corona_args(ap):
                     parser.error(f'Dates out of order: {dates}')
             setattr(namespace,self.dest,dates)
 
-    paa = ap.add_argument
-    #faa = ap.add_argument_group('File input options').add_argument
+    paa = ap.add_argument_group('Input Options').add_argument
     paa("--input","-i",type=Path,
         default=None,
         help="input file with aligned sequences (first is reference)")
@@ -328,13 +327,16 @@ def get_first_item(seqs,keepfirst=None):
     test_isref(first)
     return first,seqs
 
+def divert_if_firstisref(myfilter):
+    '''
+    decorator function adds 'firstisref' to the keywordlist of
+    myfilter, then checks for 'firstisref=True' keyword in the call to
+    myfilter and if that it the case, then it "diverts" that first
+    sequence from the filtering done myb my filter, pulls the first
+    sequence out, doing thefiltering, and then putting that unfiltered
+    first sequence back in
+    '''
 
-
-def check_firstisref(myfilter):
-    '''decorator function adds 'firstisref' to the keywordlist of myfilter,
-    then checks for 'firstisref=True' keyword in the call to myfilter
-    and if that it the case, then it pulls first sequence out before filtering;
-    then puts unfiltered first sequence back in'''
     def wrapper(seqs,*args,**kwargs):
         firstisref = kwargs.pop('firstisref',False)
         keepfirst = kwargs.pop('keepfirst',None)
@@ -350,7 +352,7 @@ def check_firstisref(myfilter):
         return seqs
     return wrapper
 
-@check_firstisref
+@divert_if_firstisref
 def filter_by_date(seqs,fromdate,todate):
     '''input seqs is iterable (list or iterator); output is generator'''
 
@@ -364,7 +366,7 @@ def filter_by_date(seqs,fromdate,todate):
         if f_date <= d <= t_date:
             yield s
 
-@check_firstisref
+@divert_if_firstisref
 def filter_seqs_by_date(seqs,args):
     '''passes through seq's whose date is in range specified by args;
     also, ensures that args.dates is set to range of dates (eg, if range
@@ -384,7 +386,7 @@ def filter_seqs_by_date(seqs,args):
 
     return seqs
 
-@check_firstisref
+@divert_if_firstisref
 def filter_seqs_by_pattern(seqs,args):
     '''input is iterable seqs; output is generator seqs'''
 
@@ -414,7 +416,7 @@ def filter_seqs_by_pattern(seqs,args):
 
     return seqs
 
-@check_firstisref
+@divert_if_firstisref
 def filter_seqs(seqs,args):
     '''filter sequences according to args: by date, by pattern, by nseq'''
     ## by date first so multiple runs will have the same date range
