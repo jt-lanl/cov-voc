@@ -6,9 +6,10 @@ import verbose as v
 def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
-    paa = argparser.add_argument
-    paa("--verbose","-v",action="count",default=0,
-        help="verbose")
+    generic_paa = argparser.add_argument
+    generic_paa("--verbose","-v",action="count",default=0,
+                help="verbose")
+    paa = argparser.add_argument_group('Program Options').add_argument
     args = argparser.parse_args()
     return args
 
