@@ -12,15 +12,13 @@ import verbose as v
 import readseq
 import sequtil
 import mutant
+import covid
 
 def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
-    paa = argparser.add_argument
-    paa("--input","-i",
-        help="input sequence file")
-    paa("--nseqs",type=int,
-        help="limit sequences to this many (used for debugging mostly)")
+    covid.corona_args(argparser)
+    paa = argparser.add_argument_group('Alignment Options').add_argument
     paa("--badseqs","-b",
         help="output inconsistent sequences")
     paa("--mstringpairs","-M",
@@ -44,6 +42,12 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+    args = covid.corona_fixargs(args)
+    ## fix args.windowsize
+    if not args.windowsize:
+        args.windowsize = 60 if args.na else 20
+    if args.na:
+        args.windowsize = 3*(args.windowsize//3)
     return args
 
 
@@ -332,20 +336,10 @@ def _main(args):
     seqs = sequtil.read_seqfile(args.input)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
 
-    if args.nseqs:
-        seqs = it.islice(seqs,args.nseqs+1)
-
     xlator = mutant.SiteIndexTranslator(first.seq)
 
     changed_sequences=[]
     bad_good_mstrings=[]
-
-    ## partition seq into overlapping windows of width 2*stepsize
-    winsize = 60 if args.na else 20
-    if args.windowsize:
-        winsize = args.windowsize
-        if args.na:
-            winsize = 3*(winsize//3)
 
     phaselist = range(args.nsweeps)
     if args.phases is not None:
@@ -357,7 +351,7 @@ def _main(args):
 
     v.vvprint('Phases:',phaselist)
 
-    subseq_ranges = mk_subseq_site_ranges(xlator.topsite+1,winsize,
+    subseq_ranges = mk_subseq_site_ranges(xlator.topsite+1,args.windowsize,
                                           nsweeps=args.nsweeps,
                                           phases=phaselist)
 
@@ -432,7 +426,7 @@ def _main(args):
     bad_intervals=[]
     for lo,hi,ndxlo,ndxhi in ndx_keeprange:
 
-        v.vvprint(f'Checking sites {lo}:{hi} / indices {ndxlo}:{ndxhi}')
+        v.vvvprint(f'Checking sites {lo}:{hi} / indices {ndxlo}:{ndxhi}')
         subseqset = set(s.seq[ndxlo:ndxhi] for s in seqs)
         if args.xavoid:
             subseqset = set(seq for seq in subseqset if 'X' not in seq)
