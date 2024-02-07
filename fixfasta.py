@@ -21,7 +21,6 @@ import argparse
 import verbose as v
 import sequtil
 import wrapgen
-import intlist
 import mutant
 import covid
 
@@ -245,7 +244,7 @@ def main(args):
         seqs = pad_to_length(seqs)
 
     if args.keepsites:
-        first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+        first,seqs = covid.get_first_item(seqs,keepfirst=True)
         mut_mgr = mutant.MutationManager(first.seq)
         seqs = covid.keepsites(mut_mgr,seqs,args.keepsites)
 
@@ -257,13 +256,12 @@ def main(args):
     first,seqs = covid.get_first_item(seqs,keepfirst=False)
 
     if args.stripdashcols:
-        '''removes all the columns that have dashes in first.seq'''
+        ## removes all the columns that have dashes in first.seq
         ## actually, we /do/ want first among the seqs here
         seqs = it.chain([first],seqs)
         seqs = sequtil.stripdashcols(first.seq,seqs)
         ## and now we take the first back out again...
-        first,seqs = sequtil.get_first_item(sesqs,keepfirst=False)
-        covid.test_isref(first)
+        first,seqs = covid.get_first_item(seqs,keepfirst=False)
 
     if args.islreplace:
         isl_seqs = seqs_indexed_by_isl(args.islreplace)
@@ -273,7 +271,6 @@ def main(args):
         bads = isls_from_file(args.badisls)
         seqs = (s for s in seqs
                 if not any( b in s.name for b in bads ))
-        seqs = vcount(seqs,"Sequences after removing bad ISLs:")
 
     if args.keepisls:
         keepers = set(isls_from_file(args.keepisls))
