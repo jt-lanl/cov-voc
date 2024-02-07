@@ -4,6 +4,7 @@ match a mutant string
 '''
 import os
 import sys
+import re
 from pathlib import Path
 import random
 import itertools as it
@@ -26,6 +27,9 @@ def getargs():
         help="randomize input data order")
     paa("--mutant","-m",
         help="mutant string, such as '[W152R,N439K,D614G,P681R]'")
+    paa("--grep","-g",
+        help=("match a string fragment sequence file; "
+              "preceed with '/' to avoid leading with '-'"))
     paa("--sites","-s",
         help="list of sites; eg 145-148,156,178-188")
     paa("--seqpattern",
@@ -159,6 +163,11 @@ def main(args):
         if args.verbose:
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
 
+    if args.grep:
+        args.grep = re.sub(r'/','',args.grep) ## you can use /---I--TT/ as a pattern
+        seqs = (s for s in seqs
+                if args.grep in s.seq)
+
     if args.uniq:
         seqs = keepuniq(seqs)
 
@@ -196,10 +205,9 @@ def main(args):
             print()
 
     ## Remaining sequences? send them to oblivion...
-    ## (we need to do this in order for count to work)
-    if seqs:
-        for s in seqs:
-            pass
+    ## (we need to do this in order for wrapgen-based count to work)
+    for s in seqs:
+        pass
 
 def _mainwrapper(args):
     '''
