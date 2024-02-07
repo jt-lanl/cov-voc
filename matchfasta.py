@@ -137,8 +137,7 @@ def main(args):
     seqs = read_seqfile(args,firstisref=True)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
 
-    if args.mutant or args.sites or args.showmutants:
-        m_mgr = mutant.MutationManager(first.seq)
+    m_mgr = mutant.MutationManager(first.seq)
 
     mpatt = None
     sites = []
