@@ -7,7 +7,7 @@ from functools import lru_cache
 import argparse
 
 import verbose as v
-
+from readseq import xopen
 import sequtil
 import mutant
 import covid
@@ -234,7 +234,7 @@ def _main(args):
                 subseqset = set(seq[:xndxhi-ndxlo] for seq in subseqset)
             inconsistent = check_subsequences(subseqset)
             ## put a verbose test here
-            if args.verbose:
+            if args.verbose > 1:
                 for gsa,gsb in inconsistent:
                     msa,msb = get_inconsistent_mstringpair(mut_mgr,lo,ndxlo,gsa,gsb)
                     show_inconsistency(lo,hi,gsa,gsb,msa,msb)
@@ -246,17 +246,17 @@ def _main(args):
     mstringpairs = set()
     for lo,hi,ndxlo,ndxhi,gseqa,gseqb in bad_intervals:
         mstr_a,mstr_b = get_inconsistent_mstringpair(mut_mgr,lo,ndxlo,gseqa,gseqb)
-        show_inconsistency(lo,hi,gseqa,gseqb,mstr_a,mstr_b,
-                           file=sys.stdout)
+        if args.verbose:
+            show_inconsistency(lo,hi,gseqa,gseqb,mstr_a,mstr_b)
         mstringpairs.add((mstr_a,mstr_b))
 
-    v.vprint('Distinct inconsistencies:',len(mstringpairs),f'in range {rlo}-{rhi}')
+    v.print('Distinct inconsistencies:',len(mstringpairs),f'in range {rlo}-{rhi}')
     for ma,mb in sorted(mstringpairs):
         v.print(f'{ma} {mb}')
 
-    if args.mstringpairs:
-        ## write file even if mstringpairs is empty (if so, file will be empty)
-        with open(args.mstringpairs,'w') as fout:
+    if args.mstringpairs and mstringpairs:
+        ## write file only if mstringpairs is not empty
+        with xopen(args.mstringpairs,'w') as fout:
             for ma,mb in sorted(mstringpairs):
                 print(f'{ma} {mb}',file=fout)
 
