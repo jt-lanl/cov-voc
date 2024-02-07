@@ -1,7 +1,7 @@
 '''Tweak alignment according to specifed mutant strings'''
 import re
 import itertools as it
-from collections import Counter
+from collections import Counter,defaultdict
 import random
 import argparse
 
@@ -23,6 +23,8 @@ def _getargs():
         help="pair of from/to mstrings")
     paa("--mfile","-M",action="append",
         help="read from/to mstring pairs from a file")
+    paa("--checktweaks",action="store_true",
+        help="Check for dependencies among the tweaks [EXPERIMENTAL!]")
     paa("--shuffletweaks",action="store_true",
         help="apply the mstring-pair tweaks in random order")
     paa("--output","-o",
@@ -128,7 +130,7 @@ def get_mstring_pairs(args):
 
     ## first: read the file(s) indicated by '-M file'
     ## A file named '.' indicates that one should use the defaults
-    ## (which are currently listed in mstringfix.py) 
+    ## (which are currently listed in mstringfix.py)
     ## Note that '-M' can be invoked more than once
     ##   That is: '-M file1 -M file2' is okay
     ##   Invalid: '-M file1 file2'
@@ -170,6 +172,50 @@ def get_mstring_pairs(args):
 
     return mstringpairs
 
+def check_tweaks(mstringpairs):
+    '''Given a list of mstringpair tweaks, check to see if there
+    are dependencies that could lead to different alignments
+    if the tweaks were applied in different order'''
+
+    ## From list of tweaks
+    ## Build a dictionary of lists, keyed on site number
+    ## List is of changes at that site
+    ##   eg, A19C->A19D is C19D or CD
+    ## As new items are added to the list
+    ##   1/ check if on the list
+    ##   2/ see if it over-rides something on the list
+    ##     eg, CD,BE are ok, but
+    ##     a/ CD,CE would make result depend on order
+    ##     b/ CD,DE would override (also depend on order)
+    ##     c/ CD,BD would be okay I think
+
+
+    sitetweaks = defaultdict(set)
+    warnlist = list()
+    for ma,mb in mstringpairs:
+        ssms_a = mutant.Mutation(ma)
+        ssms_b = mutant.Mutation(mb)
+        dtmp_a = {(ssm.ref,ssm.site): ssm.mut
+                  for ssm in ssms_a}
+        dtmp_b = {(ssm.ref,ssm.site): ssm.mut
+                  for ssm in ssms_b}
+        keys = sorted(set(dtmp_a)|set(dtmp_b))
+        v.vprint(f'{ma}->{mb}: keys={keys}')
+        for k in keys:
+            amut,bmut = (dtmp_a.get(k,''),dtmp_b.get(k,''))
+            if (amut,bmut) in sitetweaks[k]:
+                continue
+            for (a,b) in sitetweaks[k]:
+                if b==bmut:
+                    continue
+                if (a==amut and b!=bmut) or (a == bmut) or (b == amut):
+                    warnlist.append(f'{k[0]}{k[1]}: {amut}{bmut} vs {a}{b}')
+            sitetweaks[k].add((amut,bmut))
+    if warnlist:
+        v.print("Warnings:")
+        for warn in warnlist:
+            v.print(warn)
+    return warnlist
 
 def get_extra_chars(mstringpairs):
     '''
@@ -192,6 +238,11 @@ def _main(args):
 
     ## Get all the mstring pair
     mstringpairs = get_mstring_pairs(args)
+
+    if args.checktweaks:
+        check_tweaks(mstringpairs)
+        return
+
     if args.shuffletweaks:
         mstringpairs = random.sample(mstringpairs,k=len(mstringpairs))
     ## Identify where extra columns are needed
