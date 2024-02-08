@@ -5,7 +5,7 @@ import re
 import datetime
 
 import covid
-from verbose import verbose as v
+import verbose as v
 import embersutil as emu
 import lineagetable
 import owid
@@ -18,7 +18,6 @@ def _getargs():
     ap = argparse.ArgumentParser(description=__doc__,
                                  conflict_handler='resolve')
     covid.corona_args(ap)
-    ap.set_defaults(input=covid.find_seqfile(DEFAULTNAMESFILE))
     emu.embers_args(ap)
     paa = ap.add_argument
     paa("--lineagetable","-l",
@@ -34,8 +33,12 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbosity")
     args = ap.parse_args()
+    if not args.input:
+        args.input = covid.find_seqfile(DEFAULTNAMESFILE)
+        if not args.input:
+            raise RuntimeError('Input sparks file not specified '
+                               f'and default "{DEFAULTNAMESFILE}" not found')
     return args
-
 
 def print_other_lineages(filename,other_lineages):
     '''if other lineages found, print out a summary'''
