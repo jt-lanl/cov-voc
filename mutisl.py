@@ -16,8 +16,8 @@ import argparse
 import warnings
 
 import sequtil
-import covidfast as covid
-from verbose import verbose as v
+import covid
+import verbose as v
 import mutant
 import pseq
 import mstringfix

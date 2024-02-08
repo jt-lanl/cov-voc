@@ -24,7 +24,7 @@ from collections import defaultdict
 from functools import lru_cache
 import warnings
 
-from verbose import verbose as v
+import verbose as v
 
 class SiteIndexTranslator():
     '''provide functions to translate between string index and site number

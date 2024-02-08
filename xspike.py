@@ -14,7 +14,7 @@ import argparse
 
 import warnings
 
-from verbose import verbose as v
+import verbose as v
 import readseq
 from spikevariants import SpikeVariants
 from hamming import hamming

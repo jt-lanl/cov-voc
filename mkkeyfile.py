@@ -3,7 +3,7 @@
 import argparse
 import matplotlib.pyplot as plt
 
-from verbose import verbose as v
+import verbose as v
 from spikevariants import SpikeVariants
 import sequtil
 import covid

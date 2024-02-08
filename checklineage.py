@@ -4,7 +4,7 @@ import argparse
 import re
 
 import covid
-from verbose import verbose as v
+import verbose as v
 import embersutil as emu
 import lineagetable
 import owid

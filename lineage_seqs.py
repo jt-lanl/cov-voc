@@ -166,7 +166,7 @@ def _main(args):
     mmgr = mutant.MutationManager(first.seq)
 
     seqs = (s for s in seqs
-            if covid.get_lineage_from_name(s.name) in lineage_set)
+            if covid.get_lineage(s) in lineage_set)
 
     lincat = LineageCatalog(seqs)
     v.vprint('lincat:',lincat.report_size(),'sequences')

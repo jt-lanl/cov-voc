@@ -6,7 +6,7 @@ import re
 import itertools as it
 import argparse
 
-from verbose import verbose as v
+import verbose as v
 import intlist
 import mutant
 

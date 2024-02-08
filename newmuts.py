@@ -71,7 +71,7 @@ def most_common_forms(seqlist,mut_manager):
         mcf_dict[lin] = set(mcf_muts)
 
     return mcf_dict
-    
+
 @lru_cache(maxsize=NJone)
 def mutations_fromseq(mut_manager,seq):
     return set( mut_manager.get_mutation(seq) )
@@ -92,7 +92,7 @@ def count_appearances(lin_notes,muts):
         ptimes[m] = len(pset)
 
     return mcount, mtotal, mtimes, ptimes
-    
+
 def write_mutations(filename,lin_notes,muts,mincount=0):
     if not filename:
         return
@@ -140,7 +140,7 @@ def write_mutations_summary(filename,lin_notes,muts,denominator,mincount=0):
                          mtotal[m],denominator,lintrans),
                   file=fout)
 
-    
+
 
 def main(args):
     '''newmuts main'''
@@ -159,10 +159,10 @@ def main(args):
         lin_notes_x = lin_notes.restrict_to_clade(args.clade,
                                                   excludeparent=True)
         lineage_set = set(lin_notes_x.lineages)
-    
+
     mut_appearances = defaultdict(list)
     mut_reversions = defaultdict(list)
-    
+
     firstseq,seqlist = cf.get_input_sequences(args)
     mut_manager = mutant.MutationManager(firstseq)
     mcf_dict = most_common_forms(seqlist,mut_manager)
@@ -170,9 +170,9 @@ def main(args):
     lin_partition = cf.LineagePartition(seqlist)
 
     denominator = sum(1 for s in seqlist
-                      if covid.get_lineage_from_name(s.name) in lineage_set)
+                      if covid.get_lineage(s) in lineage_set)
     v.vprint(f'denominator={denominator}/{len(seqlist)}')
-            
+
     mut_total  = Counter() ## seqs with mut, regardless of lin
     for lin in lineage_set: ## only consider lineages in clade
         parent = lin_notes.parent_of(lin)
@@ -214,8 +214,8 @@ def main(args):
                             lin_notes,mut_appearances,
                             denominator,
                             mincount=args.mincount)
-                            
-                  
+
+
 
 if __name__ == "__main__":
 

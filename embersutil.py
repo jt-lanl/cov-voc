@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from verbose import verbose as v
+import verbose as v
 import wrapgen
 import covid
 

@@ -10,7 +10,7 @@ import intlist
 from spikevariants import SpikeVariants
 import covid
 
-from verbose import verbose as v
+import verbose as v
 import embersutil as emu
 
 def _getargs():

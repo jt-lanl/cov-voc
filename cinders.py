@@ -6,7 +6,7 @@ import covid
 import colornames
 import sequtil
 import mutant
-from verbose import verbose as v
+import verbose as v
 import embersutil as emu
 
 import lineagetable #_cinders as lineagetable
@@ -83,7 +83,7 @@ def main(args):
             date_counter[voc][seqdate] += 1
 
         if args.other and voc == OTHER:
-            lineage = covid.get_lineage_from_name(s.name)
+            lineage = covid.get_lineage(s)
             other_lineages[lineage] += 1
             v.vprint_only(5,'other:',s.name)
 

@@ -3,7 +3,7 @@
 import warnings
 import re
 
-import covidfast as covid
+import covid
 import mutant
 
 def parse_seq_name(name):
@@ -14,7 +14,7 @@ def parse_seq_name(name):
         isodate = tokens[4]
     except IndexError:
         raise RuntimeError(f'Bad name: {name}')
-    
+
     return isodate,isl,lineage
 
 def lowest_isl(pseqs):
@@ -31,8 +31,8 @@ class ProcessedSequence():
         self.seq = s.seq
         self.name = s.name
         isodate,isl,lineage = parse_seq_name(s.name)
-        self.ISL = isl #covid.get_isl(s.name)
-        self.lineage = lineage #covid.get_lineage_from_name(s.name)
+        self.ISL = isl
+        self.lineage = lineage
         self.date = covid.date_fromiso(isodate)
         self.mut = MM.get_mutation(s.seq)
         self.altmut = MM.get_alt_mutation(s.seq)
@@ -65,7 +65,7 @@ class ProcessedSequence():
                 if ssm.mut != seqval[0]:
                     return False
         return True
-        
+
     def fits_pattern(self,mpatt,alt_mpatt,exact=None,assume_inclusive=False):
         '''return True if the sequence fits the pattern'''
         #if mpatt == self.mut: ## easy case: if seq and patt are identical, then True
@@ -106,4 +106,4 @@ def filter_pseqs_by_pattern(MM,mpatt,pseqs,**kw):
     for ps in pseqs:
         if ps.fits_pattern(mpatt,alt_mpatt,**kw):
             yield ps
- 
+

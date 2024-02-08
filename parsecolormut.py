@@ -6,7 +6,7 @@ that has three columns: sequence name, mutant designation, color
 import itertools as it
 import argparse
 
-from verbose import verbose as v
+import verbose as v
 from spikevariants import SpikeVariants
 import sequtil
 import covid

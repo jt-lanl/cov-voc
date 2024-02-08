@@ -5,7 +5,7 @@
 import re
 import argparse
 from collections import Counter
-from verbose import verbose as v
+import verbose as v
 import sequtil
 
 def _getargs():
