@@ -1,7 +1,7 @@
 '''Insert dashes at a given site for these fasta files'''
 
 import argparse
-from verbose import verbose as v
+import verbose as v
 import intlist
 import readseq
 
