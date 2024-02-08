@@ -29,11 +29,12 @@ def _getargs():
         help="Avoid X's in the mutation inconsistencies")
     paa("--windowsize","-w",type=int,default=0,
         help="subsequence window size")
-    paa("--range","-R",type=int,nargs=2,#default=(float('-inf'),float('inf')),
+    paa("--range","-R",type=int,nargs=2,
         help="Restrict attention to this range of sites in the sequence")
     paa("--na",action="store_true",
         help="set for nucleotide alignment (default is amino acid alignment)")
-
+    paa("--speedhack",type=int,default=0,
+        help="for full-range spike, 70 is a good nubmer")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     ## fix windowsize
@@ -54,32 +55,27 @@ def check_subsequences(subseqset):
 
     ## strategy is to ensure that if two "gapped" subseqs (gseqs)
     ## have the same de-gapped string (dseq), then they are identical
-
-    v.vvvprint('distinct subsequences:',len(subseqset))
-
-    lenrange = [len(seq) for seq in subseqset]
-    if min(lenrange) != max(lenrange):
-        v.print('Un equal lengths in input sequences!!:',
-                min(lenrange),max(lenrange))
+    ## if not, then they are inconsistent
 
     inconsistent=set()
     gseq_with_dseq = dict()
     for gseq in subseqset:
         dseq = de_gap(gseq)
-        v.vvvprint_only(5,'gseq/dseq:',f'gseq={gseq} dseq={dseq}')
         if dseq in gseq_with_dseq:
             gseq_already = gseq_with_dseq[dseq]
             if gseq != gseq_already:
+                assert len(gseq) == len(gseq_already)
                 gseq_a,gseq_b = sorted([gseq,gseq_already])
                 inconsistent.add((gseq_a,gseq_b))
-                v.vprint(f'{gseq_a} != {gseq_b} : dseq={dseq}')
-                if len(gseq_a) != len(gseq_b):
-                    v.print("Unequal sequence lengths!!!")
+                v.vvprint(f'{gseq_a} != {gseq_b} : dseq={dseq}')
         else:
             gseq_with_dseq[dseq]=gseq
     return inconsistent
 
 
+## sequence trimming routines basically cosmetic
+## just used so human reader acn more readily see
+## what the relevant differences are in two sequence segments
 def trimfront(ga,gb):
     '''given two strings, trim from the front if there are identical
     characters; eg: ABCLMNOP,ABCDEFOP -> LMNOP,DEFOP
@@ -91,7 +87,7 @@ def trimfront(ga,gb):
     return ("","")
 
 def trimseqs(ga,gb):
-    '''Given two seqs (eg, 'FL-G-V--TS' and 'FL-G-VT-S-')
+    '''Given two seqs (eg, 'FL-G-V--TSR-F' and 'FL-G-VT-S-R-F')
     return trimmed sequences that illustrate the "core differeces"
     (eg, '--TS' and 'T-S-') by trimming characters off the
     front and back
@@ -105,8 +101,11 @@ def trimseqs(ga,gb):
     return ga,gb
 
 def substr_to_mut(firstseq,lo,ndxlo,gseq):
-    '''given a substring (such as 'R---T-T-') and the site value we are starting with,
-    return an mstring associated with the gseq'''
+    '''
+    given a gappy substring gaseq (such as 'R---T-T-')
+    and the site value we are starting with,
+    return the Mutation object associated with the gseq
+    '''
     ndxhi = ndxlo + len(gseq)
     v.vvprint('first:',firstseq[ndxlo:ndxhi])
     v.vvprint(' gseq:',gseq)
@@ -152,8 +151,8 @@ def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
     for site in range(minsite,maxsite+1):
         ref = mut_mgr.refval(site)
         if ref=='-':
-            v.print(f'Warning: ref value at site {site} is {ref} -- this should never happen')
-            continue
+            raise RuntimeError(f'ref value at site {site} is {ref} '
+                               '-- this should never happen')
         if site not in [ssm.site for ssm in bmut]:
             bmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
         if site not in [ssm.site for ssm in gmut]:
@@ -173,19 +172,33 @@ def show_inconsistency(lo,hi,
                        mstr_a,mstr_b,
                        file=sys.stderr):
     '''write a summary of the inconsistency'''
-    def vprint(*args,**kwargs):
+    def fprint(*args,**kwargs):
         print(*args,**kwargs,file=file)
 
-    ga,gb = trimseqs(gseqa,gseqb)
     dseq = de_gap(gseqa)
+    assert dseq == de_gap(gseqb)
+
+    ga,gb = trimseqs(gseqa,gseqb)
     dg = de_gap(ga)
-    vprint(f'{lo:>4d}:{hi:<4d}: {gseqa} : {ga}  :{dg}')
-    vprint(f'           {gseqb} : {gb}  :{dseq}')
-    vprint(f'{mstr_a} {mstr_b}')
+    fprint(f'{lo:>4d}:{hi:<4d}: {gseqa} : {ga}  :{dg}')
+    fprint(f'           {gseqb} : {gb}  :{dseq}')
+    fprint(f'{mstr_a} {mstr_b}')
+
+## fcns used for profiling (and assessing good values of speedhack)
+def setify_a(gen):
+    return set(gen)
+
+def setify_b(gen):
+    return set(gen)
+
+def setify_c(gen):
+    return set(gen)
 
 def _main(args):
     '''checkalign main'''
     v.vprint(args)
+
+    speedhack=args.speedhack
 
     seqs = sequtil.read_seqfile(args.input)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
@@ -194,63 +207,71 @@ def _main(args):
 
     ## range (default is whole sequence)
     rlo,rhi = args.range if args.range else (1,xlator.topsite+1)
-    ## pad range by window size
-    rlo = max(1,rlo-args.windowsize)
-    rhi = min(xlator.topsite+1,rhi+args.windowsize)
+    rlo = max(rlo,1)
+    rhi = min(rhi,xlator.topsite+1)
     ## convert from site number of index number
     ndxmin = min(xlator.indices_from_site(rlo))
-    ndxmax = max(xlator.indices_from_site(rhi-1))+1
+    ## pad on the right (high) end by windowsize
+    rhipad = rhi + args.windowsize
+    rhipad = min(rhipad,xlator.topsite+1)
+    ndxmax = max(xlator.indices_from_site(rhipad-1))+1
 
     v.vvprint('Reading sequence file...',end='')
-    first,seqs = covid.get_first_item(seqs,keepfirst=False)
-    first.seq = first.seq[ndxmin:ndxmax]
-    seqset = set(s.seq[ndxmin:ndxmax] for s in seqs)
-    ## these new subsequences have lost their name
-    seqs = [sequtil.SequenceSample('',seq) for seq in seqset]
-    seqs = [first]+seqs ## the first can keep its name!
+    ## Read sequences, trim to range,
+    ## and discard duplicates by keeping them in a set()
+    seqset = setify_a(s.seq[ndxmin:ndxmax] for s in seqs)
     v.vvprint('ok')
 
     ## Having finished setup, go look for inconsistencies
+    ## ie, window-length intervals with inconsistent substrings
     bad_intervals=[]
     for lo in range(rlo,rhi):
         hi = min(rhi,lo+args.windowsize)
-        ndxlo = min(xlator.indices_from_site(lo))      -ndxmin
-        ndxhi = max(xlator.indices_from_site(hi-1))+1  -ndxmin
-        subseqset = set(s.seq[ndxlo:ndxhi] for s in seqs)
+        ndxlo = min(xlator.indices_from_site(lo))
+        if speedhack and lo%speedhack == 0:
+            ## trim from the left (not necessary, seems to speed up)
+            seqset = setify_b(seq[ndxlo-ndxmin:] for seq in seqset)
+            ndxmin = ndxlo
+        ## now trim from the right
+        ndxhi = max(xlator.indices_from_site(hi-1))+1
+        subseqset = setify_b(seq[ndxlo-ndxmin:ndxhi-ndxmin] for seq in seqset)
         if args.xavoid:
             subseqset = set(seq for seq in subseqset if 'X' not in seq)
             if len(subseqset)==0:
                 continue
         for xhi in range(hi,lo,-1):
-            ## decrease subseq length, by truncating last site (may be several characters)
-            xndxhi = max(xlator.indices_from_site(xhi-1))+1  -ndxmin
-            if ndxmin == 0:
-                v.vvvprint(f'Checking sites {lo}:{xhi} / indices {ndxlo}:{xndxhi}')
-            else:
-                v.vvvprint(f'Checking sites {lo}:{xhi} / '
-                           f'local indices {ndxlo}:{xndxhi} / '
-                           f'global indices {ndxlo+ndxmin}:{xndxhi+ndxmin}')
-            if xhi<hi:
-                subseqset = set(seq[:xndxhi-ndxlo] for seq in subseqset)
+            ## decrease subseq length, by truncating last site
+            ## (may be several characters)
+            xndxhi = max(xlator.indices_from_site(xhi-1))+1
+            v.vvvprint(f'Checking sites {lo}:{xhi} / '
+                       f'local indices {ndxlo-ndxmin}:{xndxhi-ndxmin} / '
+                       f'global indices {ndxlo}:{xndxhi}')
+            subseqset = setify_c(seq[:xndxhi-ndxlo] for seq in subseqset)
             inconsistent = check_subsequences(subseqset)
-            ## put a verbose test here
+            bad_intervals.extend((lo,xhi,ndxlo,xndxhi,gsa,gsb)
+                                 for gsa,gsb in inconsistent)
+            ## show inconsistencies _as_ they are found
             if args.verbose > 1:
                 for gsa,gsb in inconsistent:
-                    msa,msb = get_inconsistent_mstringpair(mut_mgr,lo,ndxlo,gsa,gsb)
+                    msa,msb = get_inconsistent_mstringpair(mut_mgr,
+                                                           lo,ndxlo,
+                                                           gsa,gsb)
                     show_inconsistency(lo,hi,gsa,gsb,msa,msb)
 
-            bad_intervals.extend((lo,xhi,ndxlo+ndxmin,xndxhi+ndxmin,gsa,gsb)
-                                 for gsa,gsb in inconsistent)
 
     v.vprint('Bad intervals:',len(bad_intervals),f'in range {rlo}-{rhi}')
     mstringpairs = set()
     for lo,hi,ndxlo,ndxhi,gseqa,gseqb in bad_intervals:
-        mstr_a,mstr_b = get_inconsistent_mstringpair(mut_mgr,lo,ndxlo,gseqa,gseqb)
-        if args.verbose:
+        mstr_a,mstr_b = get_inconsistent_mstringpair(mut_mgr,
+                                                     lo,ndxlo,
+                                                     gseqa,gseqb)
+        if args.verbose == 1:
+            # if args.verbose > 1, we've already shown them!
             show_inconsistency(lo,hi,gseqa,gseqb,mstr_a,mstr_b)
         mstringpairs.add((mstr_a,mstr_b))
 
-    v.print('Distinct inconsistencies:',len(mstringpairs),f'in range {rlo}-{rhi}')
+    v.print('Distinct inconsistencies:',len(mstringpairs),
+            f'in range {rlo}:{rhi}')
     for ma,mb in sorted(mstringpairs):
         v.print(f'{ma} {mb}')
 
