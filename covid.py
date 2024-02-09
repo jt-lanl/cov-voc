@@ -18,8 +18,8 @@ import mutant
 
 MAX_TITLE_LENGTH=60 ## truncate long title names
 
-DEFAULTSEQFILE="Latest.fasta"
-DEFAULTSEQFILE_NOX="Latest-nox.fasta"
+DEFAULTSEQFILE_KEEPX="Latest-keepx.fasta"
+DEFAULTSEQFILE_SKIPX="Latest-skipx.fasta"
 REF_SEQUENCE_NAME="NC_045512_spike_surface_glycoprotein"
 
 
@@ -29,7 +29,8 @@ def find_seqfile(seqfilename,skipx=False):
     hunt around in various directories until you find it
     '''
     if not seqfilename:
-        seqfilename = DEFAULTSEQFILE_NOX if skipx else DEFAULTSEQFILE
+        seqfilename = (DEFAULTSEQFILE_SKIPX if skipx
+                       else DEFAULTSEQFILE_KEEPX)
 
     for special in ['-', '/dev/stdin']:
         if str(seqfilename) == special:
