@@ -1,5 +1,8 @@
 '''Parallel python module'''
 
+## nb, altho 'matchfata --keepx ...' will implicitly call Latest-keepx.fasta
+## ppm does not know that! so you need to explicitly include the '-i'
+
 import subprocess
 import argparse
 import verbose as v
