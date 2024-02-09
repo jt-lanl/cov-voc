@@ -1,6 +1,43 @@
 '''check alignemnt consistency and provide suggested alignment tweaks'''
 ## But: unlike fixalign, do not bother trying to actually align!
 
+SPEEDHACK_HELP='''
+Runtime for this routine is dominated by three processes:
+1/ reading the sequence file
+2/.string slicing (eg, seq[ndxlo:ndxhi]) to create subsequencs
+3/ converting generators to sets
+
+Note that the identification of which subsequences match, while
+central to checking the alignment, does not contribute substantially
+to the runtime of the code.
+
+Also note, the reason we use sets (instead of lists, say) is that
+by eliminating duplicates, we have fewer subsequences to work
+with. Uses less memory, and there's less data to process, so uses
+less runtime.  (In fact, since we read the data into a generator
+instead of a list to begin with, we /never/ require the memory
+needed to hold the entire fasta file's worth of data.)
+
+The speedhack deals with the interaction between #2 and #3. The
+more aggressively we use sets to reduce the data size, the fewer
+subsequecnes we need to be slicing through.  Using speedhack=0
+(default), we do not separately left-truncate and right-truncate,
+so there are fewer calls to slice and fewer set-ify.  But the number
+of subsequences to which those slices and set'ifings are applied is
+larger.  With speedhack=1, we left-truncate and right-truncate
+separately.  More calls to slice and to set-ify, but the slicing and
+set-ifying is done to fewer subsequences. Sometimes that's a win,
+sometimes not so much.
+
+But if we take speedhack=10, say, then we will left-truncate only on
+every 10th loop.  So the amount of extra slicing and set-ifying
+is marginal, but (especially for a long sequence such as spike protein),
+the effect is to continue reducing the size of the sequence set, so
+reducing how much slicing and set-ifying is done at each call.
+
+For spike protein, I find that speedhack=50-ish works well, and
+delivers a 2-3x speedup, depending on the data.
+'''
 import sys
 import re
 from functools import lru_cache
@@ -34,12 +71,14 @@ def _getargs():
     paa("--na",action="store_true",
         help="set for nucleotide alignment (default is amino acid alignment)")
     paa("--speedhack",type=int,default=0,
-        help="for full-range spike, 70 is a good nubmer")
+        help="for full-range spike, 50 is a good nubmer")
+    paa("--speedhackhelp",action="store_true",
+        help="Use this option to print out a discussion of speedhack")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     ## fix windowsize
     if not args.windowsize:
-        args.windowsize = 60 if args.na else 20
+        args.windowsize = 90 if args.na else 30
     if args.na:
         args.windowsize = 3*(args.windowsize//3)
     return args
@@ -184,24 +223,34 @@ def show_inconsistency(lo,hi,
     fprint(f'           {gseqb} : {gb}  :{dseq}')
     fprint(f'{mstr_a} {mstr_b}')
 
-## fcns used for profiling (and assessing good values of speedhack)
-def setify_a(gen):
+## these "setify" functions, which just wrap set(), are used for profiling
+## (so we know how much each set() call contributed to the total run time)
+def setify_init(gen):
+    '''set() applied to the initial sequences as they are read in'''
     return set(gen)
 
-def setify_b(gen):
+def setify_left(gen):
+    '''set() applied to the left-truncation of subsequences'''
     return set(gen)
 
-def setify_c(gen):
+def setify_right(gen):
+    '''set() applied to the right-truncation of subsequence'''
+    return set(gen)
+
+def setify_right_again(gen):
+    '''set() applied to the second right-truncation'''
     return set(gen)
 
 def _main(args):
     '''checkalign main'''
     v.vprint(args)
 
-    speedhack=args.speedhack
+    if args.speedhackhelp:
+        print(SPEEDHACK_HELP);
+        return
 
-    seqs = sequtil.read_seqfile(args.input)
-    first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+    seqs = covid.read_filter_seqfile(args)
+    first,seqs = covid.get_first_item(seqs,keepfirst=True)
     xlator = mutant.SiteIndexTranslator(first.seq)
     mut_mgr = mutant.MutationManager(first.seq)
 
@@ -219,22 +268,23 @@ def _main(args):
     v.vvprint('Reading sequence file...',end='')
     ## Read sequences, trim to range,
     ## and discard duplicates by keeping them in a set()
-    seqset = setify_a(s.seq[ndxmin:ndxmax] for s in seqs)
+    seqset = setify_init(s.seq[ndxmin:ndxmax] for s in seqs)
     v.vvprint('ok')
 
     ## Having finished setup, go look for inconsistencies
     ## ie, window-length intervals with inconsistent substrings
     bad_intervals=[]
     for lo in range(rlo,rhi):
-        hi = min(rhi,lo+args.windowsize)
+        hi = min(rhipad,lo+args.windowsize)
         ndxlo = min(xlator.indices_from_site(lo))
-        if speedhack and lo%speedhack == 0:
+        if args.speedhack and (lo-rlo+1)%args.speedhack == 0:
             ## trim from the left (not necessary, seems to speed up)
-            seqset = setify_b(seq[ndxlo-ndxmin:] for seq in seqset)
+            seqset = setify_left(seq[ndxlo-ndxmin:] for seq in seqset)
             ndxmin = ndxlo
         ## now trim from the right
         ndxhi = max(xlator.indices_from_site(hi-1))+1
-        subseqset = setify_b(seq[ndxlo-ndxmin:ndxhi-ndxmin] for seq in seqset)
+        subseqset = setify_right(seq[ndxlo-ndxmin:ndxhi-ndxmin]
+                                 for seq in seqset)
         if args.xavoid:
             subseqset = set(seq for seq in subseqset if 'X' not in seq)
             if len(subseqset)==0:
@@ -246,7 +296,8 @@ def _main(args):
             v.vvvprint(f'Checking sites {lo}:{xhi} / '
                        f'local indices {ndxlo-ndxmin}:{xndxhi-ndxmin} / '
                        f'global indices {ndxlo}:{xndxhi}')
-            subseqset = setify_c(seq[:xndxhi-ndxlo] for seq in subseqset)
+            subseqset = setify_right_again(seq[:xndxhi-ndxlo]
+                                          for seq in subseqset)
             inconsistent = check_subsequences(subseqset)
             bad_intervals.extend((lo,xhi,ndxlo,xndxhi,gsa,gsb)
                                  for gsa,gsb in inconsistent)
