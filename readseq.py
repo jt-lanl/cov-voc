@@ -141,8 +141,7 @@ def rd_tbl(fp):
             name,seq = tokens[0],tokens[-1]
             yield SequenceSample(name.strip(),seq.strip())
         except ValueError:
-            print("line=[",line,"]")
-            raise RuntimeError("Invalid line in tbl file")
+            warnings.warn(f'Invalid line=[{line}] in tbl file')
 
 
 FILEFUNCS = {
@@ -258,8 +257,8 @@ def filter_seqs(seqs,
     re_dash = re.compile(r'-')
 
     ## old-style badchar as regexp
-    re_badchar = re.compile(r'[\$\#\*Xx]')
-    re_badlastchar = re.compile(r'[\#Xx]')
+    #re_badchar = re.compile(r'[\$\#\*Xx]')
+    #re_badlastchar = re.compile(r'[\#Xx]')
 
     ## new badchar based on translation (faster)
     ## Always keep '*'
@@ -308,7 +307,7 @@ def filter_seqs(seqs,
         if maxseqs and nseqs >= maxseqs:
             break
 
-def read_seqfile(filename,filetype="auto",**kw):
+def read_seqfile(filename,filetype="auto",nofilter=False,**kw):
     '''
     returns a list of SequenceSample's, with names and sequences for each one
     filename=string or pathlib.Path
@@ -321,9 +320,9 @@ def read_seqfile(filename,filetype="auto",**kw):
     xpattern=str: only keep seqeunces whose name does NOT match this pattern
     '''
     seqs = rd_seqfile(filename,filetype=filetype)
-    seqs = filter_seqs(seqs,**kw)
+    if not nofilter:
+        seqs = filter_seqs(seqs,**kw)
     return seqs
-    #return list(seqs)
 
 def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=None):
     '''
@@ -339,9 +338,10 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
     atype,_,_ = auto_filetype(filename)
 
     if filetype != "auto" and filetype not in FILETYPES:
-        raise RuntimeError("filetype="+filetype+" not supported")
+        raise RuntimeError(f"filetype={filetype} not supported")
     if filetype != "auto" and atype and FILEFUNCS[atype] != FILEFUNCS[filetype]:
-        raise RuntimeWarning("filetype="+filetype+" but file appears of filetype "+afiletype)
+        raise RuntimeWarning(f"specified filetype={filetype} "
+                             f"but file appears of type {atype}")
 
     if filetype == "auto":
         filetype = atype
@@ -350,8 +350,8 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
         with xopen(filename,'r') as fp:
             seqlist = list( read_fcn(fp) )
     else:
-        raise RuntimeError("Unknown filetype ["+filetype+
-                           "] of sequence file ["+filename+"]")
+        raise RuntimeError(f"Unknown filetype [{filetype} "
+                           f"of sequence file [{filename}]")
 
     if rmdash:
         re_dash = re.compile('-')
@@ -373,17 +373,15 @@ def read_seqfile_old(filename,filetype="auto",rmdash=False,toupper=True,badchar=
 ################### WRITE SEQUENCE FILES
 
 
-def columnize(str,col=0):
+def columnize(longstring,col=0):
     '''break up a long string into a sequence of strings with col columns or less'''
     if col == 0:
         ## default is not to columnize
-        yield str
+        yield longstring
     else:
-        while len(str)>=col:
-            yield str[:col]
-            str = str[col:]
-        if str:
-            yield str
+        while longstring:
+            yield longstring[:col]
+            longstring = longstring[col:]
 
 def write_fasta(filename,seq_samples,gz=False,xz=False):
     with xopen(filename,'w',gz=gz,xz=xz) as fout:
@@ -397,8 +395,8 @@ def write_mase(filename,seq_samples,gz=False,xz=False):
     with xopen(filename,'w',gz=gz,xz=xz) as fout:
         for s in seq_samples:
             fout.write(";\n%s\n" % s.name)
-            for str in columnize(s.seq):
-                fout.write(str + "\n")
+            for line in columnize(s.seq):
+                fout.write(line + "\n")
 
 def write_tbl(filename,seq_samples,gz=False,xz=False):
     with xopen(filename,'w',gz=gz,xz=xz) as fout:
@@ -450,9 +448,9 @@ W_FILETYPES = list(W_FILEFUNCS)
 def write_seqfile(filename,seq_samples,filetype="auto"):
 
     (filename,filetype,
-     gz,xz,binaryfile) = get_fileinfo(filename,
-                                      filetype,
-                                      W_FILETYPES)
+     gz,xz,_) = get_fileinfo(filename,
+                             filetype,
+                             W_FILETYPES)
     write_fcn = W_FILEFUNCS[filetype]
     write_fcn(filename,seq_samples,gz=gz,xz=xz)
 
@@ -472,12 +470,12 @@ if __name__ == "__main__":
     paa("--ofiletype",default="auto",
         help="Type of output file")
 
-    args = argparser.parse_args()
+    _args = argparser.parse_args()
 
-    seqs = read_seqfile(args.filename,
-                        filetype=args.filetype,
-                        rmdash=args.rmdash)
+    _seqs = read_seqfile(_args.filename,
+                         filetype=_args.filetype,
+                         rmdash=_args.rmdash)
 
-    if args.output:
-        write_seqfile(args.output,seqs,
-                      filetype=args.ofiletype)
+    if _args.output:
+        write_seqfile(_args.output,_seqs,
+                      filetype=_args.ofiletype)
