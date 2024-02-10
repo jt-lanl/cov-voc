@@ -20,7 +20,7 @@ MAX_TITLE_LENGTH=60 ## truncate long title names
 
 DEFAULTSEQFILE_KEEPX="Latest-keepx.fasta"
 DEFAULTSEQFILE_SKIPX="Latest-skipx.fasta"
-REF_SEQUENCE_NAME="NC_045512_spike_surface_glycoprotein"
+REF_SEQUENCE_NAME="NC_045512" #first part of name for all proteins
 
 
 def find_seqfile(seqfilename,skipx=False):
