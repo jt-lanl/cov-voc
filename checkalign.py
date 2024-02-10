@@ -1,6 +1,50 @@
 '''check alignemnt consistency and provide suggested alignment tweaks'''
 ## But: unlike fixalign, do not bother trying to actually align!
 
+import sys
+import re
+from functools import lru_cache
+import argparse
+
+import verbose as v
+from readseq import xopen
+import mutant
+import covid
+
+def _getargs():
+    '''parse options from command line'''
+    argparser = argparse.ArgumentParser(description=__doc__)
+    ## Generic options first
+    gaa = argparser.add_argument
+    gaa("--verbose","-v",action="count",default=0,
+        help="verbose")
+    ## Corona (Input) options
+    covid.corona_args(argparser)
+    ## Alignment options
+    paa = argparser.add_argument_group('Alignment Options').add_argument
+    paa("--mstringpairs","-M",
+        help="write file of mstring pairs")
+    paa("--xavoid",action="store_true",
+        help="Avoid X's in the mutation inconsistencies")
+    paa("--windowsize","-w",type=int,default=0,
+        help="subsequence window size")
+    paa("--range","-R",type=int,nargs=2,
+        help="Restrict attention to this range of sites in the sequence")
+    paa("--na",action="store_true",
+        help="set for nucleotide alignment (default is amino acid alignment)")
+    paa("--speedhack",type=int,default=0,
+        help="for full-range spike, 50 is a good nubmer")
+    paa("--speedhackhelp",action="store_true",
+        help="Use this option to print out a discussion of speedhack")
+    args = argparser.parse_args()
+    args = covid.corona_fixargs(args)
+    ## fix windowsize
+    if not args.windowsize:
+        args.windowsize = 90 if args.na else 30
+    if args.na:
+        args.windowsize = 3*(args.windowsize//3)
+    return args
+
 SPEEDHACK_HELP='''
 Runtime for this routine is dominated by three processes:
 1/ reading the sequence file
@@ -38,50 +82,6 @@ reducing how much slicing and set-ifying is done at each call.
 For spike protein, I find that speedhack=50-ish works well, and
 delivers a 2-3x speedup, depending on the data.
 '''
-import sys
-import re
-from functools import lru_cache
-import argparse
-
-import verbose as v
-from readseq import xopen
-import sequtil
-import mutant
-import covid
-
-def _getargs():
-    '''parse options from command line'''
-    argparser = argparse.ArgumentParser(description=__doc__)
-    ## Generic options first
-    gaa = argparser.add_argument
-    gaa("--verbose","-v",action="count",default=0,
-        help="verbose")
-    ## Corona (Input) options
-    covid.corona_args(argparser)
-    ## Alignment options
-    paa = argparser.add_argument_group('Alignment Options').add_argument
-    paa("--mstringpairs","-M",
-        help="write file of mstring pairs")
-    paa("--xavoid",action="store_true",
-        help="Avoid X's in the mutation inconsistencies")
-    paa("--windowsize","-w",type=int,default=0,
-        help="subsequence window size")
-    paa("--range","-R",type=int,nargs=2,
-        help="Restrict attention to this range of sites in the sequence")
-    paa("--na",action="store_true",
-        help="set for nucleotide alignment (default is amino acid alignment)")
-    paa("--speedhack",type=int,default=0,
-        help="for full-range spike, 50 is a good nubmer")
-    paa("--speedhackhelp",action="store_true",
-        help="Use this option to print out a discussion of speedhack")
-    args = argparser.parse_args()
-    args = covid.corona_fixargs(args)
-    ## fix windowsize
-    if not args.windowsize:
-        args.windowsize = 90 if args.na else 30
-    if args.na:
-        args.windowsize = 3*(args.windowsize//3)
-    return args
 
 DEDASH = re.compile("-")
 @lru_cache(maxsize=None)
@@ -246,7 +246,7 @@ def _main(args):
     v.vprint(args)
 
     if args.speedhackhelp:
-        print(SPEEDHACK_HELP);
+        print(SPEEDHACK_HELP)
         return
 
     seqs = covid.read_filter_seqfile(args)
@@ -255,16 +255,19 @@ def _main(args):
     mut_mgr = mutant.MutationManager(first.seq)
 
     ## range (default is whole sequence)
-    rlo,rhi = args.range if args.range else (1,xlator.topsite+1)
+    rlo,rhi = args.range if args.range else (1,xlator.topsite)
     rlo = max(rlo,1)
-    rhi = min(rhi,xlator.topsite+1)
+    rhi = min(rhi,xlator.topsite)
     ## convert from site number of index number
-    ndxmin = min(xlator.indices_from_site(rlo))
+    ndxmin = xlator.index_from_site(rlo)
     ## pad on the right (high) end by windowsize
-    rhipad = rhi + args.windowsize
-    rhipad = min(rhipad,xlator.topsite+1)
-    ndxmax = max(xlator.indices_from_site(rhipad-1))+1
-
+    ## whereas rhi is an actual site (highest value of lo in lo:hi ranges)
+    ## hipad is the highest value of hi in lo:hi ranges, so one site higher than actual site
+    hipad = rhi + args.windowsize
+    hipad = min(hipad,xlator.topsite+1)
+    ndxmax = xlator.index_from_site(hipad-1)+1
+    v.vvprint('site range:',rlo,rhi,xlator.topsite,hipad)
+    v.vvprint('indx range:',ndxmin,ndxmax)
     v.vvprint('Reading sequence file...',end='')
     ## Read sequences, trim to range,
     ## and discard duplicates by keeping them in a set()
@@ -274,15 +277,16 @@ def _main(args):
     ## Having finished setup, go look for inconsistencies
     ## ie, window-length intervals with inconsistent substrings
     bad_intervals=[]
-    for lo in range(rlo,rhi):
-        hi = min(rhipad,lo+args.windowsize)
-        ndxlo = min(xlator.indices_from_site(lo))
+    for lo in range(rlo,rhi+1):
+        hi = lo+args.windowsize
+        hi = min(hipad,hi)
+        ndxlo = xlator.index_from_site(lo)
         if args.speedhack and (lo-rlo+1)%args.speedhack == 0:
             ## trim from the left (not necessary, seems to speed up)
             seqset = setify_left(seq[ndxlo-ndxmin:] for seq in seqset)
             ndxmin = ndxlo
         ## now trim from the right
-        ndxhi = max(xlator.indices_from_site(hi-1))+1
+        ndxhi = xlator.index_from_site(hi-1)+1
         subseqset = setify_right(seq[ndxlo-ndxmin:ndxhi-ndxmin]
                                  for seq in seqset)
         if args.xavoid:
@@ -292,12 +296,14 @@ def _main(args):
         for xhi in range(hi,lo,-1):
             ## decrease subseq length, by truncating last site
             ## (may be several characters)
-            xndxhi = max(xlator.indices_from_site(xhi-1))+1
-            v.vvvprint(f'Checking sites {lo}:{xhi} / '
-                       f'local indices {ndxlo-ndxmin}:{xndxhi-ndxmin} / '
-                       f'global indices {ndxlo}:{xndxhi}')
+            xndxhi = xlator.index_from_site(xhi-1)+1
             subseqset = setify_right_again(seq[:xndxhi-ndxlo]
                                           for seq in subseqset)
+            v.vvvprint(f'Checking sites {lo}:{xhi} / '
+                       f'local indices {ndxlo-ndxmin}:{xndxhi-ndxmin} / '
+                       f'global indices {ndxlo}:{xndxhi} / '
+                       f'sample: {next(iter(subseqset))}')
+
             inconsistent = check_subsequences(subseqset)
             bad_intervals.extend((lo,xhi,ndxlo,xndxhi,gsa,gsb)
                                  for gsa,gsb in inconsistent)
@@ -310,7 +316,7 @@ def _main(args):
                     show_inconsistency(lo,hi,gsa,gsb,msa,msb)
 
 
-    v.vprint('Bad intervals:',len(bad_intervals),f'in range {rlo}-{rhi}')
+    v.vprint('Bad intervals:',len(bad_intervals),f'in range {rlo}:{rhi}')
     mstringpairs = set()
     for lo,hi,ndxlo,ndxhi,gseqa,gseqb in bad_intervals:
         mstr_a,mstr_b = get_inconsistent_mstringpair(mut_mgr,
