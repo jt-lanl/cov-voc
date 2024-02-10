@@ -316,7 +316,7 @@ def _main(args):
                     show_inconsistency(lo,hi,gsa,gsb,msa,msb)
 
 
-    v.vprint('Bad intervals:',len(bad_intervals),f'in range {rlo}:{rhi}')
+    v.vprint('Bad intervals:',len(bad_intervals),f'in range {rlo}-{rhi}')
     mstringpairs = set()
     for lo,hi,ndxlo,ndxhi,gseqa,gseqb in bad_intervals:
         mstr_a,mstr_b = get_inconsistent_mstringpair(mut_mgr,
@@ -328,7 +328,7 @@ def _main(args):
         mstringpairs.add((mstr_a,mstr_b))
 
     v.print('Distinct inconsistencies:',len(mstringpairs),
-            f'in range {rlo}:{rhi}')
+            f'in range {rlo}-{rhi}')
     for ma,mb in sorted(mstringpairs):
         v.print(f'{ma} {mb}')
 
