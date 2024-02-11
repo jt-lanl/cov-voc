@@ -408,9 +408,13 @@ def filter_seqs_by_pattern(seqs,args):
             name = expand_who_name_to_pangolin_pattern(name)
             xcludes.append(name)
 
-    ## Use r"\b" to ensure that whole names are matched; thus patt="India" should not match "Indiana"
-    keepers = [r"\b"+patt+r"\b" for patt in keepers]
-    xcludes = [r"\b"+xpat+r"\b" for xpat in xcludes]
+    ## Use word boundary to ensure that whole names are matched;
+    ## thus patt="India" should not match "Indiana"
+    ## Note that std \b is replaced by (?=\b|_)
+    ## so that _ can be used as a word boundary
+    word_boundary=r"(?=\b|_)"
+    keepers = [word_boundary+patt+word_boundary for patt in keepers]
+    xcludes = [word_boundary+xpat+word_boundary for xpat in xcludes]
 
     if keepers:
         seqs = sequtil.filter_by_patternlist(seqs,keepers)
