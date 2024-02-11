@@ -37,7 +37,7 @@ def getargs():
 def print_header(args):
     '''print the header before the table itself'''
     print(f"COMMON FORMS CHANGES FOR {args.protein.upper()} "
-          f"WITH A GIVEN PANGO LINEAGE DESIGNATION")
+          "WITH A GIVEN PANGO LINEAGE DESIGNATION")
     print()
     print(f"For each lineage, we show the most common forms of {args.protein}, "
           "and we show the forms that are most significantly increasing "
@@ -49,20 +49,20 @@ def print_header(args):
           "indicated with 'E156-,F157-'), "
           "and insertions are denoted by a plus sign "
           "(e.g. an extra T at position 143 is written '+143T'). ")
-    print(f"Abs Differences in later vs early fractions, expressed as percent.")
-    print(f"Relative Differences range between -100% and +100%, using formula: "
+    print("Abs Differences in later vs early fractions, expressed as percent.")
+    print("Relative Differences range between -100% and +100%, using formula: "
           "rel = 100*(later-early)/max(later,early) percent, applied to the "
           "early and later fractions.")
-    print(f"The p-value associated with increase or decrease is computed by "
-          f"Fisher's exact test, and is meant to be used only as a rough guide "
-          f"to the significance of the change. Since the computation is based on "
-          f"assumptions (such as independent and unbiased sampling) that may not "
-          f"hold in practice, the p-value should not be taken too literally.")
-    print(f"The first line of each lineage section indicates counts "
-          f"for the full lineage relative to all the sequences. "
-          f"'Lineage Count' in this first line is actually the full sequence count. "
-          f"'Form Count' in this first line is actually the full lineage count, "
-          f"and 'Form Pct' refers to lineage count relative to full sequence set.")
+    print("The p-value associated with increase or decrease is computed by "
+          "Fisher's exact test, and is meant to be used only as a rough guide "
+          "to the significance of the change. Since the computation is based on "
+          "assumptions (such as independent and unbiased sampling) that may not "
+          "hold in practice, the p-value should not be taken too literally.")
+    print("The first line of each lineage section indicates counts "
+          "for the full lineage relative to all the sequences. "
+          "'Lineage Count' in this first line is actually the full sequence count. "
+          "'Form Count' in this first line is actually the full lineage count, "
+          "and 'Form Pct' refers to lineage count relative to full sequence set.")
     print()
 
     count_forms = f"the {args.npatterns} most common" if args.npatterns \
@@ -104,7 +104,17 @@ def split_date_range_bycounts(seqlist):
     later_range = (mid_date, end_date)
     return early_range, later_range
 
-PVALMIN = 1e-9
+def relative_diff(ne,nl,ce,cl):
+    '''informally: relative difference between ce/ne and cl/nl;
+    but bounded in range (-100,100) and ok when ne=0 or nl=0'''
+    return 100*(cl*ne-ce*nl)/max([cl*ne,ce*nl,1])
+
+PVALMIN = 1.2589e-10 ## caps neglog at 9.9
+def neg_log_pval(pval):
+    '''compute neg log of pvalue, capping value at 9.9'''
+    pval = max([pval,PVALMIN])
+    return np.log10(1/pval)
+
 def strpval(pval):
     '''convert p-value into a string of the form, eg " 2e-4", or else "<1e-9"
     '''
@@ -124,18 +134,18 @@ def main(args):
     print_header(args)
 
     early,later = split_date_range_bycounts(seqlist)
-    n_early = len(list(covid.filter_by_date(seqlist,*early)))
-    n_later = len(list(covid.filter_by_date(seqlist,*later)))
+    total_ne = len(list(covid.filter_by_date(seqlist,*early)))
+    total_nl = len(list(covid.filter_by_date(seqlist,*later)))
 
     last_days = f" in the last {args.days} days from our last update,"
     last_days = last_days if args.days else ""
     (f_date,_),(_,t_date) = early,later
-    print(f"This output is based on {n_early+n_later} sequences sampled{last_days} "
+    print(f"This output is based on {total_ne+total_nl} sequences sampled{last_days} "
           f"from {f_date} to {t_date}")
-    print(f"This total interval is split into two sub-intervals.")
-    print(f"Total: {early[0]} to {later[1]} ({n_early+n_later})")
-    print(f"Early: {early[0]} to {early[1]} ({n_early})")
-    print(f"Later: {later[0]} to {later[1]} ({n_later})")
+    print("This total interval is split into two sub-intervals.")
+    print(f"Total: {early[0]} to {later[1]} ({total_ne+total_nl})")
+    print(f"Early: {early[0]} to {early[1]} ({total_ne})")
+    print(f"Later: {later[0]} to {later[1]} ({total_nl})")
 
     ## Partition seqlist by lineages, separate list for each lineage
     lp = cf.LineagePartition(seqlist)
@@ -178,16 +188,16 @@ def main(args):
 
         ## Compute pval for the lineage
         if lin != "N/A":
-            _,pval = stats.fisher_exact([[ne,nl],[n_early-ne,n_later-nl]])
+            _,pval = stats.fisher_exact([[ne,nl],[total_ne-ne,total_nl-nl]])
             print()
-            rne = ne/n_early if n_early>0 else 0
-            rnl = nl/n_later if n_later>0 else 0
+            rne = ne/total_ne if total_ne>0 else 0
+            rnl = nl/total_nl if total_nl>0 else 0
             table_line = table_format % \
-                (lp.format(''),n_early+n_later,ne+nl,
-                 100*(ne+nl)/(n_early+n_later),
+                (lp.format(''),total_ne+total_nl,ne+nl,
+                 100*(ne+nl)/(total_ne+total_nl),
                  ne,nl,rne,rnl,
                  100*(rnl-rne),
-                 100*(nl*n_early-ne*n_later)/max([nl*n_early,ne*n_later]),
+                 100*(nl*total_ne-ne*total_nl)/max([nl*total_ne,ne*total_nl]),
                  strpval(pval),
                  0,f" Full {lin}","lineage")
             table_line = re.sub(" ","_",table_line)
@@ -200,20 +210,7 @@ def main(args):
         lineage_baseline = mut_manager.get_mutation(top_comm)
         cntr_early = Counter(s.seq for s in seqlin_early)
         cntr_later = Counter(s.seq for s in seqlin_later)
-        def relative_diff(comm):
-            ce,cl = cntr_early[comm],cntr_later[comm]
-            #den = cl/nl if cl*ne > ce*nl else ce/ne
-            return 100*(cl*ne-ce*nl)/max([cl*ne,ce*nl,1])
-        def neg_log_pval(comm,cap=False):
-            ce,cl = cntr_early[comm],cntr_later[comm]
-            _,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
-            if cap:
-                pval = max([pval,PVALMIN])
-            return np.log10(1/pval)
-        def form_count(comm):
-            ce,cl = cntr_early[comm],cntr_later[comm]
-            return ce+cl
-        cntrlist = sorted(cntr_both,key=form_count,reverse=True)
+        cntrlist = sorted(cntr_both,key=cntr_both.get,reverse=True)
 
         if args.npatterns:
             cntrlist = cntrlist[:args.npatterns]
@@ -234,14 +231,14 @@ def main(args):
             hdist = hamming(top_comm,comm)
             cene = ce/ne if ne>0 else (np.inf if ne>0 else 0)
             clnl = cl/nl if nl>0 else (np.inf if nl>0 else 0)
-            _,pval = stats.fisher_exact([[ce,cl],[n_early-ce,n_later-cl]])
+            _,pval = stats.fisher_exact([[ce,cl],[total_ne-ce,total_nl-cl]])
             print(table_format %
                   (fmtlin,countlin,ce+cl,
                    100*(ce+cl)/countlin,
                    ce,cl,
                    cene,clnl,
                    100*(clnl-cene),
-                   relative_diff(comm),
+                   relative_diff(ne,nl,ce,cl),
                    strpval(pval),
                    hdist,mstring,cons_string))
 
