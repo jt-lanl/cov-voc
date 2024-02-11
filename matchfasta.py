@@ -21,12 +21,12 @@ import wrapgen
 def getargs():
     '''get command-line arguments'''
     ap = argparse.ArgumentParser(description=__doc__)
-    paa = ap.add_argument
     covid.corona_args(ap)
-    paa("--random",action="store_true",
-        help="randomize input data order")
+    paa = ap.add_argument_group("Matching Options").add_argument
     paa("--mutant","-m",
         help="mutant string, such as '[W152R,N439K,D614G,P681R]'")
+    paa("--extended","-e",action="store_true",
+        help="allow mutant string to include wildcards (slower)")
     paa("--grep","-g",
         help=("match a string fragment sequence file; "
               "preceed with '/' to avoid leading with '-'"))
@@ -37,27 +37,27 @@ def getargs():
     paa("--compact",action="store_true",
         help="write sitelist in a compact way with no room for insertions")
     paa("-N",type=int,default=0,
-        help="show at most this many sequences")
-    paa("--count",action="store_true",
-        help="Only output a count of the number of sequences that match")
-    paa("--nlist",
-        help="list of sequences (before filtering); eg. 1-100, or 3-6")
-    paa("--output","-o",type=Path,
-        help="output fasta file")
+        help="show at most this many matched sequences")
     paa("--exact",action="store_true",
         help="require all non-listed sites to match reference sequence")
     paa("--uniq",action="store_true",
         help="eliminate sequences with duplicate names")
     paa("--uniqisl",action="store_true",
         help="eliminate sequences with duplicate ISL numbers")
-    paa("--showmutants",action="store_true",
+    paa("--showmuts",action="store_true",
         help="show mutant string after sequence name")
     paa("--jobno",type=int,default=1,
         help="job number if using parallel")
+    paa("--count",action="store_true",
+        help="Print count of the number of sequences that match (no other output!)")
+    paa("--output","-o",type=Path,
+        help="output fasta file")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = ap.parse_args()
     args = covid.corona_fixargs(args)
+    if args.count and args.output:
+        v.print("Warning: No output if '--count' is invoked")
     return args
 
 
@@ -71,44 +71,6 @@ def ndx_and_site_lists(m_mgr,sites,compact=True):
             ndxlist.extend(m_mgr.indices_from_site(site))
     sitelist = [m_mgr.site_from_index(ndx) for ndx in ndxlist]
     return ndxlist,sitelist
-
-def read_seqfile(args,firstisref=True):
-    '''get seqs from file, and filter accordingly'''
-
-    maxseqs = None
-    if args.nlist:
-        maxseqs = max(intlist.string_to_intlist(args.nlist))
-        if firstisref:
-            maxseqs += 1
-    seqs = covid.read_seqfile(args,maxseqs=maxseqs)
-    if args.nlist:
-        nset = set(intlist.string_to_intlist(args.nlist))
-        if firstisref:
-            nset.add(0)
-        seqs = (s for n,s in enumerate(seqs) if n in nset)
-        seqs = vcount(seqs,"Sequences in nlist:")
-
-    ## comment: i think covid.filter_seqs also filters if args.keepx is set
-    ## but this is here, i guess, so that the vcount will deal with keepx=False
-    if not args.keepx:
-        ## neeed [:-1] here because haven't 'fixed' data yet
-        ## via the covid.filter_seqs() call
-        seqs = (s for s in seqs if "X" not in s.seq[:-1])
-        seqs = vcount(seqs,"Sequences w/o X:")
-
-    seqs = covid.filter_seqs(seqs,args,firstisref=firstisref)
-
-    #seqs = sequtil.checkseqlengths(seqs)
-    if args.random:
-        seqlist = list(seqs)
-        if firstisref:
-            first,seqlist = seqlist[0],seqlist[1:]
-        seqlist = random.sample(seqlist,k=len(seqlist))
-        if firstisref:
-            seqlist = [first]+seqlist
-        seqs = seqlist
-
-    return seqs
 
 def keepuniq(seqs):
     '''yield input sequences but with duplicate named sequences filtered out'''
@@ -131,11 +93,48 @@ def keepuniqisl(seqs):
         isl_set.add(isl)
         yield s
 
+## should this maybe be in mutant.py ??
+def mut_pattern_match(m_mgr,mpatt,seqs,exact=False):
+    '''alternative to (s for s in seqs if mutant.seq_fits_pattern(mpatt,s.seq))'''
+    ## re-express the mpatt as an explicit full-length sequence
+    mpatt_seq = m_mgr.seq_from_mutation(mpatt)
+    if exact:
+        for s in seqs:
+            if s.seq == mpatt_seq:
+                yield s
+    elif 0:
+        ## obtain indexlist from mutation sites
+        ndxlist = []
+        for ssm in mpatt:
+            ndxlist.extend( m_mgr.indices_from_site(ssm.site) )
+        for s in seqs:
+            if all(s.seq[ndx] == mpatt_seq[ndx]
+                   for ndx in ndxlist):
+                yield s
+    else:
+        ## convert list of indices to list of ranges
+        ndxlist = []
+        for ssm in mpatt:
+            ndxlist.extend( m_mgr.indices_from_site(ssm.site) )
+        ndxrangelist = intlist.intlist_to_rangelist(ndxlist)
+        ## pre-compute pattern for each range
+        mpatt_seqlist = [mpatt_seq[lo:hi] for lo,hi in ndxrangelist]
+        for s in seqs:
+            ## see if s.seq matches mpatt_seq over ALL the ranges
+            ## equiv: fails to match for ANY range
+            ismatch = True
+            for (lo,hi),patt in zip(ndxrangelist,mpatt_seqlist):
+                if s.seq[lo:hi] != patt:
+                    ismatch = False
+                    break
+            if ismatch:
+                yield s
+
 def main(args):
     '''main'''
 
-    seqs = read_seqfile(args,firstisref=True)
-    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+    seqs = covid.read_filter_seqfile(args)
+    first,seqs = covid.get_first_item(seqs,keepfirst=False)
 
     m_mgr = mutant.MutationManager(first.seq)
 
@@ -157,10 +156,13 @@ def main(args):
                 ssms.append(ssm)
             mpatt = mutant.Mutation(ssms)
 
-    if mpatt:
+    if mpatt and args.extended:
         seqs = m_mgr.filter_seqs_by_pattern(mpatt,seqs,exact=args.exact)
         if args.verbose:
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
+
+    if mpatt and not args.extended:
+        seqs = mut_pattern_match(m_mgr,mpatt,seqs,exact=args.exact)
 
     if args.grep:
         args.grep = re.sub(r'/','',args.grep) ## you can use /---I--TT/ as a pattern
@@ -174,22 +176,23 @@ def main(args):
         seqs = keepuniqisl(seqs)
 
     if args.N:
-        seqs = it.islice(seqs,args.N+1)
+        seqs = it.islice(seqs,args.N)
 
     ## how many seqs still in the generator after all that filtering/matching
-    if args.verbose:
-        ## how many sequences match
-        seqs = wrapgen.keepcount(seqs,"Sequences match:")
-    if args.count:
-        ## if --count, then send the count to stdout (w/o msg prefix)
-        seqs = wrapgen.keepcount(seqs,None,file=sys.stdout)
+    seqs = vcount(seqs,"Sequences match:")
 
-    if args.output:
+    ## Only one of the three options below (either count, or output, or neither)
+    ## All three of thse options consume the generator "seqs"
+
+    if args.count:
+        print( sum(1 for s in seqs) )
+
+    elif args.output:
         if args.jobno==1:
             seqs = it.chain([first],seqs)
-        readseq.write_seqfile(args.output,seqs)
+        sequtil.write_seqfile(args.output,seqs)
 
-    if not (args.count or args.output):
+    else:
         ## write summary to stdout
         ndxlist,sitelist = ndx_and_site_lists(m_mgr,sites,
                                               compact=args.compact)
@@ -199,14 +202,9 @@ def main(args):
             seqs = it.chain([first],seqs)
         for s in seqs:
             print( "".join(s.seq[n] for n in ndxlist), s.name, end=" ")
-            if args.showmutants:
+            if args.showmuts:
                 print(m_mgr.get_mutation(s.seq),end="")
             print()
-
-    ## Remaining sequences? send them to oblivion...
-    ## (we need to do this in order for wrapgen-based count to work)
-    for s in seqs:
-        pass
 
 def _mainwrapper(args):
     '''
