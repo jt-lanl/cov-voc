@@ -11,8 +11,8 @@ import covid
 
 def commonforms_args(argparser):
     '''args for arparse common to pangocommonforms and commonformschange'''
-    paa = argparser.add_argument
     covid.corona_args(argparser)
+    paa = argparser.add_argument_group("Common Forms Options").add_argument
     paa("--npatterns","-n",type=int,default=0,
         help="How many of the most common patterns per lineage (0=all)")
     paa("--mincount","-m",type=int,default=10,
