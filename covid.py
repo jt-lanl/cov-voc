@@ -77,6 +77,8 @@ def corona_args(ap):
     paa("--input","-i",type=Path,
         default=None,
         help="input file with aligned sequences (first is reference)")
+    paa("--fastread",action="store_true",
+        help="assume input file is already fixed/cleaned-up")
     paa("--nseq",type=int,default=0,
         help="read at most NSEQ sequences")
     paa("--filterbyname","-f",nargs='+',
@@ -466,6 +468,14 @@ def read_seqfile(args,firstisref=True,**kwargs):
     read sequences file from args.input
     return a generator of sequences
     '''
+    if args.fastread:
+        ## bypass all the "fixing" and low-level filtering
+        ## can still filter by location, date, etc
+        ## assumes input file has already been fixed/cleaned-up
+        v.vprint('In --fastread mode, sequences not filtered or "fixed"')
+        seqs = readseq.read_seqfile(args.input,nofilter=True)
+        return seqs
+
     seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
     if firstisref:
         first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
