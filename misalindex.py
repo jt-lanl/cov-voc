@@ -2,6 +2,7 @@
 
 import sys
 from collections import Counter
+from operator import itemgetter
 import argparse
 
 import verbose as v
@@ -36,6 +37,10 @@ def _getargs():
         help="for full-range spike, 50 is a good nubmer")
     paa("--speedhackhelp",action="store_true",
         help="Use this option to print out a discussion of speedhack")
+    paa("--viz",
+        help="Output file: with viz tables for each inconsistency")
+    paa("--output","-o",
+        help="Output file: just index and two segments for each inconsistency")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     ## fix windowsize
@@ -57,6 +62,24 @@ def show_inconsistency(lo,gseqa,gseqb,na,nb,file=sys.stderr):
     dg = ca.de_gap(ga)
     fprint(f'ndx {lo:>6d}:{hi:<6d}: {gseqa} : {ga}  :{dg}')
     fprint(f'cnt {na:>6d},{nb:<6d}: {gseqb} : {gb}  :{dseq}')
+
+def print_viz(xlator,uniq_segments,file=sys.stdout):
+    '''writes little tables for each segment pair,
+    showing site numbers and comparing to ref seq
+    '''
+    def fprint(*args,**kwargs):
+        print(*args,**kwargs,file=file)
+    for lo,gseqa,gseqb,cnta,cntb in uniq_segments:
+        hi = lo+len(gseqa)
+        sitelist = [xlator.site_from_index(ndx)
+                    for ndx in range(lo,hi)]
+        for line in intlist.write_numbers_vertically(sitelist):
+            fprint(line)
+        fprint(xlator.refseq[lo:hi],"ref")
+        fprint(gseqa,cnta)
+        fprint(gseqb,cntb)
+        fprint()
+
 
 def slice_updatecounts(subseqs,lo,hi):
     '''slice the subseqs Counter, and update
@@ -140,15 +163,16 @@ def _main(args):
         ga,gb = ca.trimseqs(gseqa,gseqb)
         if ga == gseqa:
             uniq_segments.add((lo,gseqa,gseqb,cnta,cntb))
-            hi = lo+len(ga)
-            sitelist = [xlator.site_from_index(ndx)
-                        for ndx in range(lo,hi)]
-            for line in intlist.write_numbers_vertically(sitelist):
-                print(line)
-            print(first.seq[lo:hi],"ref")
-            print(gseqa,cnta)
-            print(gseqb,cntb)
-            print()
+
+    if args.viz:
+        with xopen(args.viz,"w") as fout:
+            print_viz(xlator,uniq_segments,file=fout)
+
+    if args.output:
+        with xopen(args.output,"w") as fout:
+            for lo,ga,gb,cnta,cntb in sorted(uniq_segments,
+                                             key=itemgetter(3),reverse=True):
+                print(lo,ga,gb,file=fout)
 
     if args.msegpairs and uniq_segments:
         ## write file only if uniq_segments is not empty
