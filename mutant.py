@@ -33,6 +33,7 @@ class SiteIndexTranslator():
        index:  012345
     '''
     def __init__(self,refseq):
+        self.refseq = refseq
         self.site = list(it.accumulate(int(b!='-') for b in refseq))
         if self.site:
             self.ndx = [None]*(2+max(self.site))
