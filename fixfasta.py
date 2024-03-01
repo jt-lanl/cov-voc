@@ -18,6 +18,8 @@ import itertools as it
 import random
 import argparse
 
+import warnings
+
 import verbose as v
 from xopen import xopen
 import sequtil
@@ -100,17 +102,17 @@ def translate_to_aa(seqs):
         s.seq = "".join(aalist)
         yield s
 
-def grouper(iterable, n, fillvalue=None):
+def grouper(iterable, chunksize, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
+    args = [iter(iterable)] * chunksize
     return it.zip_longest(*args, fillvalue=fillvalue)
 
 def translate_to_aa_alt(seqs):
     ''' for a list of nucleotide sequences, yield amino acid sequences '''
     codon_to_aa_table_alt = dict()
-    for c,aa in codon_to_aa_table.items():
-        codon_to_aa_table_alt[(c[0],c[1],c[2])] = aa
+    for nuc,aa in codon_to_aa_table.items():
+        codon_to_aa_table_alt[(nuc[0],nuc[1],nuc[2])] = aa
     for s in seqs:
         codonlist = grouper(s.seq,3,'-')
         #aalist = [codon_to_aa_table.get("".join(codon),"X") for codon in codonlist]
@@ -162,9 +164,9 @@ def isls_from_file(file):
     isls=[]
     with open(file,"r") as isl_file:
         for line in isl_file:
-            m = re.match(r".*(EPI_ISL_\d+).*",line.strip())
-            if m:
-                isls.append(m[1])
+            mat = re.match(r".*(EPI_ISL_\d+).*",line.strip())
+            if mat:
+                isls.append(mat[1])
     v.vprint(f'ISL file {file} has {len(set(isls))} distinct ISL numbers')
     return isls
 
@@ -205,7 +207,7 @@ def get_pangoreplace(pangofile):
                 continue
             isl = covid.EPI_ISL_REGEX.search(tokens[0])
             if not isl:
-                v.print_only(3,'badisl:',f'in seqname={name}')
+                v.print_only(3,'badisl:',f'in seqname={tokens[0]}')
             isl = isl.group(0)
             pango = tokens[1]
             pangocat[isl]=pango
@@ -260,15 +262,8 @@ def rm_toomanygaps(toomany,seqs):
     if count_removed:
         v.vprint(f'Removed {count_removed} sequences with gap > {toomany}')
 
-def main(args):
-    '''fixfasta main'''
-    v.vprint(args)
-
-    seqs = covid.read_filter_seqfile(args)
-
-    ## First set of filters here, we want to apply to ALL sequences
-    ## including the first (which, for now, is included in the seqs array)
-
+def filter_all_seqs(args,seqs):
+    '''filter all sequences, even the ref sequence'''
     if args.codonalign:
         v.print('Warning: need to keep first for this too...')
         seqs = codon_align_seqs(seqs)
@@ -290,17 +285,10 @@ def main(args):
     if args.rmdash:
         seqs = rmdashes(seqs)
 
-    ## next batch of filters are not meant to be applied
-    ## to the reference sequence, so take it out
-    first,seqs = covid.get_first_item(seqs,keepfirst=False)
+    return seqs
 
-    if args.stripdashcols:
-        ## removes all the columns that have dashes in first.seq
-        ## actually, we /do/ want first among the seqs here
-        seqs = it.chain([first],seqs)
-        seqs = sequtil.stripdashcols(first.seq,seqs)
-        ## and now we take the first back out again...
-        first,seqs = covid.get_first_item(seqs,keepfirst=False)
+def filter_nonref_seqs(args,seqs):
+    '''filter all sequences, but assume ref seq is taken out'''
 
     if args.pangoreplace:
         pangocat = get_pangoreplace(args.pangoreplace)
@@ -328,28 +316,64 @@ def main(args):
         seqs = (s for s in seqs
                 if s.seq.count('X') < args.toomanyx)
 
-    ## these next filters will require that we FULL list of sequence
+    return seqs
+
+def main(args):
+    '''fixfasta main'''
+    v.vprint(args)
+
+    seqs = covid.read_filter_seqfile(args)
+
+    ## First set of filters here, we want to apply to ALL sequences
+    ## including the first (which, for now, is included in the seqs array)
+
+    seqs = filter_all_seqs(args,seqs)
+
+    ## next batch of filters are not meant to be applied
+    ## to the reference sequence, so take it out
+    first,seqs = covid.get_first_item_ifref(seqs)
+
+    seqs = filter_nonref_seqs(args,seqs)
+
+    if args.stripdashcols:
+        if not first:
+            raise RuntimeError('Cannot --stripdashcols becuz first sequence of '
+                               f'input={args.input} is not a reference sequence')
+        ## removes all the columns that have dashes in first.seq
+        ## actually, we /do/ want first among the seqs here
+        seqs = it.chain([first],seqs)
+        seqs = sequtil.stripdashcols(first.seq,seqs)
+        ## and now we take the first back out again...
+        first,seqs = covid.get_first_item(seqs,keepfirst=False)
+
+    ## these next filters will require that the FULL list of sequences
     ## be available. so we cannot be parallelizing the sequence list
     ## which means that jobno != 1 will be an error
     ## if jobno==1, then the first has already been taken out of the seqs
 
     if args.random:
-        v.vprint("Randomizing sequence order...",end="")
         assert args.jobno == 1
         seqs = list(seqs)
+        v.vprint("Randomizing sequence order...",end="")
         seqs = random.sample(seqs,k=len(seqs))
         v.vprint("ok")
 
     if args.rmgapcols:
         v.vprint("Removing columns that are all-gaps...",end="")
         assert args.jobno == 1
+        if not first:
+            ## it is not required for first seq to be reference seq
+            ## but if it's not, something might be wrong
+            warnings.warn('first seqeunce is not a reference sequence')
+            ## we'll take the first sequence anyway!
+            first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
         initlen = len(first.seq)
         first,seqs = sequtil.remove_gap_columns(first,seqs)
         v.vprint(f"ok. Removed {initlen-len(first.seq)} dashes")
 
     if args.output:
-        if args.jobno == 1:
-            ## we need to put that first seq back in
+        if args.jobno == 1 and first is not None:
+            ## put that first seq back in
             seqs = it.chain([first],seqs)
         sequtil.write_seqfile(args.output,seqs)
 
