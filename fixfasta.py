@@ -19,6 +19,7 @@ import random
 import argparse
 
 import verbose as v
+from xopen import xopen
 import sequtil
 import wrapgen
 import mutant
@@ -28,9 +29,12 @@ def getargs():
     '''get arguments from command line'''
     ap = argparse.ArgumentParser(description=__doc__)
     paa = ap.add_argument
+    paa("--verbose","-v",action="count",default=0,
+        help="verbose")
+    paa("--jobno",type=int,default=1,
+        help="when running multiple jobs in parallel, use --jobno {#}")
     covid.corona_args(ap)
-    paa("--random",action="store_true",
-        help="randomize input data order")
+    paa = ap.add_argument_group("Fix Sequence(fasta) Options").add_argument
     paa("--badisls",
         help="File with list of EPI_ISL numbers to exclude")
     paa("--keepisls",
@@ -47,20 +51,20 @@ def getargs():
         help="Remove sequences with too many gaps in a single stretch")
     paa("--rmdash",action="store_true",
         help="remove all the dashes in each sequence")
-    paa("--rmgapcols",action="store_true",
-        help="Remove gap-only columns")
     paa("--stripdashcols",action="store_true",
         help="Strip columns with dash in reference sequence")
     paa("--islreplace",
         help="file of sequences used to replace existing seqs based on ISL")
     paa("--keepsites",
         help="List of sites (eg 1-4,7,9-240) to be sent to output")
+    paa("--pangoreplace",
+        help="Name of file with pango name for each sequence")
+    paa("--rmgapcols",action="store_true",
+        help="Remove gap-only columns")
+    paa("--random",action="store_true",
+        help="randomize input data order")
     paa("--output","-o",type=Path,
         help="output fasta file")
-    paa("--jobno",type=int,default=1,
-        help="when running multiple jobs in parallel, use --jobno {#}")
-    paa("--verbose","-v",action="count",default=0,
-        help="verbose")
     args = ap.parse_args()
     args = covid.corona_fixargs(args)
     return args
@@ -185,6 +189,41 @@ def islreplace(seqdict,seqs):
             v.vprint(f"         ->  {seqdict[isl].name}")
         yield seqdict.get(isl,s)
 
+def get_pangoreplace(pangofile):
+    '''Use USHER-provided pango names
+    Args:
+       pangofile (Path or str): name of file with pango names
+    Returns:
+       pangocat (dict): catalog maps ISL numbers to pango names'''
+    pangocat = dict()
+    if not pangofile:
+        return pangocat
+    with xopen(pangofile,"r") as fpin:
+        for line in fpin:
+            tokens = line.strip().split()
+            if len(tokens) != 2 or tokens[0]=="name":
+                continue
+            isl = covid.EPI_ISL_REGEX.search(tokens[0])
+            if not isl:
+                v.print_only(3,'badisl:',f'in seqname={name}')
+            isl = isl.group(0)
+            pango = tokens[1]
+            pangocat[isl]=pango
+    return pangocat
+
+def apply_pangocat(seqs,pangocat):
+    '''update sequences lineages using pangocat'''
+    if not pangocat:
+        yield from seqs
+    for s in seqs:
+        isl = covid.get_isl(s)
+        lin = covid.get_lineage(s)
+        new_lin = pangocat.get(isl,lin)
+        if new_lin != lin:
+            v.vprint_only(3,'New Pango',f'{lin} -> {new_lin}')
+            s.name = re.sub(lin+r'$',new_lin,s.name)
+        yield s
+
 def pad_to_length(seqs,length=None):
     '''pads all sequences to a common length'''
     if not length:
@@ -262,6 +301,10 @@ def main(args):
         seqs = sequtil.stripdashcols(first.seq,seqs)
         ## and now we take the first back out again...
         first,seqs = covid.get_first_item(seqs,keepfirst=False)
+
+    if args.pangoreplace:
+        pangocat = get_pangoreplace(args.pangoreplace)
+        seqs = apply_pangocat(seqs,pangocat)
 
     if args.islreplace:
         isl_seqs = seqs_indexed_by_isl(args.islreplace)
