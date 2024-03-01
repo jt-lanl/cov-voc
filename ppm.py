@@ -44,12 +44,21 @@ def _main(args,xtras):
             cat = "xz --decompress --stdout"
         if args.input.endswith('.gz'):
             cat = "gunzip --stdout"
+        if args.input.endswith('.zst'):
+            cat = "zstd -d --stdout"
         input_cmd = f"{cat} {args.input} |"
 
     output_cmd = ""
     if args.output:
+        ## TODO: write to /dev/stdout.{fasta,tbl,etc} to get right format
         xtras.extend(["-o","/dev/stdout"])
-        if args.output not in ["-", "/dev/stdout"]:
+        if args.output.endswith('.zst'):
+            output_cmd = f"| zstd -z -q -o {args.output}"
+        elif args.output.endswith('.gz'):
+            output_cmd = f"| gzip > {args.output}"
+        elif args.output.endswith('.xz'):
+            output_cmd = f"| xz > {args.output}"
+        elif args.output not in ["-", "/dev/stdout"]:
             output_cmd = f"> {args.output}"
 
     xtras = [f"'{xtra}'" for xtra in xtras]
@@ -61,6 +70,8 @@ def _main(args,xtras):
                f"{output_cmd}")
 
     v.print(cmdline)
+    if not args.input:
+        v.print('Warning: No input file specified!! Process may hang')
 
     if args.ppmexecute:
         v.vprint("Running...")
