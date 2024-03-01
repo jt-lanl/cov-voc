@@ -36,17 +36,16 @@ def find_seqfile(seqfilename,skipx=False):
         if str(seqfilename) == special:
             return seqfilename
 
-    for dir in ['.',os.getenv('DATA'),'data','..','../data',]:
-        if not dir:
+    for directory in ['.',os.getenv('DATA'),'data','..','../data',]:
+        if not directory:
             continue
         for ext in ("",".gz",".xz"):
-            seqfile = Path(dir) / Path(str(seqfilename) + ext)
+            seqfile = Path(directory) / Path(str(seqfilename) + ext)
             if seqfile.exists():
                 return seqfile
 
     v.print(f'Input sequence file "{seqfilename}" not found')
     return None
-
 
 def corona_args(ap):
     '''
@@ -157,6 +156,7 @@ BASELINE_MSTRINGS = {
 }
 
 def get_baseline_mstring(lineage='Wuhan'):
+    '''return mstring for the given lineage'''
     mstring = BASELINE_MSTRINGS.get(lineage,"")
     mstring = mstringfix.mstring_brackets(mstring)
     return mstring
@@ -244,8 +244,8 @@ def get_isl(seqname,nomatch="X"):
 @parse_seqname
 def get_lineage(seqname):
     '''get pango lineage by parsing the sequence name'''
-    m = LINEAGE_REGEX.search(seqname)
-    linpatt = m[1] if m else None
+    mat = LINEAGE_REGEX.search(seqname)
+    linpatt = mat[1] if mat else None
     #try:
     #    tokens = seqname.split('.',6)
     #    lintok = tokens[6]
@@ -287,21 +287,23 @@ def get_date(sname,as_string=False):
         datestr = sname
     if not ISO_DATE_REGEX.match(datestr):
         v.vvprint_only(5,"Invalid date:",datestr,sname)
-        m = ISO_DATE_REGEX_DOTS.search(sname)
-        datestr = m[1] if m else None
+        mat = ISO_DATE_REGEX_DOTS.search(sname)
+        datestr = mat[1] if mat else None
     if as_string:
         return datestr
     return date_fromiso(datestr)
 
 @deprecated(usefcn='get_date')
 def date_from_seqname(seqname,**kwargs):
+    '''deprecated: use get_date'''
     return get_date(seqname,**kwargs)
 
 ## Parse info in all the seqnames
 
 def count_bad_dates(seqlist):
-    if hasattr(seqlist, '__iter__') and not hasattr(seqlist, '__len__'):
-        raise RuntimeError(f'argument is of type {type(seqlist)} and should be a list')
+    '''return a count of how many bad dates in the seqlist'''
+    if not hasattr(seqlist, '__len__'):
+        raise TypeError(f'argument is of type {type(seqlist)} and should be a list')
     return sum(get_date(s.name) is None for s in seqlist)
 
 def range_of_dates(seqlist):
@@ -321,7 +323,6 @@ def test_isref(first):
     '''is this sequence actually the reference sequence?'''
     assert isinstance(first,sequtil.SequenceSample)
     if REF_SEQUENCE_NAME not in first.name:
-        warnings.warn(f'first seq is not reference sequence')
         return False
     return True
 
@@ -329,7 +330,18 @@ def get_first_item(seqs,keepfirst=None):
     '''wraps the sequtil version, checking if the first really is a ref'''
     kwargs = {'keepfirst': keepfirst} if keepfirst is not None else {}
     first,seqs = sequtil.get_first_item(seqs,**kwargs)
-    test_isref(first)
+    if keepfirst is False and test_isref(first) is False:
+        warnings.warn('first seq is not reference sequence')
+    return first,seqs
+
+def get_first_item_ifref(seqs):
+    '''return seqs[0],seqs[1:] if seqs[0] is ref sequence;
+       return None, seqs       if seqs[0] is not ref sequence'''
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+    if not test_isref(first):
+        first = None
+    else:
+        _,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     return first,seqs
 
 def divert_if_firstisref(myfilter):
@@ -343,17 +355,25 @@ def divert_if_firstisref(myfilter):
     '''
 
     def wrapper(seqs,*args,**kwargs):
-        firstisref = kwargs.pop('firstisref',False)
+        firstisref = kwargs.pop('firstisref',None)
         keepfirst = kwargs.pop('keepfirst',None)
         if keepfirst is not None:
-            warnings.warn(f'The keepfirst={keepfirst} keyword is deprecated; use refisfirst={~bool(keepfirst)} instead.')
-        if not firstisref:
+            warnings.warn(f'The keepfirst={keepfirst} keyword is deprecated; '
+                          f'use refisfirst={~bool(keepfirst)} instead.')
+        if firstisref is False:
             seqs = myfilter(seqs,*args,**kwargs)
-        else:
-            first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-            test_isref(first)
+        elif firstisref is True:
+            first,seqs = get_first_item(seqs,keepfirst=False)
             seqs = myfilter(seqs,*args,**kwargs)
             seqs = it.chain([first],seqs)
+        elif firstisref is None:
+            first,seqs = get_first_item_ifref(seqs)
+            seqs = myfilter(seqs,*args,**kwargs)
+            if first:
+                seqs = it.chain([first],seqs)
+        else:
+            raise ValueError(f'keyword firstisref={firstisref} '
+                             'should be True, False, or None')
         return seqs
     return wrapper
 
@@ -365,10 +385,10 @@ def filter_by_date(seqs,fromdate,todate):
     t_date = date_fromiso(todate) or datetime.date.max
 
     for s in seqs:
-        d = get_date(s)
-        if not d:
+        the_date = get_date(s)
+        if not the_date:
             continue
-        if f_date <= d <= t_date:
+        if f_date <= the_date <= t_date:
             yield s
 
 @divert_if_firstisref
@@ -517,7 +537,8 @@ def lastdate_byfile(file,seqs=None):
     except FileNotFoundError:
         try:
             lastdate = datetime.date.today().isoformat()
-        except: ## don't think this will ever happen
+        except Exception as err: ## don't think this will ever happen
+            v.print(f'Exception should never happen: {err}')
             if seqs:
                 seqs = list(seqs)
                 _,lastdate = range_of_dates(seqs)
@@ -538,9 +559,9 @@ def date_range_from_args(args):
                 for date in args.dates]
     if args.days:
         lastdate = lastdate_byfile(args.input)
-        t = date_fromiso(lastdate)
-        f = t - datetime.timedelta(days=args.days)
-        return [f.isoformat(),t.isoformat()]
+        tdate = date_fromiso(lastdate)
+        fdate = tdate - datetime.timedelta(days=args.days)
+        return [fdate.isoformat(),tdate.isoformat()]
     return [None,None]
 
 def expand_date_range(daterange,daysperweek=7):
@@ -629,21 +650,21 @@ ABBREV_CONTINENTS = {"United-Kingdom"             : "UK",
 
 def parse_continents(withglobal=False):
     '''
-    returns a list of three-element tuples (cx,c,x)
+    returns a list of three-element tuples (cx,c_include,c_exclude)
     cx: full name of region, possibly including '-minus-'
-    c: included part of region, before the '-minus-'
-    x: excluded part of region, after the '-minus-'
-    [in most cases, cx=c and x=None]
+    c_include: included part of region, before the '-minus-'
+    c_exclude: excluded part of region, after the '-minus-'
+    [in most cases, cx=c_include and c_exclude=None]
     '''
     cx_c_x=[]
     if withglobal:
         cx_c_x.append(("Global","Global",None))
     for cx in CONTINENTS:
         if "-minus-" in cx:
-            c,x = cx.split("-minus-")
+            c_include,c_exclude = cx.split("-minus-")
         else:
-            c,x = cx,None
-        cx_c_x.append((cx,c,x))
+            c_include,c_exclude = cx,None
+        cx_c_x.append((cx,c_include,c_exclude))
     return cx_c_x
 
 
@@ -684,22 +705,22 @@ TM      1295    1329
 '''
 
 def get_srlist(virus="SARS"):
-    ''' provides a tuple of three lists: n,x,y
-        n = name of region
-        x = start site
-        y = stop site
+    ''' provides a tuple of three lists: nom,beg,end
+        nom = name of region
+        beg = start site
+        end = stop site
     '''
-    n=[]
-    x=[]
-    y=[]
+    nom=[]
+    beg=[]
+    end=[]
     regions = MERS_REGIONS if virus.lower() == "mers" else SARS_REGIONS
     for sr in regions.split('\n'):
         srs = sr.split()
         if len(srs) == 3 and srs[0][0]!='#':
-            n.append(srs[0])
-            x.append(int(srs[1]))
-            y.append(int(srs[2]))
-    return n,x,y
+            nom.append(srs[0])
+            beg.append(int(srs[1]))
+            end.append(int(srs[2]))
+    return nom,beg,end
 
 ### generic utility (only used by xspike)
 def filename_prepend(pre,file):
