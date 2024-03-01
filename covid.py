@@ -28,7 +28,7 @@ def find_seqfile(seqfilename,skipx=False):
     return the default file for input sequences;
     hunt around in various directories until you find it
     '''
-    if not seqfilename:
+    if not seqfilename or str(seqfilename) == ".":
         seqfilename = (DEFAULTSEQFILE_SKIPX if skipx
                        else DEFAULTSEQFILE_KEEPX)
 
@@ -91,7 +91,7 @@ def corona_args(ap):
         help="Consider date range of DAYS days ending on the last sampled date")
     paa("--keeplastchar",action="store_true",
         help="Do not strip final stop codon from end of sequences")
-    paa("--keepx",action="store_true",
+    paa("--keepx",action="store_true",default=False,
         help="Keep sequences that include bad characters, denoted X")
     paa("--skipx",action="store_false",dest='keepx',
         help="Skip sequences that include bad characters, denoted X")
@@ -100,6 +100,8 @@ def corona_args(ap):
 def corona_fixargs(args):
     '''after argparser.parse_args() has been called,
     then call this for cleanup'''
+    if not args.input or str(args.input) == '.':
+        args.fastread = True
     args.input = find_seqfile(args.input,
                               skipx=(not args.keepx))
     return args
