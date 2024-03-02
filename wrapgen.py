@@ -15,15 +15,11 @@ def _keepcount_iterator_action(seqs,action):
     return value is an iterator that keeps count of n, the number of items consumed
    '''
     assert isinstance(seqs,Iterator)
-    n=0
-    try:
-        while True:
-            yield next(seqs)
-            n += 1
-    except StopIteration:
-        pass
-    finally:
-        action(n)
+    ncount=0
+    for s in seqs:
+        yield s
+        ncount += 1
+    action(ncount)
 
 def _keepcount_iterator(seqs,msg_prefix=None,file=sys.stderr):
     '''
@@ -32,11 +28,11 @@ def _keepcount_iterator(seqs,msg_prefix=None,file=sys.stderr):
     when the iterator is done, a message is printed to file
     and
     '''
-    def action(n):
+    def action(ncnt):
         if msg_prefix:
-            print(msg_prefix,n,file=file)
+            print(msg_prefix,ncnt,file=file)
         else:
-            print(n,file=file)
+            print(ncnt,file=file)
 
     yield from _keepcount_iterator_action(seqs,action)
 
@@ -45,16 +41,13 @@ def keepcount(seqs,msg_prefix="",file=sys.stderr):
     seqs is an iterable; could be a list or generator;
     if seqs is a list, print length of list, and return seqs (still as a list)
     '''
-
     if isinstance(seqs,Iterator):
         return _keepcount_iterator(seqs,msg_prefix=msg_prefix,file=file)
-    elif isinstance(seqs,Iterable):
+    if isinstance(seqs,Iterable):
         print(msg_prefix,len(seqs),file=file)
         return seqs
-    else:
-        raise RuntimeError(f"[msg_prefix] input is not an iterable!")
-
-
+    ## if we've made it this far, something is wrong!
+    raise RuntimeError(f"[{msg_prefix}] input is not an iterable!")
 
 if __name__ == '__main__':
 
@@ -88,4 +81,3 @@ if __name__ == '__main__':
     j = keepcount(7,"hello")  ## This SHOULD raise an error
 
     #lxst = list(lxst)
-
