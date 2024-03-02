@@ -54,7 +54,7 @@ class ZstdWriter:
         return self.txt_writer
 
     def __exit__(self, *args):
-        if self.binarymode:
+        if not self.binarymode:
             self.txt_writer.flush()
         self.bin_writer.flush(zstd.FLUSH_FRAME)
         self.fp.close()
