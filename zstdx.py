@@ -56,11 +56,11 @@ class ZstdWriter:
     def __exit__(self, *args):
         if self.binarymode:
             self.txt_writer.flush()
-        self.bin_writer(zstd.FLUSH_FRAME)
+        self.bin_writer.flush(zstd.FLUSH_FRAME)
         self.fp.close()
         return False
 
-def zopen(filename, mode='r'): #pylint: disable=redefined-builtin
+def open(filename, mode='r'): #pylint: disable=redefined-builtin
     '''like builtin.open but for zst files'''
     if 'w' in mode:
         return ZstdWriter(filename,mode)

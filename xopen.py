@@ -12,8 +12,8 @@ def xopen(filepath,mode):
     if filestr == '-':
         filepath = sys.stdout if 'w' in mode else sys.stdin
 
-    if filestr.endswith('.zstd'):
-        return zstdx.zopen(filepath,mode+'b')
+    if filestr.endswith('.zst'):
+        return zstdx.open(filepath,mode)
 
     if 'b' not in mode:
         ## if not binary, then text (gzip,lzma want you to be explicit)
