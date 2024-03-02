@@ -53,10 +53,12 @@ def main(args):
     '''sparks main'''
     v.vprint(args)
 
-    seqs = covid.read_seqfile(args,firstisref=False)
+    seqs = covid.read_seqfile(args)
+    ## pull out the first sequence if it is a ref sequence
+    ## might happen, eg, if using .fasta instead of .nm file
+    _,seqs = covid.get_first_item_ifref(seqs)
     seqs = covid.filter_seqs_by_pattern(seqs,args,firstisref=False)
     seqs = emu.filter_seqs_by_padded_dates(seqs,args,firstisref=False)
-    v.vvprint(args)
 
     if args.lineagetable and args.lineagetable.upper() == "FROMSEQS":
         ## special case in which lineage table is "created on the fly"
