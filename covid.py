@@ -39,7 +39,7 @@ def find_seqfile(seqfilename,skipx=False):
     for directory in ['.',os.getenv('DATA'),'data','..','../data',]:
         if not directory:
             continue
-        for ext in ("",".gz",".xz"):
+        for ext in ("",".zst", ".gz",".xz"):
             seqfile = Path(directory) / Path(str(seqfilename) + ext)
             if seqfile.exists():
                 return seqfile
@@ -471,25 +471,19 @@ def truncate_seqs(seqs,seqlen):
 
 def fix_seqs(first,seqs,args):
     '''
-    seqs = fix_seqs(first,seqs, args)
-    Does not care if seqs includes first sequence; returned seqs will or will not
-    include first sequence according to whether or not the input seqs includes it.
-
-    sequences will have stripdashcols (if requested by args.stripdashcols, now mostly unused)
-    and will have the last character stipped (if it's a stop codon, indicated by $)
-    and finally, keepx will be applied
+    Assumes that seqs still contains the first sequence
     '''
 
     if not(hasattr(first,'seq') and first.seq):
         ## since .nm file doesn't even have .seq attribute
         return seqs
 
-    if not args.keeplastchar and first.seq and first.seq[-1] in "$*X":
+    if not args.keeplastchar and first.seq[-1] in "$*X":
         seqs = truncate_seqs(seqs,len(first.seq[:-1]))
 
     return seqs
 
-def read_seqfile(args,firstisref=True,**kwargs):
+def read_seqfile(args,**kwargs):
     '''
     read sequences file from args.input
     return a generator of sequences
@@ -499,13 +493,14 @@ def read_seqfile(args,firstisref=True,**kwargs):
         ## can still filter by location, date, etc
         ## assumes input file has already been fixed/cleaned-up
         v.vprint('In --fastread mode, sequences not filtered or "fixed"')
+        if kwargs:
+            warnings.warn(f'Ignoring keyword args: {kwargs}')
         seqs = readseq.read_seqfile(args.input,nofilter=True)
         return seqs
 
     seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-    if firstisref:
-        first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
-        seqs = fix_seqs(first,seqs,args)
+    first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+    seqs = fix_seqs(first,seqs,args)
     if args.verbose:
         seqs = wrapgen.keepcount(seqs,"Sequences read:")
     return seqs
@@ -516,7 +511,7 @@ def read_filter_seqfile(args,firstisref=True,**kwargs):
     and filter according to args,
     return a generator of sequences
     '''
-    seqs = read_seqfile(args,firstisref=firstisref,**kwargs)
+    seqs = read_seqfile(args,**kwargs)
     seqs = filter_seqs(seqs,args,firstisref=firstisref)
 
     return seqs
