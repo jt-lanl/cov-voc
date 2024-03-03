@@ -7,7 +7,7 @@ import verbose as v
 
 def first_last_splits(name,reverse=False):
     '''
-    For dot-deliminated name of form A.B.C...D, 
+    For dot-deliminated name of form A.B.C...D,
     iteratively yield tuples that split into first and last parts;
     eg (A, B.C...D), (A.B, C...D), (A.B.C, ...D), etc
     '''
@@ -15,9 +15,9 @@ def first_last_splits(name,reverse=False):
     nlist = range(len(tokens))
     if reverse:
         nlist = reversed(list(nlist))
-    for n in range(len(tokens)):
-        first,last = (".".join(tokens[:n]),
-                      ".".join(tokens[n:]))
+    for ndx in range(len(tokens)):
+        first,last = (".".join(tokens[:ndx]),
+                      ".".join(tokens[ndx:]))
         yield first,last
 
 
@@ -57,14 +57,18 @@ class LineageNotes:
     ## lineages: list of (short) lineage names
     ## fullname: dict for translating short names to long/full names
     ## shortname: dict for translating long/full names to short names
-    def __init__(self,lineagefile=None):
-        if lineagefile:
-            self.lineages, self.fullname = read_lineage_file(lineagefile)
-            self.shortname = {val:key for key,val in self.fullname.items()}
-        else:
+    def __init__(self,lineagefile=None,fix=False):
+        if not lineagefile:
             self.lineages=[]
             self.fullname=dict()
             self.shortname=dict()
+            return
+        self.lineages, self.fullname = read_lineage_file(lineagefile)
+        self.shortname = {val:key for key,val in self.fullname.items()}
+        if fix:
+            self.fix_inconsistencies()
+            for bad in self.remove_inconsistencies():
+                v.print(bad)
 
     def report_size(self):
         '''return string with size of lineages and aliases'''
@@ -73,9 +77,9 @@ class LineageNotes:
         return "\n".join(sizelines)
 
     def get_fullname(self,short):
-        '''more robust version of fullname.get(), 
-        if short is not itn ehte fullname dict, 
-        then infers fullname 
+        '''more robust version of fullname.get(),
+        if short is not itn ehte fullname dict,
+        then infers fullname
         by trimming the last numbers of the end and trying again
         '''
         long = self.fullname.get(short,None)
@@ -96,7 +100,7 @@ class LineageNotes:
                 shortfirst = self.shortname.get(first,None)
                 if shortfirst:
                     short = f'{shortfirst}.{last}'
-        return short                
+        return short
 
     def inconsistencies(self,remove=True,fix=False):
         '''check consistency of lineage notes file'''
@@ -132,12 +136,13 @@ class LineageNotes:
                              if lin not in bad_aliases]
         if fix:
             return fixed
-        else:
-            return inconsistent
+        return inconsistent
 
     def remove_inconsistencies(self):
+        '''remove inconsistent lineage definitions'''
         return self.inconsistencies(remove=True,fix=False)
     def fix_inconsistencies(self):
+        '''fix inconsistent lineage definitions'''
         return self.inconsistencies(remove=False,fix=True)
 
     @lru_cache(maxsize=None)
@@ -161,7 +166,7 @@ class LineageNotes:
         for lin in self.lineages:
             longlin = self.fullname.get(lin,lin)
             if excludeparent and longlin == parent:
-                continue                
+                continue
             if longlin.startswith(parent):
                 children.append(lin)
         return children
@@ -175,7 +180,16 @@ class LineageNotes:
             new_lin_notes.lineages.append(lin)
             new_lin_notes.shortname[lin] = self.shortname.get(lin,lin)
             new_lin_notes.fullname[lin] = self.fullname.get(lin,lin)
-        return new_lin_notes        
+        return new_lin_notes
+
+    def get_lineage_set(self,parent=None,excludeparent=True):
+        '''return a set of lineages that have parent as an ancestor'''
+        lineage_set = set(self.lineages)
+        if parent and parent in lineage_set:
+            other_lin_notes = self.restrict_to_clade(parent,
+                                                     excludeparent=excludeparent)
+            lineage_set = set(other_lin_notes.lineages)
+        return lineage_set
 
 if __name__ == "__main__":
     lins = LineageNotes("data/lineage_notes.txt")
@@ -185,14 +199,13 @@ if __name__ == "__main__":
     print("Fixes")
     for eachfix in lins.fix_inconsistencies():
         print(eachfix)
-        
+
     if 0:
-        parent = "BA.2"
-        print(f'parent={parent}')
+        clade = "BA.2"
+        print(f'clade={clade}')
         print("Children:\n",
-              ",".join(lins.allchildren_of(parent,
+              ",".join(lins.allchildren_of(clade,
                                            excludeparent=True)))
 
         newlins = lins.restrict_to_clade('BA.2')
         print("New lineage notes:\n",",".join(newlins.lineages))
-    
