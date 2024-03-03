@@ -3,11 +3,13 @@
 
 import sys
 import re
+from collections import Counter,defaultdict
 from functools import lru_cache
 import argparse
 
 import verbose as v
-from readseq import xopen
+import intlist
+from xopen import xopen
 import mutant
 import covid
 
@@ -22,12 +24,16 @@ def _getargs():
     covid.corona_args(argparser)
     ## Alignment options
     paa = argparser.add_argument_group('Alignment Options').add_argument
+    paa("--bysite",action="store_true",
+        help="Only look for alignment anomalies that are on site indices")
     paa("--mstringpairs","-M",
         help="write file of mstring pairs")
     paa("--xavoid",action="store_true",
         help="Avoid X's in the mutation inconsistencies")
     paa("--windowsize","-w",type=int,default=0,
         help="subsequence window size")
+    paa("--fracrange","-F",type=int,nargs=2,default=(1,1),
+        help="Restrict attention to this range of sites in the sequence")
     paa("--range","-R",type=int,nargs=2,
         help="Restrict attention to this range of sites in the sequence")
     paa("--na",action="store_true",
@@ -36,8 +42,18 @@ def _getargs():
         help="for full-range spike, 50 is a good nubmer")
     paa("--speedhackhelp",action="store_true",
         help="Use this option to print out a discussion of speedhack")
+    paa("--viz",
+        help="Write vizzy tables into this file")
+    paa("--output","-o",
+        help="Write simple output (lo,hi,sa,sb)")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
+    ## fix fracrange
+    num,den = args.fracrange
+    num = max(num,1)
+    den = max(den,1)
+    assert num <= den
+    args.fracrange = [num,den]
     ## fix windowsize
     if not args.windowsize:
         args.windowsize = 90 if args.na else 30
@@ -89,33 +105,37 @@ def de_gap(seq):
     '''remove '-'s from sequence'''
     return DEDASH.sub("",seq)
 
-def check_subsequences(subseqset):
-    '''returns a set of inconsistencies; or empty set if alignment is okay'''
 
-    ## strategy is to ensure that if two "gapped" subseqs (gseqs)
-    ## have the same de-gapped string (dseq), then they are identical
-    ## if not, then they are inconsistent
+def make_pairs(gseqlist,ctr):
+    '''given N gseqs in gseqlist, return a list of N-1 pairs,
+    where the second element of every pair is tht gseq with
+    the highest count'''
+    gseqs = sorted(gseqlist,key=ctr.get,reverse=True)
+    return [(gseq,gseqs[0]) for gseq in gseqs[1:]]
 
-    inconsistent=set()
-    gseq_with_dseq = dict()
-    for gseq in subseqset:
+def check_subsequences(subseqctr):
+    '''Check for inconsistent subsequences
+    Two gappy subsequences are inconsistent if:
+        1/ they are not identical themselves
+        2/ they share the same de-gapped sequence
+    Args:
+       subseqctr: Counter() object number of seqs in which subseq has appeared
+    Returns:
+        tweaklist: list of "tweaks"; ie, incnsistent pairs of subsequences
+
+    '''
+    tweaklist=[]
+    gseq_with_dseq = defaultdict(list)
+    for gseq in subseqctr:
         dseq = de_gap(gseq)
-        if dseq in gseq_with_dseq:
-            gseq_already = gseq_with_dseq[dseq]
-            if gseq != gseq_already:
-                assert len(gseq) == len(gseq_already)
-                gseq_a,gseq_b = sorted([gseq,gseq_already])
-                inconsistent.add((gseq_a,gseq_b))
-                v.vvprint(f'{gseq_a} != {gseq_b} : dseq={dseq}')
-        else:
-            gseq_with_dseq[dseq]=gseq
-    return inconsistent
+        gseq_with_dseq[dseq].append(gseq)
+    for dseq,gseqlist in gseq_with_dseq.items():
+        if len(gseqlist) > 1:
+            tweaks = make_pairs(gseqlist,subseqctr)
+            tweaklist.extend(tweaks)
+    return tweaklist
 
-
-## sequence trimming routines basically cosmetic
-## just used so human reader acn more readily see
-## what the relevant differences are in two sequence segments
-def trimfront(ga,gb):
+def _trimfront(ga,gb):
     '''given two strings, trim from the front if there are identical
     characters; eg: ABCLMNOP,ABCDEFOP -> LMNOP,DEFOP
     '''
@@ -134,7 +154,7 @@ def trimseqs(ga,gb):
     ## trim off the front then the back (trim-reverse, do it twice)
     assert len(ga) == len(gb)
     for _ in range(2):
-        ga,gb = trimfront(ga,gb)
+        ga,gb = _trimfront(ga,gb)
         ga = ga[::-1]
         gb = gb[::-1]
     return ga,gb
@@ -223,23 +243,61 @@ def show_inconsistency(lo,hi,
     fprint(f'           {gseqb} : {gb}  :{dseq}')
     fprint(f'{mstr_a} {mstr_b}')
 
-## these "setify" functions, which just wrap set(), are used for profiling
-## (so we know how much each set() call contributed to the total run time)
-def setify_init(gen):
-    '''set() applied to the initial sequences as they are read in'''
-    return set(gen)
+class IndexTweak():
+    '''pair of inconsistent subsequnces,
+    along with their location in the full sequences
+    and the count of how many sequences each appeared in'''
+    def __init__(self,*args):
+        if len(args) == 6:
+            ndxlo,ndxhi,sa,sb,ca,cb = args
+        elif len(args) == 4:
+            ndxlo,ndxhi,sa,sb = args
+            ca = cb = None
+        elif len(args) == 3:
+            ndxlo,sa,sb = args
+            ndxhi = ndxlo + len(sa)
+            ca = cb = None
+        else:
+            raise RuntimeError('Invalid initialization')
+        assert ndxhi-ndxlo == len(sa) == len(sb)
+        self.ndxlo = ndxlo
+        self.ndxhi = ndxhi
+        self.sa = sa
+        self.sb = sb
+        self.ca = ca
+        self.cb = cb
 
-def setify_left(gen):
-    '''set() applied to the left-truncation of subsequences'''
-    return set(gen)
+    def is_minimal(self):
+        '''return True if sa and sb cannot be trimmed'''
+        return self.sa[0]!=self.sb[0] and self.sa[-1]!=self.sb[-1]
 
-def setify_right(gen):
-    '''set() applied to the right-truncation of subsequence'''
-    return set(gen)
+    def __str__(self):
+        '''simple output string, does not include counts'''
+        return (f'{self.ndxlo} {self.ndxhi} '
+                f'{self.sa} {self.sb}')
 
-def setify_right_again(gen):
-    '''set() applied to the second right-truncation'''
-    return set(gen)
+    def viz(self,xlator):
+        '''print a kind of viz-ualization based on actual
+        site numbers'''
+        #TODO: add Wuhan line 
+        #TODO: conext-y version that shows all indices
+        #      over the given range of sites
+        sites = [xlator.site_from_index(ndx) for
+                 ndx in range(self.ndxlo,self.ndxhi)]
+
+        lines = list(intlist.write_numbers_vertically(sites))
+        lines.append( f'{self.sb} count={self.cb}' )
+        lines.append( f'{self.sa} count={self.ca}' )
+        return "\n".join(lines)
+        
+
+def update_seq_counter(inctr,lo,hi=None):
+    '''truncate seqs to hi:lo, and
+    return a new counter that keeps count of the truncated seqs'''
+    ctr = Counter()
+    for seq,cnt in inctr.items():
+        ctr[seq[slice(lo,hi)]] += cnt
+    return ctr
 
 def _main(args):
     '''checkalign main'''
@@ -254,89 +312,75 @@ def _main(args):
     xlator = mutant.SiteIndexTranslator(first.seq)
     mut_mgr = mutant.MutationManager(first.seq)
 
-    ## range (default is whole sequence)
-    rlo,rhi = args.range if args.range else (1,xlator.topsite)
-    rlo = max(rlo,1)
-    rhi = min(rhi,xlator.topsite)
-    ## convert from site number of index number
-    ndxmin = xlator.index_from_site(rlo)
-    ## pad on the right (high) end by windowsize
-    ## whereas rhi is an actual site (highest value of lo in lo:hi ranges)
-    ## hipad is the highest value of hi in lo:hi ranges, so one site higher than actual site
-    hipad = rhi + args.windowsize
-    hipad = min(hipad,xlator.topsite+1)
-    ndxmax = xlator.index_from_site(hipad-1)+1
-    v.vvprint('site range:',rlo,rhi,xlator.topsite,hipad)
-    v.vvprint('indx range:',ndxmin,ndxmax)
-    v.vvprint('Reading sequence file...',end='')
-    ## Read sequences, trim to range,
-    ## and discard duplicates by keeping them in a set()
-    seqset = setify_init(s.seq[ndxmin:ndxmax] for s in seqs)
-    v.vvprint('ok')
+    num,den = args.fracrange
+    ndxminlo = ndxmin = (num-1)*len(first.seq)//den
+    ndxmaxlo = num*len(first.seq)//den
+    ndxmaxhi = ndxmaxlo + args.windowsize
+    ndxmaxhi = min(ndxmaxhi,len(first.seq))
 
-    ## Having finished setup, go look for inconsistencies
-    ## ie, window-length intervals with inconsistent substrings
-    bad_intervals=[]
-    for lo in range(rlo,rhi+1):
-        hi = lo+args.windowsize
-        hi = min(hipad,hi)
-        ndxlo = xlator.index_from_site(lo)
-        if args.speedhack and (lo-rlo+1)%args.speedhack == 0:
-            ## trim from the left (not necessary, seems to speed up)
-            seqset = setify_left(seq[ndxlo-ndxmin:] for seq in seqset)
+    sites = sorted(set(xlator.site_from_index(ndx)
+                       for ndx in range(ndxminlo,ndxmaxhi)))
+    site_indexes = [xlator.index_from_site(site)
+                    for site in sites]
+
+    ## Fill seqctr with seqs
+    v.vprint("Reading input, filling Counter...",end="")
+    seqctr = Counter(s.seq[ndxminlo:ndxmaxhi] for s in seqs)
+    v.vprint("ok. Distinct (sub)sequences",len(seqctr))
+
+    inconsistencies=[]
+    for ndxlo in range(ndxminlo,ndxmaxlo):
+        if args.bysite and ndxlo not in site_indexes:
+            continue
+        ndxhi = min(ndxlo + args.windowsize,ndxmaxhi)
+        if args.speedhack and (ndxlo-ndxmin+1)%args.speedhack == 0:
+            ## trim the main seq counter from the left
+            seqctr = update_seq_counter(seqctr,ndxlo-ndxmin,hi=None)
             ndxmin = ndxlo
-        ## now trim from the right
-        ndxhi = xlator.index_from_site(hi-1)+1
-        subseqset = setify_right(seq[ndxlo-ndxmin:ndxhi-ndxmin]
-                                 for seq in seqset)
-        if args.xavoid:
-            subseqset = set(seq for seq in subseqset if 'X' not in seq)
-            if len(subseqset)==0:
+        ## make secondary subseq counter from main seq counter
+        v.vvvprint('=slice: ',ndxlo-ndxmin,ndxhi-ndxmin)
+        subseqctr = update_seq_counter(seqctr,ndxlo-ndxmin,ndxhi-ndxmin)
+        for aux_ndxhi in range(ndxhi,ndxlo+1,-1):
+            ## Loop over ranges lo:lo+2, lo:lo+3, ... ln:hi
+            ## But do it backward, truncating subseq's at each step
+            if args.bysite and aux_ndxhi-1 not in site_indexes:
                 continue
-        for xhi in range(hi,lo,-1):
-            ## decrease subseq length, by truncating last site
-            ## (may be several characters)
-            xndxhi = xlator.index_from_site(xhi-1)+1
-            subseqset = setify_right_again(seq[:xndxhi-ndxlo]
-                                          for seq in subseqset)
-            v.vvvprint(f'Checking sites {lo}:{xhi} / '
-                       f'local indices {ndxlo-ndxmin}:{xndxhi-ndxmin} / '
-                       f'global indices {ndxlo}:{xndxhi} / '
-                       f'sample: {next(iter(subseqset))}')
+            if args.bysite:
+                v.vvvprint('sites:'
+                           f'{xlator.site_from_index(ndxlo)}-'
+                           f'{xlator.site_from_index(aux_ndxhi-1)}',
+                           end=" ")
+                v.vvvprint(f' ndx: {ndxlo}-{aux_ndxhi-1}',end="")
+            v.vvvprint(f' slice: 0:{aux_ndxhi-ndxlo}')
+            subseqctr = update_seq_counter(subseqctr,0,aux_ndxhi-ndxlo)
+            tweaklist = check_subsequences(subseqctr)
+            for (gsa,gsb) in tweaklist:
+                if args.xavoid and 'X' in gsa:
+                    continue
+                inconsistencies.append(IndexTweak(ndxlo,aux_ndxhi,
+                                                  gsa,gsb,
+                                                  subseqctr[gsa],
+                                                  subseqctr[gsb]))
 
-            inconsistent = check_subsequences(subseqset)
-            bad_intervals.extend((lo,xhi,ndxlo,xndxhi,gsa,gsb)
-                                 for gsa,gsb in inconsistent)
-            ## show inconsistencies _as_ they are found
-            if args.verbose > 1:
-                for gsa,gsb in inconsistent:
-                    msa,msb = get_inconsistent_mstringpair(mut_mgr,
-                                                           lo,ndxlo,
-                                                           gsa,gsb)
-                    show_inconsistency(lo,hi,gsa,gsb,msa,msb)
+    v.vprint(f'Inconsistencies: {len(inconsistencies)}',
+             f'in range {ndxminlo}:{ndxmaxlo}')
 
+    for inc in inconsistencies:
+        v.vprint(inc)
 
-    v.vprint('Bad intervals:',len(bad_intervals),f'in range {rlo}-{rhi}')
-    mstringpairs = set()
-    for lo,hi,ndxlo,ndxhi,gseqa,gseqb in bad_intervals:
-        mstr_a,mstr_b = get_inconsistent_mstringpair(mut_mgr,
-                                                     lo,ndxlo,
-                                                     gseqa,gseqb)
-        if args.verbose == 1:
-            # if args.verbose > 1, we've already shown them!
-            show_inconsistency(lo,hi,gseqa,gseqb,mstr_a,mstr_b)
-        mstringpairs.add((mstr_a,mstr_b))
+    minimal_incs = [inc for inc in inconsistencies
+                    if inc.is_minimal()]
 
-    v.print('Distinct inconsistencies:',len(mstringpairs),
-            f'in range {rlo}-{rhi}')
-    for ma,mb in sorted(mstringpairs):
-        v.print(f'{ma} {mb}')
+    if args.viz:
+        with xopen(args.viz,"w") as vizout:
+            print("\n\n".join(inc.viz(xlator)
+                              for inc in minimal_incs),
+                  file=vizout)
 
-    if args.mstringpairs and mstringpairs:
-        ## write file only if mstringpairs is not empty
-        with xopen(args.mstringpairs,'w') as fout:
-            for ma,mb in sorted(mstringpairs):
-                print(f'{ma} {mb}',file=fout)
+    if args.output:
+        with xopen(args.output,"w") as fout:
+            for inc in minimal_incs:
+                print(inc)
 
 if __name__ == '__main__':
 
