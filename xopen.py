@@ -10,7 +10,7 @@ def xopen(filepath,mode):
     filestr=str(filepath)
 
     if filestr == '-':
-        filepath = sys.stdout if 'w' in mode else sys.stdin
+        return sys.stdout if 'w' in mode else sys.stdin
 
     if filestr.endswith('.zst'):
         return zstdx.open(filepath,mode)
