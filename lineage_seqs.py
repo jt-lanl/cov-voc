@@ -28,23 +28,29 @@ def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
     paa = argparser.add_argument
+    paa("--verbose","-v",action="count",default=0,
+        help="verbose")
     covid.corona_args(argparser)
-    paa("--notesfile",default=covid.find_seqfile("lineage_notes.txt"),
+    paa = argparser.add_argument_group("Lineage Sequence Options").add_argument
+    paa("--notesfile",
         help="file with lineage_notes")
-    paa("--mutsfile","-M",
+    paa("--mutsfile","-M",required=True,
         help="File (typically tsv) with new mutations, by lineage")
+    paa("--mincount","-m",type=int,default=0,
+        help="only include mutations with minimum count")
     paa("--clade",
         help="Restrict data to this clade")
     paa("--output","-o",
         help="Output file is aa fasta file")
-    paa("-j",
+    paa("--dnainput","-D",
         help="reference DNA sequences")
     paa("--dnaoutput",
         help="output DNA sequences")
-    paa("--verbose","-v",action="count",default=0,
-        help="verbose")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
+    if args.notesfile is None:
+        args.notesfile = covid.find_seqfile("lineage_notes.txt")
+
     return args
 
 def earliest_seq(seqlist):
@@ -54,13 +60,13 @@ def earliest_seq(seqlist):
     earlydate=None
     earlyseq = seqlist[0] if len(seqlist) else None
     for s in seqlist:
-        date = covid.date_from_seqname(s.name)
+        date = covid.get_date(s)
         if not date:
             continue
         if not earlydate or date < earlydate:
             earlydate = date
             earlyseq = s
-    return earlyseq    
+    return earlyseq
 
 class LineageCatalog(LineagePartition):
     def __init__(self,fullseqs):
@@ -91,7 +97,7 @@ class LineageCatalog(LineagePartition):
                 self.earlyseqs[lin].append(earlyseq)
                 if seqpattern == mcf_seqpattern:
                     self.mcf[lin] = earlyseq
-            
+
             ## at this point could delete self.sequences dict
             ## since we won't use it
 
@@ -101,15 +107,16 @@ class LineageCatalog(LineagePartition):
         return sum(len(self.earlyseqs[lin])
                    for lin in self.earlyseqs)
 
-def get_transitions(mutsfile):
-    '''For all lineage transitions, parse out all the 
+def get_transitions(mutsfile,cutoff=0):
+    '''For all lineage transitions, parse out all the
     the parents and chldren; for children, include the mutation
     associated with it
     '''
     MutLin = namedtuple('MutLin','mut lin')
-    
+
     df = pd.read_table(mutsfile)
     lintran = numu.match_column_name(df.columns,"lineage_trans")
+    linseqs = numu.match_column_name(df.columns,"lineage_seq")
     v.vprint(f'{df.columns}')
     v.vprint(f'lintran={lintran}')
     if not lintran:
@@ -118,18 +125,22 @@ def get_transitions(mutsfile):
     children = set()
     for nr,row in df.iterrows():
         mut = row["mutation"]
+        if int(row[linseqs]) < cutoff:
+            v.vprint_only(5,'skiplowcount',mut,row[linseqs])
+            continue
         transitions = row[lintran]
         if not transitions or pd.isna(transitions):
             continue
-        v.vprint_only(5,'trans:',transitions)
+        v.vvvprint_only(5,'trans:',transitions)
         transitions = transitions.split(",")
         transitions = [t.strip() for t in transitions]
         for trans in transitions:
             parent,child = trans.split("->")
-            v.vprint_only(5,'Trans:',f'mut={mut}: parent={parent} child={child}')
+            v.vvprint_only(5,'Trans:',f'mut={mut}: parent={parent} child={child}')
             parents.add(parent)
             children.add(MutLin(mut,child))
 
+    v.vprint_only_summary('skiplowcount')
     v.vprint('Parents:',len(parents))
     v.vprint('Children:',len(children))
 
@@ -139,27 +150,13 @@ def _main(args):
     '''main'''
     v.vprint(args)
 
-    parents,children = get_transitions(args.mutsfile)
+    parents,children = get_transitions(args.mutsfile,cutoff=args.mincount)
 
     for child in children:
-        v.vprint_only(5,'Child:',f'child={child} mut={child.mut}, lin={child.lin}')
+        v.vvprint_only(5,'Child:',f'child={child} mut={child.mut}, lin={child.lin}')
 
-    lin_notesfile = covid.find_seqfile(args.notesfile)
-    v.vprint(f'lin_notesfile={lin_notesfile}')
-    lin_notes = LineageNotes(lin_notesfile)
-    for fix in lin_notes.fix_inconsistencies():
-        v.vprint(fix)
-    ## if any inconsistencies remain, remove them
-    for bad in lin_notes.inconsistencies(remove=True):
-        v.vprint(bad)
-    v.vprint(lin_notes.report_size())
-
-    lineage_set = set(lin_notes.lineages)
-    if args.clade and args.clade in lineage_set:
-        lin_notes_x = lin_notes.restrict_to_clade(args.clade,
-                                                  excludeparent=False)
-        lineage_set = set(lin_notes_x.lineages)
-
+    lin_notes = LineageNotes(args.notesfile)
+    lineage_set = lin_notes.get_lineage_set(args.clade)
 
     seqs = covid.read_filter_seqfile(args)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
@@ -194,7 +191,7 @@ def _main(args):
         if earlyseq is None:
             v.vprint('No seq for:',ssm,child)
             continue
-        
+
         if earlyseq.name not in newnames:
             newnames[earlyseq.name] = "_".join([child,
                                                 lin_notes.parent_of(child),
@@ -204,7 +201,7 @@ def _main(args):
 
     v.vprint('Output will add',len(childseqs),"child sequences")
     v.vprint('with:',len(set(s.name for s in childseqs)),'distinct names')
-    
+
     for s in childseqs:
         outputseqs.add(s)
     v.vprint('Output will have',len(outputseqs),"total sequences")
@@ -227,17 +224,17 @@ def _main(args):
         else:
             v.print(f'Sequence [{s.name}] does not have a new name!')
         outputseqlist.append(s)
-    
+
     sequtil.write_seqfile(args.output,outputseqlist)
     v.vprint(f'Wrote {len(outputseqlist)} sequences to {args.output}')
 
     ## Ok, next step is to write out DNA sequences
-    if not args.j:
+    if not args.dnainput:
         return
 
 
-    v.vprint(f"Reading input dna file: {args.j}")
-    refseqs = sequtil.read_seqfile(args.j)
+    v.vprint(f"Reading input dna file: {args.dnainput}")
+    refseqs = sequtil.read_seqfile(args.dnainput)
     firstref,refseqs = sequtil.get_first_item(refseqs,keepfirst=False)
     outseqs = [firstref]
     dna_isl_set=set()
@@ -256,11 +253,9 @@ def _main(args):
         sequtil.write_seqfile(args.dnaoutput,outseqs)
     v.vprint("Wrote",len(outseqs),
              "reference sequences to file:",args.dnaoutput)
-    
+
 if __name__ == "__main__":
 
     _args = _getargs()
     v.verbosity(_args.verbose)
     _main(_args)
-
-
