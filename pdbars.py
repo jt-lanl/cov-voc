@@ -29,6 +29,8 @@ def _getargs():
         help="Title to put on plot")
     paa("--ylog",action="store_true",
         help="plot y-axis with log scale")
+    paa("--newrev",choices=("new","rev"),
+        help="new mutations or reversions")
     paa("--output","-o",
         help="write plot to file")
     paa("--verbose","-v",action="count",default=0,
@@ -69,7 +71,7 @@ def _main(args):
             sitelist = list(range(328,529))
         v.vprint(f'len(sitelist)={len(sitelist)}')
         if not sitelist:
-            v.print('Empty sitelist, no sites satisfy threshold')
+            v.print('Empty sitelist, no sites satisfy threshold; ')
             v.print(f'File {args.output} will not be created')
             return
         bysite.plotsites(sitelist)
@@ -91,7 +93,7 @@ def _main(args):
         plt.xticks(range(len(xvals)),xvals,
                    rotation='vertical')
         plt.xlim([-1,len(xvals)])
-        plt.xlabel('mutation')
+        plt.xlabel('mutation' if args.newrev == "new" else "reversion")
         
         plt.gca().spines[['right', 'top']].set_visible(False)
 
