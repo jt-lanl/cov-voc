@@ -8,10 +8,10 @@ from functools import lru_cache
 import argparse
 
 import verbose as v
-import intlist
 from xopen import xopen
 import mutant
 import covid
+from tweak import IndexTweak
 
 def _getargs():
     '''parse options from command line'''
@@ -243,54 +243,6 @@ def show_inconsistency(lo,hi,
     fprint(f'           {gseqb} : {gb}  :{dseq}')
     fprint(f'{mstr_a} {mstr_b}')
 
-class IndexTweak():
-    '''pair of inconsistent subsequnces,
-    along with their location in the full sequences
-    and the count of how many sequences each appeared in'''
-    def __init__(self,*args):
-        if len(args) == 6:
-            ndxlo,ndxhi,sa,sb,ca,cb = args
-        elif len(args) == 4:
-            ndxlo,ndxhi,sa,sb = args
-            ca = cb = None
-        elif len(args) == 3:
-            ndxlo,sa,sb = args
-            ndxhi = ndxlo + len(sa)
-            ca = cb = None
-        else:
-            raise RuntimeError('Invalid initialization')
-        assert ndxhi-ndxlo == len(sa) == len(sb)
-        self.ndxlo = ndxlo
-        self.ndxhi = ndxhi
-        self.sa = sa
-        self.sb = sb
-        self.ca = ca
-        self.cb = cb
-
-    def is_minimal(self):
-        '''return True if sa and sb cannot be trimmed'''
-        return self.sa[0]!=self.sb[0] and self.sa[-1]!=self.sb[-1]
-
-    def __str__(self):
-        '''simple output string, does not include counts'''
-        return (f'{self.ndxlo} {self.ndxhi} '
-                f'{self.sa} {self.sb}')
-
-    def viz(self,xlator):
-        '''print a kind of viz-ualization based on actual
-        site numbers'''
-        #TODO: add Wuhan line 
-        #TODO: conext-y version that shows all indices
-        #      over the given range of sites
-        sites = [xlator.site_from_index(ndx) for
-                 ndx in range(self.ndxlo,self.ndxhi)]
-
-        lines = list(intlist.write_numbers_vertically(sites))
-        lines.append( f'{self.sb} count={self.cb}' )
-        lines.append( f'{self.sa} count={self.ca}' )
-        return "\n".join(lines)
-        
-
 def update_seq_counter(inctr,lo,hi=None):
     '''truncate seqs to hi:lo, and
     return a new counter that keeps count of the truncated seqs'''
@@ -309,7 +261,6 @@ def _main(args):
 
     seqs = covid.read_filter_seqfile(args)
     first,seqs = covid.get_first_item(seqs,keepfirst=True)
-    xlator = mutant.SiteIndexTranslator(first.seq)
     mut_mgr = mutant.MutationManager(first.seq)
 
     num,den = args.fracrange
@@ -318,9 +269,9 @@ def _main(args):
     ndxmaxhi = ndxmaxlo + args.windowsize
     ndxmaxhi = min(ndxmaxhi,len(first.seq))
 
-    sites = sorted(set(xlator.site_from_index(ndx)
+    sites = sorted(set(mut_mgr.site_from_index(ndx)
                        for ndx in range(ndxminlo,ndxmaxhi)))
-    site_indexes = [xlator.index_from_site(site)
+    site_indexes = [mut_mgr.index_from_site(site)
                     for site in sites]
 
     ## Fill seqctr with seqs
@@ -347,8 +298,8 @@ def _main(args):
                 continue
             if args.bysite:
                 v.vvvprint('sites:'
-                           f'{xlator.site_from_index(ndxlo)}-'
-                           f'{xlator.site_from_index(aux_ndxhi-1)}',
+                           f'{mut_mgr.site_from_index(ndxlo)}-'
+                           f'{mut_mgr.site_from_index(aux_ndxhi-1)}',
                            end=" ")
                 v.vvvprint(f' ndx: {ndxlo}-{aux_ndxhi-1}',end="")
             v.vvvprint(f' slice: 0:{aux_ndxhi-ndxlo}')
@@ -371,16 +322,26 @@ def _main(args):
     minimal_incs = [inc for inc in inconsistencies
                     if inc.is_minimal()]
 
+    if args.bysite:
+        for inc in minimal_incs:
+            lo = mut_mgr.site_from_index(inc.ndxlo)
+            muta = substr_to_mut(first.seq,lo,inc.ndxlo,inc.sa)
+            mutb = substr_to_mut(first.seq,lo,inc.ndxlo,inc.sb)
+            mstra,mstrb = mutpair_to_mstringpair(mut_mgr,muta,mutb)
+            inc.ma = mstra
+            inc.mb = mstrb
+            v.vprint(f'{inc} {mstra} {mstrb}')
+
     if args.viz:
         with xopen(args.viz,"w") as vizout:
-            print("\n\n".join(inc.viz(xlator)
+            print("\n\n".join(inc.viz(mut_mgr)
                               for inc in minimal_incs),
                   file=vizout)
 
     if args.output:
         with xopen(args.output,"w") as fout:
             for inc in minimal_incs:
-                print(inc)
+                print(inc,file=fout)
 
 if __name__ == '__main__':
 
