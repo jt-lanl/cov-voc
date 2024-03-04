@@ -5,7 +5,7 @@ import gzip
 import lzma
 import zstdx
 
-def xopen(filepath,mode):
+def xopen(filepath,mode='r'):
     '''like builtins.open() but works with compressed files too'''
     filestr=str(filepath)
 
