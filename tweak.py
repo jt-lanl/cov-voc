@@ -14,23 +14,9 @@ class IndexTweak():
     ## attribute which is a dict; could do counts (ca,cb)
     ## but could also do mstringpairs (ma,mb)
 
-    def __init__(self,*args):
-        if len(args) == 6:
-            ndxlo,ndxhi,sa,sb,ca,cb = args
-            ndxlo = int(ndxlo)
-            ndxhi = int(ndxhi)
-        elif len(args) == 4:
-            ndxlo,ndxhi,sa,sb = args
-            ndxlo = int(ndxlo)
-            ndxhi = int(ndxhi)
-            ca = cb = None
-        elif len(args) == 3:
-            ndxlo,sa,sb = args
-            ndxlo = int(ndxlo)
-            ndxhi = ndxlo + len(sa)
-            ca = cb = None
-        else:
-            raise ValueError('Invalid initialization')
+    def __init__(self,ndxlo,ndxhi,sa,sb,ca=None,cb=None):
+        ndxlo = int(ndxlo)
+        ndxhi = int(ndxhi)
         assert ndxhi-ndxlo == len(sa) == len(sb)
         self.ndxlo = ndxlo
         self.ndxhi = ndxhi
@@ -38,6 +24,12 @@ class IndexTweak():
         self.sb = sb
         self.ca = ca
         self.cb = cb
+
+    @classmethod
+    def from_string(cls,line):
+        '''initialize from string'''
+        args = line.strip().split()
+        return cls(*args)
 
     @classmethod
     def tweaks_from_file(cls,file):
@@ -52,8 +44,7 @@ class IndexTweak():
                     ## ignore empty lines
                     continue
                 try:
-                    args = line.split()
-                    tweak = cls(*args)
+                    tweak = cls.from_string(line)
                     tweaklist.append(tweak)
                 except ValueError:
                     v.print(f'In file={file}, invalid line: [{fullline}]')
