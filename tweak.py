@@ -1,5 +1,9 @@
 '''module for manipulating sequence tweaks'''
 
+import re
+import itertools as it
+import verbose as v
+import xopen
 import intlist
 
 class IndexTweak():
@@ -9,6 +13,7 @@ class IndexTweak():
     ## alternative to ca,cb could make "associated_info"
     ## attribute which is a dict; could do counts (ca,cb)
     ## but could also do mstringpairs (ma,mb)
+
     def __init__(self,*args):
         if len(args) == 6:
             ndxlo,ndxhi,sa,sb,ca,cb = args
@@ -34,7 +39,27 @@ class IndexTweak():
         self.ca = ca
         self.cb = cb
 
-    def is_minimal(self):
+    @classmethod
+    def tweaks_from_file(cls,file):
+        '''read IndexTweak's from a file'''
+        if not file:
+            return []
+        tweaklist=[]
+        with xopen.xopen(file) as fpin:
+            for fullline in fpin:
+                ## Walrus Operator Ahead!!
+                if not (line := re.sub(r'#.*','',fullline).strip()):
+                    ## ignore empty lines
+                    continue
+                try:
+                    args = line.split()
+                    tweak = cls(*args)
+                    tweaklist.append(tweak)
+                except ValueError:
+                    v.print(f'In file={file}, invalid line: [{fullline}]')
+        return tweaklist
+
+    def is_trim(self):
         '''return True if sa and sb cannot be trimmed'''
         return self.sa[0]!=self.sb[0] and self.sa[-1]!=self.sb[-1]
 
@@ -46,14 +71,81 @@ class IndexTweak():
         return (f'{self.ndxlo} {self.ndxhi} '
                 f'{self.sa} {self.sb}')
 
-    def __hash__(self):
-        return hash((self.ndxlo,self.ndxhi,self.sa,self.sb))
+    def _as_tuple(self):
+        return (self.ndxlo,self.ndxhi,self.sa,self.sb)
 
-    def applytweak(self,seq):
+    def __hash__(self):
+        return hash(self._as_tuple())
+
+    def __eq__(self,other):
+        return self._as_tuple() == other._as_tuple()
+
+    def apply_to_seq(self,seq):
         '''return (seq,True) if seq tweaked; (seq,False) if not'''
         if seq[self.ndxlo:self.ndxhi] == self.sa:
             return (seq[:self.ndxlo] + self.sb + seq[self.ndxhi:],True)
         return seq,False
+
+    def overlaps_with(self,other):
+        '''Do the two tweaks regions [ndxlo:ndxhi] overlap?
+        If so, return a pair of slices,
+        one for self and othe for other, so that:
+        self.sa[selfoverlap] corresponds to other.sa[otheroverlap]
+        '''
+        ndxlo = max(self.ndxlo,other.ndxlo)
+        ndxhi = min(self.ndxhi,other.ndxhi)
+        if ndxlo >= ndxhi:
+            return False
+        return (slice(ndxlo-self.ndxlo,ndxhi-self.ndxlo),
+                slice(ndxlo-other.ndxlo,ndxhi-other.ndxlo))
+
+    def interacts_with(self,other):
+        '''two overlapping tweaks interact with each other if
+        they agree in the overlap regaion on sa, but
+        they disagree in the oerlap regsion on sb.
+        (Because in that case, applying sa->sb for the two
+        tweaks will lead to a different result, depending
+        on the order in which they are applied.)
+        '''
+        if not (overlaps := self.overlaps_with(other)):
+            return False
+        s_olap,o_olap = overlaps
+        if self.sa[s_olap] != other.sa[o_olap]:
+            return False
+        if self.sb[s_olap] == other.sb[o_olap]:
+            return False
+        return (self.sa[s_olap],self.sb[s_olap],other.sb[o_olap])
+
+    def contains(self,other):
+        '''self contains other if:
+        1/ other's interval is within self's
+        2/ other's sa/sb agrees with self's over that interval
+        note that a tweak contains itself
+        '''
+        if not (self.ndxlo <= other.ndxlo and
+                self.ndxhi >= other.ndxhi):
+            return False
+        selfslice = slice(other.ndxlo-self.ndxlo,other.ndxhi-self.ndxlo)
+        if not (self.sa[selfslice] == other.sa and
+                self.sb[selfslice] == other.sb):
+            return False
+        return True
+
+    @staticmethod
+    def get_minimal(tweaklist):
+        '''from an input list of tweaks, ouptut a subset
+        of them that are "minimal" meaning that they do
+        not contain smaller tweaks inside themselves'''
+        ## this is similar to "is_trim()" but works better
+        ## in --bysite mode
+        losers = set()
+        for ts,to in it.combinations(tweaklist,2):
+            if ts not in losers and ts.contains(to):
+                losers.add(ts)
+            if to not in losers and to.contains(ts):
+                losers.add(to)
+        return [tweak for tweak in tweaklist
+                if tweak not in losers]
 
     def viz(self,mmgr):
         '''print a kind of viz-ualization based on actual
