@@ -17,7 +17,7 @@ A SingleSiteMutation has three components:
            otherwise, indicates any character in the multicharacter string
 
 '''
-
+import sys
 import re
 import itertools as it
 from collections import defaultdict
@@ -71,6 +71,7 @@ class SiteIndexTranslator():
         '''return a dict with the number of extra characters at a given site'''
         xtrachars = dict()
         for site in range(1,1+self.topsite):
+            ## = len(self.indices_from-site(site))
             nchars = self.index_from_site(site+1) - self.index_from_site(site)
             if nchars > 1:
                 xtrachars[site] = nchars-1
@@ -78,50 +79,42 @@ class SiteIndexTranslator():
 
 class SingleSiteMutation():
     ''' eg, D614G is a single site mutation, so is +614ABC '''
-    def __init__(self,initializer=None):
-        if isinstance(initializer,str):
-            self.init_from_ssmstring(initializer)
-        elif isinstance(initializer,tuple):
-            self.init_from_ref_site_mut(*initializer)
+    def __init__(self,ref,site,mut):
+        self.ref=ref
+        self.site=int(site)
+        self.mut=mut
 
     @classmethod
-    def from_ref_site_mut(cls,ref,site,mut):
-        '''initialize as SingleSiteMutation.from_ref_site_mut(...)'''
-        return SingleSiteMutation((ref,site,mut))
+    def from_string(cls,ssmstring):
+        '''Initialize from an ssm string (eg "D614G" or "+144YGS" '''
+        ## that '.' in mut-string: eg, 'x'for +123x'
+        mat = re.match(r"(\D+)(\d+)(.[A-Z-_]*)",ssmstring.strip())
+        if not mat:
+            raise RuntimeError(f"Invalid ssm={ssmstring}")
 
-    def init_from_ref_site_mut(self,ref,site,mut):
-        '''initialize from ref char, site number, and mutation char'''
-        self.ref = ref
-        self.site = site
-        self.mut = mut
-        return self
+        ref = mat[1]
+        site = int(mat[2])
+        mut = mat[3]
 
-    def init_from_ssmstring(self,ssmstring):
-        '''initialize from ssmstring; eg "D614G" '''
-        ssmstring = ssmstring.strip()
-        m = re.match(r"(\D+)(\d+)(.[A-Z-_]*)",ssmstring)  ## that '.' in mut-string: eg, 'x'for +123x'
-        if not m:
-            raise RuntimeError(f"SingleSiteMutation string /{ssmstring}/ invalid")
-        self.ref = m[1]
-        self.site = int(m[2])
-        self.mut = m[3]
-
-        if not re.match(r'([A-Z+])|(ins)',self.ref):
-            raise RuntimeError(f'Invalid ref string {self.ref} in ssm {ssmstring}')
-        if self.ref =="ins":
-            self.ref = "+"
-        if "_" in self.mut:
+        if not re.match(r'([A-Z+])|(ins)',ref):
+            raise RuntimeError(f'Invalid ref={ref} in ssm={ssmstring}')
+        if ref =="ins":
+            ref = "+"
+        if "_" in mut:
+            ## D614_ -> D614D
             ## recognize that ssm.mut might have multiple characters
-            self.mut = re.sub("_",self.ref,self.mut)
-        if self.mut == "x":
-            if self.ref == "+":
-                ## +123x means no insertion at 123 (Q: would +123- be a better notation?)
-                self.mut = ""
+            mut = re.sub("_",ref,mut)
+        if mut == "x":
+            if ref == "+":
+                ## +123x means no insertion at 123
+                ## (Q: would +123- be a better notation?)
+                mut = ""
             else:
-                ## D123x is not a valid formulation; use D123- for deletion at site 123
-                raise RuntimeError(f"SingleSiteMutation string /{ssmstring}/ invalid")
+                ## D123x is not a valid formulation;
+                ## use D123- for deletion at site 123
+                raise RuntimeError(f"Invalid ssm={ssmstring}")
 
-        return self
+        return cls(ref,site,mut)
 
     def as_tuple(self):
         '''return a tuple version of the object, useful for hashing, etc'''
@@ -131,9 +124,7 @@ class SingleSiteMutation():
         '''
         equality test for single site mutations;
         '''
-        if self.as_tuple() == other.as_tuple():
-            return True
-        return False
+        return self.as_tuple() == other.as_tuple()
 
     def __lt__(self,other):
         ''' less-than function enables sorting of SSM's '''
@@ -149,6 +140,7 @@ class SingleSiteMutation():
     def __str__(self):
         '''ssmstring is, eg, 'D614G' '''
         return self.ref+str(self.site)+self.mut
+
 
 class Mutation(list):
     ''' Mutation is a list of SingleSiteMutations '''
@@ -171,47 +163,9 @@ class Mutation(list):
     ##      yes: because when it reads an mstring that string might include '!' indicating exact
     ##
 
-    @classmethod
-    def merge(cls,*muts):
-        '''merge two or more mutations into a single mutation'''
-        ## does this ever actually get used???
-        ## and what does it mean to merge T95I with T95. (or T95K)
-        ## here, if any of muts are exact, then merged mut is exact -- does that make sense?
-        mergedmut = set()
-        exact = False
-        for mut in muts:
-            mergedmut.update(mut)
-            exact = exact | mut.exact
-            print("merge:",mut,mut.exact,exact)
-        mergedmut = cls(sorted(mergedmut))
-        mergedmut.exact = exact
-        return mergedmut
-
-    def __init__(self,ssms=None,exact=False):
-        super().__init__()
-        self.exact = exact
-        try:
-            ## initialization according to what ssms is
-            if isinstance(ssms,list):
-                self.extend(ssms)
-            elif isinstance(ssms,set):
-                self.extend(sorted(ssms))
-            elif isinstance(ssms,str):
-                self.init_from_mstring(ssms)
-            elif isinstance(ssms,tuple):
-                self.init_from_sequences(*ssms)
-            elif ssms:
-                raise ValueError(f"Invalid argument initializaing {type(self)}")
-        except Exception as exception:
-            raise RuntimeError(f"Unable to initialze with ssms={ssms}") from exception
-
-    @classmethod
-    def from_mstring(cls,mstring,exact=None):
-        ''' initialize Mutation from mstring, eg [A222V,D614G] '''
-        return cls().init_from_mstring(mstring,exact=exact)
-
-    def init_from_mstring(self,mstring,exact=None):
-        ''' initialize Mutation from mstring, eg [A222V,D614G] '''
+    @staticmethod
+    def parse_mstring(mstring,exact=None):
+        '''from mstring, return an ssmlist and an exact flag'''
         mat = re.match(r".*\[(.*)\](!?).*",mstring)
         if not mat:
             mstring = f'[{mstring}]'
@@ -220,23 +174,26 @@ class Mutation(list):
             raise ValueError(f"Invalid mstring: {mstring}")
         if exact is None:
             exact = bool(mat[2])
-        self.exact = exact
         ssmlist = []
         for m in mat[1].split(","):
             if m.strip():
-                ssmlist.append( SingleSiteMutation(m) )
-        self.extend(sorted(ssmlist))
-        return self
+                ssmlist.append( SingleSiteMutation.from_string(m) )
+        return ssmlist,exact
 
-    def init_from_sequences(self,refseq,seq,exact=False):
-        ''' find all sites where seq differs from refseq,
-            convert into a Mutation
-        '''
-        warnings.warn("not efficient, use MutationManager")
-        mut_mgr = MutationManager(refseq)
-        self.extend( mut_mgr.get_ssmlist(seq) )
+
+    def __init__(self,ssms=None,exact=False):
+        super().__init__()
+        if isinstance(ssms,str):
+            cls=type(self)
+            ssms,exact = cls.parse_mstring(ssms,exact=exact)
+        self.extend(sorted(ssms or []))
         self.exact = exact
-        return self
+
+    @classmethod
+    def from_mstring(cls,mstring,exact=None):
+        ''' return a Mutation object from mstring, eg [A222V,D614G] '''
+        ssmlist,exact = cls.parse_mstring(mstring,exact)
+        return cls(ssmlist,exact=exact)
 
     #def __eq__(self,other):
     #    '''returns boolean: is self == other?'''
@@ -340,7 +297,7 @@ class MutationManager(SiteIndexTranslator):
         for (r,site),clist in mutdict.items():
             mstr = "".join(clist)
             rr = "+" if r == "-" else r
-            mutlist.append(SingleSiteMutation.from_ref_site_mut(rr,site,mstr))
+            mutlist.append(SingleSiteMutation(rr,site,mstr))
         return mutlist ## should already be sorted?
 
     def get_mutation(self,seq,exact=True):
