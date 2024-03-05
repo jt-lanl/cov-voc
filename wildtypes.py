@@ -19,8 +19,8 @@ def clade_init(name):
     if clade_defined(name):
         CLADE_MUTATIONS[name]=dict()
         mstring = covid.BASELINE_MSTRINGS[name]
-        ssmlist = mutant.Mutation()
-        ssmlist.init_from_mstring(mstringfix.mstring_brackets(mstring))
+        mstring = mstringfix.mstring_brackets(mstring)
+        ssmlist = mutant.Mutation.from_mstring(mstring)
         for ssm in ssmlist:
             CLADE_MUTATIONS[name][ssm.site]=ssm
         
