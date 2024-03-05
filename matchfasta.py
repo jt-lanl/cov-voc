@@ -11,6 +11,8 @@ import itertools as it
 import argparse
 
 import verbose as v
+import breakpipe
+
 import readseq
 import sequtil
 import intlist
@@ -130,6 +132,7 @@ def mut_pattern_match(m_mgr,mpatt,seqs,exact=False):
             if ismatch:
                 yield s
 
+@breakpipe.no_broken_pipe
 def main(args):
     '''main'''
 
@@ -151,8 +154,8 @@ def main(args):
         if args.seqpattern:
             ssms=[]
             for site,mut in zip(sites,args.seqpattern):
-                r = m_mgr.refval(site)
-                ssm = mutant.SingleSiteMutation.from_ref_site_mut(r,site,mut)
+                ref = m_mgr.refval(site)
+                ssm = mutant.SingleSiteMutation(ref,site,mut)
                 ssms.append(ssm)
             mpatt = mutant.Mutation(ssms)
 
@@ -206,23 +209,6 @@ def main(args):
                 print(m_mgr.get_mutation(s.seq),end="")
             print()
 
-def _mainwrapper(args):
-    '''
-    avoids the bulky BrokenPipeError that arises, eg,
-    if output is piped through 'head'
-    '''
-    try:
-        main(args)
-    except BrokenPipeError:
-        # Python flushes standard streams on exit; redirect remaining output
-        # to devnull to avoid another BrokenPipeError at shutdown
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, sys.stdout.fileno())
-        sys.exit(1)  # Python exits with error code 1 on EPIPE
-    except KeyboardInterrupt:
-        print("Keyboard Interrupt",file=sys.stderr)
-        sys.exit(1) ## Just exit
-
 if __name__ == "__main__":
 
     _args = getargs()
@@ -234,4 +220,4 @@ if __name__ == "__main__":
             return wrapgen.keepcount(seqs,*p,**kw)
         return seqs
 
-    _mainwrapper(_args)
+    main(_args)
