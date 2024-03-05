@@ -184,7 +184,7 @@ def _main(args):
 
     childseqs = set()
     for ssm,child in children:
-        ssm = mutant.SingleSiteMutation(ssm)
+        ssm = mutant.SingleSiteMutation.from_string(ssm)
         candidates=[s for s in lincat.earlyseqs[child]
                     if ssm in mmgr.get_mutation(s.seq)]
         earlyseq = earliest_seq(candidates)

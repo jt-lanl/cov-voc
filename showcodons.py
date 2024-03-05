@@ -9,13 +9,14 @@ import pandas as pd
 import verbose as v
 import sequtil
 import mutant
+import covid
 
 def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
     paa = argparser.add_argument
     paa("--input","-i",
-        help="Input DNA sequences, with filnames indicating mutations")
+        help="Input DNA sequence file, with sequence names indicating mutations")
     paa("--output","-o",
         help="tsv file with sequence names, mutations, and codons")
     paa("--verbose","-v",action="count",default=0,
@@ -34,6 +35,8 @@ def _main(args):
     ## first, read that DNA file
     seqs = sequtil.read_seqfile(args.input)
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
+    if not covid.test_isref(first):
+        raise RuntimeError(f'Input file={args.input} must begin with a reference sequence')
     seqs=list(seqs)
 
     ## Get mutations from the sequence names
@@ -45,7 +48,7 @@ def _main(args):
         mutations.update(tokens[5:])
     mutations.discard("MCF")
     v.vprint("Mutations:",len(mutations))
-    mutations = map(mutant.SingleSiteMutation,mutations)
+    mutations = map(mutant.SingleSiteMutation.from_string,mutations)
     mutations = sorted(mutations,key=attrgetter("site","ref","mut"))
     v.vprint("Mutations:",len(mutations),
             " ".join(str(m) for m in mutations[:5]),"...")
@@ -63,7 +66,6 @@ def _main(args):
     df = pd.DataFrame( columns = mutations + [SEQNAME],
                        #index = range(len(seqs)),
                        dtype=str)
-    v.vprint(f'{df}')
     for nr,s in enumerate(seqs):
         for mut in mutations:
             ndx = ndxdict[str(mut)]
