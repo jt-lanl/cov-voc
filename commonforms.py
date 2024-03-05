@@ -97,10 +97,10 @@ def get_baseline_mutation(lin_baseline,mut_manager,linpart,protein='Spike'):
 
     ##     For Other proteins, use most common form of the given baseline pango type
     if not lin_baseline:
-        base_mut = mutant.Mutation("[]")
+        base_mut = mutant.Mutation()
     elif protein.lower() == 'spike':
         ## for Spike, use hardcoded baseline mutation
-        base_mut = mutant.Mutation(covid.get_baseline_mstring(lin_baseline))
+        base_mut = mutant.Mutation.from_mstring(covid.get_baseline_mstring(lin_baseline))
     else:
         v.vprint('Will obtain baseline from most common',lin_baseline)
         if lin_baseline not in linpart.lineages:
