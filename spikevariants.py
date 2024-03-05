@@ -224,7 +224,7 @@ class SpikeVariants():
             vocsites = set(ssm.site for ssm in voc)
             for site in set(allsites)-vocsites:
                 ref = self.refseq[self.MM.index_from_site(site)]
-                voc.append( mutant.SingleSiteMutation((ref,site,ref)) )
+                voc.append( mutant.SingleSiteMutation(ref,site,ref) )
             voc.exact=False
             voc.sort()
 
