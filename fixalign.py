@@ -180,9 +180,9 @@ def get_bad_good_mstring(badmut,goodmut,mut_mgr,mstringify):
             v.print(show_mstrings('xxxx',bmut,gmut))
             continue
         if site not in [ssm.site for ssm in bmut]:
-            bmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+            bmut.add(mutant.SingleSiteMutation(ref,site,ref))
         if site not in [ssm.site for ssm in gmut]:
-            gmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+            gmut.add(mutant.SingleSiteMutation(ref,site,ref))
     v.vprint(show_mstrings('zfix',bmut,gmut))
 
     return mstringify(bmut),mstringify(gmut)
