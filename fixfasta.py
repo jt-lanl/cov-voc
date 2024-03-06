@@ -21,6 +21,7 @@ import argparse
 import warnings
 
 import verbose as v
+import breakpipe
 from xopen import xopen
 import sequtil
 import wrapgen
@@ -69,6 +70,9 @@ def getargs():
         help="output fasta file")
     args = ap.parse_args()
     args = covid.corona_fixargs(args)
+    if args.codonalign and (args.rmgapcols or args.stripdashcols):
+        v.print(args)
+        raise RuntimeError('If --codealign, then cannot have --rmgapcols or --stripdashcols')
     return args
 
 codon_to_aa_table = {
@@ -144,7 +148,7 @@ def codon_align_indices(refseq):
             ndxlist.append(ndx)
             ndxlist.append(ndx)
             ndx += 1
-    print('ndxlist:',ndxlist)
+    v.vprint('codon align ndxlist:',ndxlist)
     return ndxlist
 
 def codon_align_seqs(seqs,ndxlist=None):
@@ -265,7 +269,6 @@ def rm_toomanygaps(toomany,seqs):
 def filter_all_seqs(args,seqs):
     '''filter all sequences, even the ref sequence'''
     if args.codonalign:
-        v.print('Warning: need to keep first for this too...')
         seqs = codon_align_seqs(seqs)
         seqs = vcount(seqs,"Sequences codon aligned")
 
@@ -318,6 +321,7 @@ def filter_nonref_seqs(args,seqs):
 
     return seqs
 
+@breakpipe.no_broken_pipe
 def main(args):
     '''fixfasta main'''
     v.vprint(args)
