@@ -167,7 +167,7 @@ def reset_baseline(firstseq,lineage):
     base_mstring = get_baseline_mstring(lineage)
     if not base_mstring:
         return firstseq
-    base_mutant = mutant.Mutation(base_mstring)
+    base_mutant = mutant.Mutation.from_mstring(base_mstring)
     base_seq = mut_mgr.seq_from_mutation(base_mutant)
     return base_seq
 
@@ -315,9 +315,7 @@ def range_of_dates(seqlist):
     return (min(dates).isoformat(),
             max(dates).isoformat())
 
-
 ### Routines for filtering sequences (usually based on parsing sequence name)
-
 
 def test_isref(first):
     '''is this sequence actually the reference sequence?'''
@@ -492,7 +490,7 @@ def read_seqfile(args,**kwargs):
         ## bypass all the "fixing" and low-level filtering
         ## can still filter by location, date, etc
         ## assumes input file has already been fixed/cleaned-up
-        v.vprint('In --fastread mode, sequences not filtered or "fixed"')
+        v.vprint('In --fastread mode, sequences are not filtered or "fixed"')
         if kwargs:
             warnings.warn(f'Ignoring keyword args: {kwargs}')
         seqs = readseq.read_seqfile(args.input,nofilter=True)
