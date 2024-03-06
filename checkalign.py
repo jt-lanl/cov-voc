@@ -8,10 +8,11 @@ from functools import lru_cache
 import argparse
 
 import verbose as v
+from breakpipe import no_broken_pipe
 from xopen import xopen
 import mutant
 import covid
-from tweak import IndexTweak
+from tweak import IndexTweak,de_gap
 
 def _getargs():
     '''parse options from command line'''
@@ -27,14 +28,12 @@ def _getargs():
     paa("--bysite",action="store_true",
         help="Only look for alignment anomalies that are on site indices")
     paa("--mstringpairs","-M",
-        help="write file of mstring pairs")
+        help="write file of mstring pairs [NOT IMPLEMENTED]")
     paa("--xavoid",action="store_true",
         help="Avoid X's in the mutation inconsistencies")
     paa("--windowsize","-w",type=int,default=0,
         help="subsequence window size")
     paa("--fracrange","-F",type=int,nargs=2,default=(1,1),
-        help="Restrict attention to this range of sites in the sequence")
-    paa("--range","-R",type=int,nargs=2,
         help="Restrict attention to this range of sites in the sequence")
     paa("--na",action="store_true",
         help="set for nucleotide alignment (default is amino acid alignment)")
@@ -98,13 +97,6 @@ reducing how much slicing and set-ifying is done at each call.
 For spike protein, I find that speedhack=50-ish works well, and
 delivers a 2-3x speedup, depending on the data.
 '''
-
-DEDASH = re.compile("-")
-@lru_cache(maxsize=None)
-def de_gap(seq):
-    '''remove '-'s from sequence'''
-    return DEDASH.sub("",seq)
-
 
 def make_pairs(gseqlist,ctr):
     '''given N gseqs in gseqlist, return a list of N-1 pairs,
@@ -199,23 +191,23 @@ def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
 
     ## Adjustment 2: add back common ssm's that are in range
     ## (note: at this piont bmut,gmut are _sets_ of ssm's, not Mutation objects)
-    minsite = min(mut.site for mut in (bmut|gmut) if mut.ref != "+")
-    maxsite = max(mut.site for mut in (bmut|gmut))
-    for mut in commonmut:
-        if minsite < mut.site < maxsite:
-            bmut.add(mut)
-            gmut.add(mut)
+    minsite = min(ssm.site for ssm in (bmut|gmut) if ssm.ref != "+")
+    maxsite = max(ssm.site for ssm in (bmut|gmut))
+    for ssm in commonmut:
+        if minsite < ssm.site < maxsite:
+            bmut.add(ssm)
+            gmut.add(ssm)
 
     ## Adjustment 3: add back explicit identity ssm's (eg, 'S247S')
     for site in range(minsite,maxsite+1):
         ref = mut_mgr.refval(site)
         if ref=='-':
-            raise RuntimeError(f'ref value at site {site} is {ref} '
+            raise RuntimeError(f'ref value at site {site} is "{ref}" '
                                '-- this should never happen')
-        if site not in [ssm.site for ssm in bmut]:
-            bmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
-        if site not in [ssm.site for ssm in gmut]:
-            gmut.add(mutant.SingleSiteMutation(f'{ref}{site}{ref}'))
+        if site not in [ssm.site for ssm in bmut if ssm.ref != "+"]:
+            bmut.add(mutant.SingleSiteMutation(ref,site,ref))
+        if site not in [ssm.site for ssm in gmut if ssm.ref != "+"]:
+            gmut.add(mutant.SingleSiteMutation(ref,site,ref))
 
     return mstringify(bmut),mstringify(gmut)
 
@@ -247,10 +239,12 @@ def update_seq_counter(inctr,lo,hi=None):
     '''truncate seqs to hi:lo, and
     return a new counter that keeps count of the truncated seqs'''
     ctr = Counter()
+    lohi = slice(lo,hi)
     for seq,cnt in inctr.items():
-        ctr[seq[slice(lo,hi)]] += cnt
+        ctr[seq[lohi]] += cnt
     return ctr
 
+@no_broken_pipe
 def _main(args):
     '''checkalign main'''
     v.vprint(args)
@@ -294,8 +288,10 @@ def _main(args):
         for aux_ndxhi in range(ndxhi,ndxlo+1,-1):
             ## Loop over ranges lo:lo+2, lo:lo+3, ... ln:hi
             ## But do it backward, truncating subseq's at each step
-            if args.bysite and aux_ndxhi-1 not in site_indexes:
-                continue
+            ## next two lines commented out; enables use to find
+            ## more bysite tweaks
+            #if args.bysite and aux_ndxhi-1 not in site_indexes:
+            #    continue
             if args.bysite:
                 v.vvvprint('sites:'
                            f'{mut_mgr.site_from_index(ndxlo)}-'
@@ -310,8 +306,8 @@ def _main(args):
                     continue
                 inconsistencies.append(IndexTweak(ndxlo,aux_ndxhi,
                                                   gsa,gsb,
-                                                  subseqctr[gsa],
-                                                  subseqctr[gsb]))
+                                                  ca=subseqctr[gsa],
+                                                  cb=subseqctr[gsb]))
 
     v.vprint(f'Inconsistencies: {len(inconsistencies)}',
              f'in range {ndxminlo}:{ndxmaxlo}')
@@ -319,8 +315,11 @@ def _main(args):
     for inc in inconsistencies:
         v.vprint(inc)
 
-    minimal_incs = [inc for inc in inconsistencies
-                    if inc.is_minimal()]
+    if args.bysite:
+        minimal_incs = IndexTweak.get_minimal(inconsistencies)
+    else:
+        minimal_incs = [inc for inc in inconsistencies
+                        if inc.is_trim()]
 
     if args.bysite:
         for inc in minimal_incs:
@@ -332,7 +331,7 @@ def _main(args):
             inc.mb = mstrb
             v.vprint(f'{inc} {mstra} {mstrb}')
 
-    if args.viz:
+    if args.viz and minimal_incs:
         with xopen(args.viz,"w") as vizout:
             print("\n\n".join(inc.viz(mut_mgr)
                               for inc in minimal_incs),
