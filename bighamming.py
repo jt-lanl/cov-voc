@@ -14,6 +14,9 @@ from hamming import hamming
 def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
+    paa = argparser.add_argument
+    paa("--verbose","-v",action="count",default=0,
+        help="verbose")
     covid.corona_args(argparser)
     paa = argparser.add_argument_group('Hamming Options').add_argument
     paa("-T",type=int,default=10,
@@ -26,8 +29,6 @@ def _getargs():
         help="only show seqs that appear at least m times")
     paa("--output","-o",
         help="put the large hamming distances sequences into a fasta file")
-    paa("--verbose","-v",action="count",default=0,
-        help="verbose")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     return args
@@ -54,8 +55,8 @@ def _main(args):
     m_mgr = mutant.MutationManager(first.seq)
 
     if args.ref:
-        ref = covid.BASELINE_MSTRINGS.get(args.ref,args.ref)
-        refmut = mutant.Mutation(ref)
+        refmstring = covid.BASELINE_MSTRINGS.get(args.ref,args.ref)
+        refmut = mutant.Mutation.from_mstring(refmstring)
         refseq = m_mgr.seq_from_mutation(refmut)
     else:
         refseq = first.seq
@@ -68,7 +69,7 @@ def _main(args):
     hamlist = [ (hamming(refseq,seq), seq_cases[seq]) for seq in seq_cases ]
     hamlist = sorted(hamlist,
                      key=itemgetter(0),
-                     reverse=False if args.nearby else True)
+                     reverse=not bool(args.nearby))
 
     outseqs=[first]
     count=0
@@ -81,7 +82,8 @@ def _main(args):
             continue
 
         s = earliest_sequence(seqlist)
-        print("%3d %4d %s" % (hamdist,seq_len,s.name))
+        print(f'{hamdist:3d} {seq_len:4d} {s.name}')
+        #print("%3d %4d %s" % (hamdist,seq_len,s.name))
         print("        ",m_mgr.get_mutation(s.seq))
 
         if args.output:
