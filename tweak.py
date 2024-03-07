@@ -306,36 +306,53 @@ def tweak_from_mstringpair(mut_mgr,mstring_a,mstring_b):
     v.vprint('tweak:',str(tweak))
     return tweak
 
+def expansion_needed(mut_mgr,mstringpairs):
+    '''check if the mstring pairs will require extra room in the sequences'''
+    if not mstringpairs:
+        return False
+
+    ## Identify where extra columns are needed (based just on mstrings)
+    columns_needed = get_extra_chars(mstringpairs)
+    v.vprint("columns needed:",columns_needed)
+
+    ## Identify actual columns that need to be added/expanded
+    xpand = dict() ## xx is ndx based instead of site based
+    for site in columns_needed:
+        ## determine how many columns there already are
+        columns_available = len(mut_mgr.indices_from_site(site))-1
+        need_xtras = columns_needed[site] - columns_available
+        if need_xtras <= 0:
+            continue
+        ## we'll need to add some columns
+        v.vprint("columns expanded:",site,columns_available,"->",columns_needed[site])
+        ## ndx is the index of the column to whch new columns should be added
+        ## should we use ndx+xtras[site] instead so we are adding columns
+        ## "after" the ones that are alrady there??? just thinking out loud
+        ndx = mut_mgr.index_from_site(site) ## hmm,adding from left side??
+        xpand[ndx] = need_xtras
+
+    return xpand
+
+def expand_seq(xpand,seq):
+    '''based on xpand dict, eqpand sequence string'''
+    seq_as_list = list(seq)
+    for ndx in xpand:
+        seq_as_list[ndx] += "-"*xpand[ndx]
+    return "".join(seq_as_list)
+
+def expand_seqs(xpand,seqs):
+    '''baed on xpand dict, expand a list/generator of seqs'''
+    for s in seqs:
+        s.seq = expand_seq(xpand,s.seq)
+        yield s
+
 def add_needed_dashes(seqs,mstringpairs):
     '''check if mstring pairs will require extra room in the sequences;
     and if so, add the needed dashes to the sequences'''
 
-    if not mstringpairs:
-        return seqs
-
-    ## Identify where extra columns are needed (theoretical)
-    xtras = get_extra_chars(mstringpairs)
-    v.vprint("xtras:",xtras)
-
     first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
     mut_mgr = mutant.MutationManager(first.seq)
-
-    ## Identify actual columns that need to be added
-    xxtras = dict() ## xx is ndx based instead of site based
-    for site in sorted(xtras):
-        ## determine how many extra columns there already are
-        mm_xtras = len(mut_mgr.indices_from_site(site))-1
-        need_xtras = xtras[site] - mm_xtras
-        if need_xtras > 0:
-            ## we'll need to add some columns
-            v.vprint("xtras:",site,mm_xtras,"->",xtras[site])
-            ## ndx is the index of the column to whch new columns should be added
-            ## should we use ndx+xtras[site] instead so we are adding columns
-            ## "after" the ones that are alrady there??? just thinking out loud
-            ndx = mut_mgr.index_from_site(site) ## hmm,adding from left side??
-            xxtras[ndx] = need_xtras
-
-    if len(xxtras):
-        seqs = add_extra_dashes(seqs,xxtras)
-
-    return seqs,xxtras
+    xpand = expansion_needed(mut_mgr,mstringpairs)
+    if xpand:
+        seqs = expand_seqs(xpand,seqs)
+    return seqs,xpand

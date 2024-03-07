@@ -1,7 +1,6 @@
 '''Tweak alignment according to specifed mutant strings'''
 import itertools as it
 from collections import Counter
-import random
 import argparse
 
 import verbose as v
@@ -29,8 +28,8 @@ def _getargs():
         help="read indexed tweaks from a file")
     paa("--checktweaks",action="store_true",
         help="Check for dependencies among the tweaks [EXPERIMENTAL!]")
-    paa("--shuffletweaks",action="store_true",
-        help="apply the mstring-pair tweaks in random order")
+    paa("--reverse",action="store_true",
+        help="reverse the effect of tweak: b->a instead of a->b")
     paa("--output","-o",
         help="output tweaked fasta file")
     args = argparser.parse_args()
@@ -51,54 +50,52 @@ def checktweaks(tweaklist):
             warninglist.append(msg)
     return warninglist
 
+def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
+    '''apply tweaks, as defined by mseqpairs, to seqs'''
+    for s in seqs:
+        if covid.test_isref(s):
+            ## if it's a ref seq; then
+            ## we re-initialize  everything
+            mut_mgr = mutant.MutationManager(s.seq)
+            xpand = tku.expansion_needed(mut_mgr,mstringpairs)
+            if xpand:
+                s.seq = tku.expand_seq(xpand,s.seq)
+                mut_mgr = mutant.MutationManager(s.seq)
+            tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
+                         for ma,mb in mstringpairs]
+            yield s
+            continue
+
+        if xpand:
+            s.seq = tku.expand_seq(xpand,s.seq)
+        for tweak in tweaklist:
+            s.seq,wastweaked = tweak.apply_to_seq(s.seq)
+            if wastweaked and change_counter is not None:
+                change_counter[tweak] += 1
+            yield s
+
 def _main(args):
     '''tweakalign main'''
     v.vprint(args)
 
-    ## Initial set of tweaks from tweakfile(s)
-    tweaklist = IndexTweak.tweaks_from_filelist(args.tfile)
+    changes_by_tweak = Counter()
 
     ## Begin reading sequences
     seqs = covid.read_filter_seqfile(args)
 
     ## Get all the mstring pairs
     mstringpairs = tku.get_mstring_pairs(args.mfile,args.mstrings)
-    seqs,xtra_dashes = tku.add_needed_dashes(seqs,mstringpairs)
-    if xtra_dashes:
-        v.print("Sequences modified, added dashes:",xtra_dashes)
-    if xtra_dashes and args.tfile:
-        raise RuntimeError(f'Since seqs expanded, cannot trust {args.tfile}')
-
-    first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
-    mut_mgr = mutant.MutationManager(first.seq)
-
-    tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
-                 for ma,mb in mstringpairs]
-
-    if args.shuffletweaks:
-        tweaklist = random.sample(tweaklist,k=len(tweaklist))
-
-    ## remove duplicates (preserve order in v3.7+)
-    tweaklist = list(dict.fromkeys(tweaklist))
-
-    if args.checktweaks:
-        warninglist = checktweaks(tweaklist)
-        if warninglist:
-            v.print("\n".join(warninglist))
-        v.print(f'Found {len(warninglist)} interacting pairs '
-                f'among {len(tweaklist)} tweaks')
-        return
-
-    v.vprint("Reading all sequences...")
-    seqs = list(seqs)
-    v.vprint("Finished reading sequences")
-
-    changes_by_tweak = Counter()
-    for s in seqs:
-        for tweak in tweaklist:
-            s.seq,wastweaked = tweak.apply_to_seq(s.seq)
-            if wastweaked:
-                changes_by_tweak[tweak] += 1
+    if args.reverse:
+        mstringpairs = [(mb,ma) for ma,mb in mstringpairs]
+    if mstringpairs:
+        seqs = apply_mstringpairs(seqs,mstringpairs,changes_by_tweak)
+    elif args.tfile:
+        tweaklist = IndexTweak.tweaks_from_filelist(args.tfile)
+        for s in seqs:
+            for tweak in tweaklist:
+                s.seq,wastweaked = tweak.apply_to_seq(s.seq)
+                if wastweaked:
+                    changes_by_tweak[tweak] += 1
 
     if changes_by_tweak:
         v.vprint("Changes by tweak:")
@@ -106,7 +103,6 @@ def _main(args):
             v.vprint(f'{tweak} (count={cnt})')
 
     if args.output:
-        seqs = it.chain([first],seqs)
         sequtil.write_seqfile(args.output,seqs)
 
 if __name__ == "__main__":
