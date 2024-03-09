@@ -23,6 +23,7 @@ import warnings
 import verbose as v
 import breakpipe
 from xopen import xopen
+from lineagenotes import LineageNotes
 import sequtil
 import wrapgen
 import mutant
@@ -62,6 +63,10 @@ def getargs():
         help="List of sites (eg 1-4,7,9-240) to be sent to output")
     paa("--pangoreplace",
         help="Name of file with pango name for each sequence")
+    paa("--fclades",nargs='+',
+        help="Filter sequences to include those in the fclade(s)")
+    paa("--xclades",nargs='+',
+        help="Filter sequences to exclude those in the xclade(s)")
     paa("--rmgapcols",action="store_true",
         help="Remove gap-only columns")
     paa("--random",action="store_true",
@@ -217,6 +222,22 @@ def get_pangoreplace(pangofile):
             pangocat[isl]=pango
     return pangocat
 
+def filterclades(seqs,lin_notes,cladelist,exclude=False):
+    '''keep (or exclude) seqs whose lineage is in one of the clades'''
+    cladelist = [lin_notes.get_fullname(clade)
+                 for clade in cladelist or []]
+    if not cladelist:
+        yield from seqs
+    else:
+        for s in seqs:
+            lin = covid.get_lineage(s)
+            lin = lin_notes.get_fullname(lin)
+            lin_in_clades = any(lin in clade for clade in cladelist)
+            if lin_in_clades and not exclude:
+                yield s
+            if not lin_in_clades and exclude:
+                yield s
+
 def apply_pangocat(seqs,pangocat):
     '''update sequences lineages using pangocat'''
     if not pangocat:
@@ -349,6 +370,12 @@ def main(args):
         seqs = sequtil.stripdashcols(first.seq,seqs)
         ## and now we take the first back out again...
         first,seqs = covid.get_first_item(seqs,keepfirst=False)
+
+    if args.fclades or args.xclades:
+        lin_notes_file = covid.find_seqfile("lineage_notes.txt")
+        lin_notes = LineageNotes(lin_notes_file)
+        seqs = filterclades(seqs,lin_notes,args.fclades)
+        seqs = filterclades(seqs,lin_notes,args.xclades,exclude=True)
 
     ## these next filters will require that the FULL list of sequences
     ## be available. so we cannot be parallelizing the sequence list
