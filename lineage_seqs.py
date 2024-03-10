@@ -49,7 +49,7 @@ def _getargs():
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     if args.notesfile is None:
-        args.notesfile = covid.find_seqfile("lineage_notes.txt")
+        args.notesfile = covid.find_seqfile(LineageNotes.default_file)
 
     return args
 
@@ -69,6 +69,7 @@ def earliest_seq(seqlist):
     return earlyseq
 
 class LineageCatalog(LineagePartition):
+    '''Catalog of lineages'''
     def __init__(self,fullseqs):
         #super(LineageCatalog,self)
         #LineagePartition.__init__(self,fullseqs,bylineage=True)
@@ -102,6 +103,7 @@ class LineageCatalog(LineagePartition):
             ## since we won't use it
 
     def report_size(self,lin=None):
+        '''return size of lineage catalog'''
         if lin:
             return len(self.earlyseqs[lin])
         return sum(len(self.earlyseqs[lin])
@@ -119,11 +121,11 @@ def get_transitions(mutsfile,cutoff=0):
     linseqs = numu.match_column_name(df.columns,"lineage_seq")
     v.vprint(f'{df.columns}')
     v.vprint(f'lintran={lintran}')
-    if not lintran:
-        return
     parents = set()
     children = set()
-    for nr,row in df.iterrows():
+    if not lintran:
+        return parents,children
+    for _,row in df.iterrows():
         mut = row["mutation"]
         if int(row[linseqs]) < cutoff:
             v.vprint_only(5,'skiplowcount',mut,row[linseqs])
@@ -155,7 +157,7 @@ def _main(args):
     for child in children:
         v.vvprint_only(5,'Child:',f'child={child} mut={child.mut}, lin={child.lin}')
 
-    lin_notes = LineageNotes(args.notesfile)
+    lin_notes = LineageNotes.from_file(args.notesfile)
     lineage_set = lin_notes.get_lineage_set(args.clade)
 
     seqs = covid.read_filter_seqfile(args)

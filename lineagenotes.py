@@ -2,7 +2,6 @@
 ## Available at:
 ## https://github.com/cov-lineages/pango-designation/blob/master/lineage_notes.txt
 import re
-from functools import lru_cache
 import verbose as v
 
 def first_last_splits(name,reverse=False):
@@ -21,54 +20,67 @@ def first_last_splits(name,reverse=False):
         yield first,last
 
 
-def read_lineage_file(lineagefile,keepwithdrawn=False):
-    '''return a list of lineages, and dict of aliases'''
-    ## parse lines of the form:
-    ## GL.1	Alias of XAY.1.1.1.1, Europe, S:D420N, C19441T, from issue #2032
-    lineages = list()
-    fullname = dict()
-    with open(lineagefile,'r') as fin:
-        ## skip top two lines
-        fin.readline()
-        fin.readline()
-        ## begin reading in earnest
-        for line in fin:
-            line = line.strip()
-            if not line:
-                continue
-            tokens = line.split()
-            name = tokens[0]
-            if name[0]=='*' and not keepwithdrawn:
-                ## asterisk indicates withdrawn lineage
-                continue
-            lineages.append(name)
-            if tokens[1] == 'Alias':
-                full = tokens[3]
-                if full[-1] == ',':
-                    ## strip trailing comma
-                    full = full[:-1]
-                fullname[name] = full
-            elif re.match(r'[A-Z][A-Z]\..*',tokens[0]):
-                v.vprint('missing "Alias of"?',line)
-    return lineages,fullname
-
 class LineageNotes:
-    '''parse the lineage_notes.txt file'''
-    ## lineages: list of (short) lineage names
-    ## fullname: dict for translating short names to long/full names
-    ## shortname: dict for translating long/full names to short names
-    def __init__(self,lineagefile=None,fix=False):
-        if not lineagefile:
-            self.lineages=[]
-            self.fullname=dict()
-            self.shortname=dict()
-            return
-        self.lineages, self.fullname = read_lineage_file(lineagefile)
+    '''parse the lineage_notes.txt file
+    Usage: ln = LineageNotes.from_file(filename)
+    Attributes:
+       ln.lineages: list of (short) lineage names
+       ln.fullname: dict for translating short names to long/full names
+       ln.shortname: dict for translating long/full names to short names
+    '''
+
+    default_file = "lineage_notes.txt"
+
+    def __init__(self,alias_of,fix=False):
+        self.fullname = alias_of
         self.shortname = {val:key for key,val in self.fullname.items()}
         if fix:
             self.fix_inconsistencies()
             for bad in self.remove_inconsistencies():
                 v.print(bad)
+
+    @property
+    def lineages(self):
+        '''return all the lineages'''
+        return set(self.fullname)
+
+    @classmethod
+    def from_file(cls,lineagefile,keepwithdrawn=False,fix=False):
+        '''initialize LineageNotes object from file'''
+        alias_of = cls.read_lineage_file(lineagefile,
+                                     keepwithdrawn=keepwithdrawn)
+        return cls(alias_of,fix=fix)
+
+    @staticmethod
+    def read_lineage_file(lineagefile,keepwithdrawn=False):
+        '''return a list of lineages, and dict of aliases'''
+        ## parse lines of the form:
+        ## GL.1	Alias of XAY.1.1.1.1, Europe, S:D420N, C19441T, from issue #2032
+        RE_ALIAS = re.compile(r'[Aa]lias\s+of\s+(((B)|(X[A-Z]+))[\.0-9]+)')
+        lineages = list()
+        alias_of = dict()
+        with open(lineagefile,'r') as fin:
+            fin.readline() # skip header: "Lineage Description"
+            for line in fin:
+                if not line.strip():
+                    continue
+                name,description = line.split(None,1)
+                if not keepwithdrawn and name.startswith('*'):
+                    ## asterisk indicates withdrawn lineage
+                    continue
+                lineages.append(name)
+                if (mat := RE_ALIAS.search(description)):
+                    v.vvprint(f'Alias: {name} -> {mat[1]}')
+                    alias_of[name] = mat[1]
+                elif re.match(r'[A-Z][A-Z]\..*',name):
+                    ## all two-letter names should have aliases
+                    v.print('missing "Alias of"?',line)
+                else:
+                    alias_of[name] = name
+
+        assert len(lineages) == len(alias_of)
+        v.vprint(f'Lineages:  {len(alias_of)}')
+        return alias_of
 
     def report_size(self):
         '''return string with size of lineages and aliases'''
@@ -109,7 +121,11 @@ class LineageNotes:
         bad_aliases = list()
         fixed_aliases = dict()
         for alias,full in self.fullname.items():
-            _,numbers = alias.split('.',1)
+            try:
+                _,numbers = alias.split('.',1)
+            except ValueError:
+                ## if alias has no numbers (eg, is B or XBB), continue
+                continue
             if not full.endswith(numbers):
                 bad_aliases.append(alias)
                 inconsistent.append(f'Inconsistent ending: {alias}->{full}')
@@ -145,7 +161,6 @@ class LineageNotes:
         '''fix inconsistent lineage definitions'''
         return self.inconsistencies(remove=False,fix=True)
 
-    @lru_cache(maxsize=None)
     def parent_of(self,child):
         '''return the lineage name that is the parent of the input lineage'''
         full = self.fullname.get(child,child)
@@ -171,28 +186,18 @@ class LineageNotes:
                 children.append(lin)
         return children
 
-    def restrict_to_clade(self,parent,excludeparent=False):
-        '''return a LineageNotes object that restricts itself
-        lineages that originate with specified parent'''
-        children = self.allchildren_of(parent,excludeparent=excludeparent)
-        new_lin_notes = LineageNotes()
-        for lin in children:
-            new_lin_notes.lineages.append(lin)
-            new_lin_notes.shortname[lin] = self.shortname.get(lin,lin)
-            new_lin_notes.fullname[lin] = self.fullname.get(lin,lin)
-        return new_lin_notes
-
-    def get_lineage_set(self,parent=None,excludeparent=True):
+    def get_lineage_set(self,parent=None,excludeparent=False):
         '''return a set of lineages that have parent as an ancestor'''
         lineage_set = set(self.lineages)
         if parent and parent in lineage_set:
-            other_lin_notes = self.restrict_to_clade(parent,
-                                                     excludeparent=excludeparent)
-            lineage_set = set(other_lin_notes.lineages)
+            lineage_set = self.allchildren_of(parent,
+                                              excludeparent=excludeparent)
         return lineage_set
 
 if __name__ == "__main__":
-    lins = LineageNotes("data/lineage_notes.txt")
+    import covid
+    file = covid.find_seqfile(LineageNotes.default_file)
+    lins = LineageNotes.from_file(file)
     print("Inconsistencies")
     for inc in lins.inconsistencies(remove=False):
         print(inc)
@@ -200,12 +205,9 @@ if __name__ == "__main__":
     for eachfix in lins.fix_inconsistencies():
         print(eachfix)
 
-    if 0:
-        clade = "BA.2"
-        print(f'clade={clade}')
-        print("Children:\n",
-              ",".join(lins.allchildren_of(clade,
-                                           excludeparent=True)))
-
-        newlins = lins.restrict_to_clade('BA.2')
-        print("New lineage notes:\n",",".join(newlins.lineages))
+    clade = "BA.2"
+    while clade:
+        mychildren = lins.allchildren_of(clade,
+                                         excludeparent=True)
+        print(f'clade={clade} says: I have {len(mychildren)} children!')
+        clade = mychildren[0] if mychildren else None

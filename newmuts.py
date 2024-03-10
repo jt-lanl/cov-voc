@@ -25,8 +25,6 @@ import commonforms as cf
 from xopen import xopen
 from lineagenotes import LineageNotes
 
-DEFAULT_LINEAGE_NOTES_FILE="/home/jt/src/corona/data/lineage_notes.txt"
-
 def getargs():
     '''get arguments from command line'''
     ap = argparse.ArgumentParser(description=__doc__)
@@ -35,7 +33,7 @@ def getargs():
         help="verbose")
     covid.corona_args(ap)
     paa = ap.add_argument_group("New Mutations Options").add_argument
-    paa("--notesfile",default=DEFAULT_LINEAGE_NOTES_FILE,
+    paa("--notesfile",
         help="lineage_notes.txt")
     paa("--cutoff","-c",type=int,default=0,
         help="Do not count any lineage mutations that occur fewer then c times")
@@ -51,6 +49,8 @@ def getargs():
         help="Write reversions to a tsv file")
     args = ap.parse_args()
     args = covid.corona_fixargs(args)
+    if args.notesfile is None:
+        args.notesfile = covid.find_seqfile(LineageNotes.default_file)
     return args
 
 def most_common_forms(seqlist,mut_manager):
@@ -136,8 +136,7 @@ def main(args):
     '''newmuts main'''
     v.vprint(args)
 
-
-    lin_notes = LineageNotes(args.notesfile)
+    lin_notes = LineageNotes.from_file(args.notesfile)
     lineage_set = lin_notes.get_lineage_set(args.clade)
 
     mut_appearances = defaultdict(list)

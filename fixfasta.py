@@ -372,8 +372,9 @@ def main(args):
         first,seqs = covid.get_first_item(seqs,keepfirst=False)
 
     if args.fclades or args.xclades:
-        lin_notes_file = covid.find_seqfile("lineage_notes.txt")
-        lin_notes = LineageNotes(lin_notes_file)
+        ln_file = LineageNotes.default_file
+        ln_file = covid.find_seqfile(ln_file)
+        lin_notes = LineageNotes.from_file(ln_file)
         seqs = filterclades(seqs,lin_notes,args.fclades)
         seqs = filterclades(seqs,lin_notes,args.xclades,exclude=True)
 

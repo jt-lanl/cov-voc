@@ -3,6 +3,7 @@
 import re
 import argparse
 import verbose as v
+import covid
 
 from lineagenotes import LineageNotes
 
@@ -14,11 +15,14 @@ def _getargs():
     paa = argparser.add_argument
     paa("--tablefile",
         help="lineage table file")
-    paa("--notesfile",default=DEFAULT_LINEAGE_NOTES_FILE,
+    paa("--notesfile",
         help="lineage_notes.txt")
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+    if not args.notesfile:
+        args.notesfile = covid.find_seqfile(LineageNotes.default_file)
+        v.vprint(f'Using notes file: {args.notesfile}')
     return args
 
 def regexp_from_kidlist(kidlist):
@@ -65,7 +69,7 @@ def _main(args):
     '''main'''
     v.vprint(args)
 
-    lin = LineageNotes(args.notesfile)
+    lin = LineageNotes.from_file(args.notesfile)
     v.vprint(lin.report_size())
     for bad in lin.inconsistencies(remove=True):
         v.print(bad)
