@@ -226,16 +226,17 @@ def filterclades(seqs,lin_notes,cladelist,exclude=False):
     '''keep (or exclude) seqs whose lineage is in one of the clades'''
     cladelist = [lin_notes.get_fullname(clade)
                  for clade in cladelist or []]
+    v.vvvprint('exclude:',exclude,'Clades:',cladelist)
     if not cladelist:
         yield from seqs
     else:
         for s in seqs:
             lin = covid.get_lineage(s)
-            lin = lin_notes.get_fullname(lin)
-            lin_in_clades = any(lin in clade for clade in cladelist)
-            if lin_in_clades and not exclude:
-                yield s
-            if not lin_in_clades and exclude:
+            flin = lin_notes.get_fullname(lin)
+            lin_in_clades = any(flin.startswith(clade) for clade in cladelist)
+            v.vvprint(f'{exclude=},{lin=},{flin=},{lin_in_clades=}')
+            if ((lin_in_clades and not exclude) or
+                (not lin_in_clades and exclude)):
                 yield s
 
 def apply_pangocat(seqs,pangocat):
