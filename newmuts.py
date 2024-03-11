@@ -14,10 +14,10 @@ Find parent/child lineage pairs for which new mutations appear
 
 import re
 from collections import Counter,defaultdict
-from functools import lru_cache
 import argparse
 
 import verbose as v
+import breakpipe
 
 import covid
 import mutant
@@ -53,14 +53,11 @@ def getargs():
         args.notesfile = covid.find_seqfile(LineageNotes.default_file)
     return args
 
-def most_common_forms(seqlist,mut_manager):
+def most_common_forms(mut_manager,lin_partition):
     '''return a dict with most common form for each lineage'''
     ## mcf expressed as a set of mutations
 
     mcf_dict = dict() ## most common form for each lineage
-
-    ## Partition seqlist by lineages, separate list for each lineage
-    lin_partition = cf.LineagePartition(seqlist)
 
     for lin,seqlin in lin_partition.sequences.items():
         ## Get most common form
@@ -72,34 +69,26 @@ def most_common_forms(seqlist,mut_manager):
 
     return mcf_dict
 
-@lru_cache(maxsize=None)
-def mutations_fromseq(mut_manager,seq):
-    '''convert sequence into a set of mutations'''
-    return set( mut_manager.get_mutation(seq) )
-
 def count_appearances(lin_notes,mutsdict):
     '''parse mutsdict dict to count apppearances'''
     count_seq_child = Counter() ## how many sequences (of child lineage) have mutation
-    count_seq_total = Counter() ## how many of ALL sequences have mutation
     count_lin_child = Counter() ## how many disctinct lineages have mutation
     count_lin_parent = Counter() ## how many distinct parents
-    for mut in mutsdict:
+    for ssm in mutsdict:
         pset = set()
-        for lin,cnt,tcnt in mutsdict[mut]:
+        for lin,cnt in mutsdict[ssm]:
             pset.add(lin_notes.parent_of(lin))
-            count_seq_child[mut] += cnt
-            count_lin_child[mut] += 1
-            count_seq_total[mut] = tcnt
-        count_lin_parent[mut] = len(pset)
+            count_seq_child[ssm] += cnt
+            count_lin_child[ssm] += 1
+        count_lin_parent[ssm] = len(pset)
 
-    return count_seq_child, count_seq_total, count_lin_child, count_lin_parent
+    return count_seq_child, count_lin_child, count_lin_parent
 
-def write_mutations_summary(filename,lin_notes,mutsdict,denominator,mincount=0):
+def write_mutations_summary(filename,lin_notes,mutsdict,count_seq_total,denominator,mincount=0):
     '''write tsv file summarizing the mutations'''
     if not filename:
         return
     (count_seq_child,
-     count_seq_total,
      count_lin_child,
      count_lin_parent) = count_appearances(lin_notes,mutsdict)
 
@@ -116,22 +105,17 @@ def write_mutations_summary(filename,lin_notes,mutsdict,denominator,mincount=0):
     with xopen(filename,"w") as fout:
         print(header,file=fout)
         v.vprint(f'Writing {len(mutsdict)} mutations to file={filename}')
-        for mut in sorted(mutsdict.keys()):
-            if count_seq_child[mut] < mincount:
+        for ssm in sorted(mutsdict):
+            if count_seq_child[ssm] < mincount:
                 continue
-            try:
-                site = int(re.sub(r'\D*(\d+)\D*',r'\1',str(mut)))
-            except TypeError as err:
-                v.print(f'mut={mut}')
-                raise TypeError from err
-            lintrans = ", ".join(f'{lin_notes.parent_of(lin)}->{lin}'
-                                for lin,_,_ in mutsdict[mut])
-            print(fmt % (site,mut,count_lin_parent[mut],
-                         count_lin_child[mut],count_seq_child[mut],
-                         count_seq_total[mut],denominator,lintrans),
+            lineage_transitions = ", ".join(f'{lin_notes.parent_of(lin)}->{lin}'
+                                            for lin,_ in mutsdict[ssm])
+            print(fmt % (ssm.site,ssm,count_lin_parent[ssm],
+                         count_lin_child[ssm],count_seq_child[ssm],
+                         count_seq_total[ssm],denominator,lineage_transitions),
                   file=fout)
 
-
+@breakpipe.no_broken_pipe
 def main(args):
     '''newmuts main'''
     v.vprint(args)
@@ -139,55 +123,64 @@ def main(args):
     lin_notes = LineageNotes.from_file(args.notesfile)
     lineage_set = lin_notes.get_lineage_set(args.clade)
 
-    mut_appearances = defaultdict(list)
-    mut_reversions = defaultdict(list)
+    if args.clade and args.clade in lineage_set:
+        # Except for no clade (or clade=ALL),
+        # We don't want to include parent of clade to clade transitions
+        args.skipwuhan=True
 
-    firstseq,seqlist = cf.get_input_sequences(args)
-    mut_manager = mutant.MutationManager(firstseq)
-    mcf_dict = most_common_forms(seqlist,mut_manager)
-    lin_partition = cf.LineagePartition(seqlist)
+    ssm_appearances = defaultdict(list)
+    ssm_reversions = defaultdict(list)
 
-    denominator = sum(1 for s in seqlist
-                      if covid.get_lineage(s) in lineage_set)
-    v.vprint(f'denominator={denominator}/{len(seqlist)}')
+    seqs = covid.read_filter_seqfile(args)
+    first,seqs = covid.get_first_item(seqs)
+    mut_manager = mutant.MutationManager(first.seq)
 
-    mut_total  = Counter() ## seqs with mut, regardless of lin
+    lin_partition = cf.LineagePartition(seqs,restrict_to=lineage_set)
+    mcf_dict = most_common_forms(mut_manager,lin_partition)
+
+    denominator = sum(lin_partition.counts.values())
+    v.vprint(f'denominator={denominator}')
+
+    ssm_total  = Counter() ## seqs with ssm, regardless of lin
     for lin in lineage_set: ## only consider lineages in clade
         parent = lin_notes.parent_of(lin)
+        if parent not in lineage_set:
+            ## this happens when lin is the clade lineage
+            parent="Wuhan"
         if args.skipwuhan and parent=="Wuhan":
             continue
-        parmutset = mcf_dict.get(parent,set([]))
+        parmutset = mcf_dict.get(parent,set())
         seqlin = lin_partition.sequences[lin]
         cntr = Counter(s.seq for s in seqlin)
-        mut_appear = Counter() ## seqs where child has mat, parent does not
-        mut_revert = Counter() ## seqs where parent has mut, child does not
+        ssm_appear = Counter() ## seqs where child has mat, parent does not
+        ssm_revert = Counter() ## seqs where parent has ssm, child does not
         for seq,cnt in cntr.items():
             mutset = set( mut_manager.get_mutation(seq) )
             ## cull out the X's
-            mutset = set(mut for mut in mutset if "X" not in str(mut))
-            for mut in mutset:
-                mut_total[mut] += cnt
+            mutset = set(ssm for ssm in mutset if "X" not in ssm.mut)
+            for ssm in mutset:
+                ssm_total[ssm] += cnt
             if cnt < args.cutoff:
                 continue
             new_mutations = mutset - parmutset
-            for mut in new_mutations:
-                mut_appear[mut] += cnt
+            for ssm in new_mutations:
+                ssm_appear[ssm] += cnt
             rev_mutations = parmutset - mutset
-            for mut in rev_mutations:
-                mut_revert[mut] += cnt
+            for ssm in rev_mutations:
+                ssm_revert[ssm] += cnt
 
-        for mut,mcnt in mut_appear.items():
-            mut_appearances[mut].append((lin,mcnt,mut_total[mut]))
-        for mut,mcnt in mut_revert.items():
-            mut_reversions[mut].append((lin,mcnt,mut_total[mut]))
+        for ssm,mcnt in ssm_appear.items():
+            ssm_appearances[ssm].append((lin,mcnt))
+        for ssm,mcnt in ssm_revert.items():
+            ssm_reversions[ssm].append((lin,mcnt))
 
     write_mutations_summary(args.mutationsfile,
-                            lin_notes,mut_appearances,
-                            denominator,
+                            lin_notes,ssm_appearances,
+                            ssm_total,denominator,
                             mincount=args.mincount)
     write_mutations_summary(args.reversionsfile,
-                            lin_notes,mut_reversions,
-                            denominator,
+                            lin_notes,ssm_reversions,
+                            ssm_total,denominator,
                             mincount=args.mincount)
 
 
