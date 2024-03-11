@@ -73,11 +73,13 @@ class LineagePartition:
     individual sequence lists for each lineage;
     '''
 
-    def __init__(self,fullseqlist,bylineage=True):
+    def __init__(self,fullseqlist,bylineage=True,restrict_to=None):
         self.sequences = defaultdict(list) ## dict of lists
         for s in fullseqlist:
             lin = covid.get_lineage(s) if bylineage else "N/A"
             lin = lin or "None"
+            if restrict_to and lin not in restrict_to:
+                continue
             self.sequences[lin].append(s)
         self.counts = {lin: len(self.sequences[lin])
                        for lin in self.sequences}
