@@ -17,14 +17,11 @@ A SingleSiteMutation has three components:
            otherwise, indicates any character in the multicharacter string
 
 '''
-import sys
 import re
 import itertools as it
+from functools import cache
 from collections import defaultdict
-from functools import lru_cache
 import warnings
-
-import verbose as v
 
 class SiteIndexTranslator():
     '''provide functions to translate between string index and site number
@@ -66,6 +63,10 @@ class SiteIndexTranslator():
         for site in sitelist:
             ndxlist.extend( self.indices_from_site(site) )
         return ndxlist
+
+    def refval(self,site):
+        '''return the value in the reference sequence at the specified site'''
+        return self.refseq[self.index_from_site(site)]
 
     def extra_chars_dict(self):
         '''return a dict with the number of extra characters at a given site'''
@@ -207,7 +208,7 @@ class Mutation(list):
         '''instead of str(mut), use mut.as_string() to incorporate the exact ('!') flag'''
         if exact is None:
             exact = self.exact
-        return self.__str__() + ("!" if exact else "")
+        return f'{self}{"!" if exact else ""}'
 
     ## note, no hash function, just too expensive to hash
 
@@ -272,16 +273,44 @@ class MutationManager(SiteIndexTranslator):
     '''
     Object that helps manage Mutation() mstrings,
     because it knows context; namely refseq
+    (which it inherits from SiteIndexTranslator
     '''
-    def __init__(self,refseq):
-        super().__init__(refseq)
-        self.refseq = refseq
 
-    def refval(self,site):
-        '''return the value in the reference sequence at the specified site'''
-        return self.refseq[self.index_from_site(site)]
+    @cache # pylint: disable=method-cache-max-size-none
+    def get_partial_mutdict(self,subseq,ndxlo,ndxhi):
+        '''cached helper function used by alt_get_ssmlist'''
+        partial_mutdict = defaultdict(list)
+        for n,(r,c) in enumerate(zip(self.refseq[ndxlo:ndxhi],subseq)):
+            if c != r:
+                site = self.site_from_index(ndxlo+n)
+                rr = "+" if r == "-" else r
+                partial_mutdict[(rr,site)].append(c)
+        return partial_mutdict
 
-    @lru_cache(maxsize=None)
+    def get_mutdict(self,seq):
+        '''helper function used by alt_get_ssmlist'''
+        nchunks=64
+        lolist = [len(self.refseq)*n//nchunks     for n in range(nchunks)]
+        hilist = [len(self.refseq)*(n+1)//nchunks for n in range(nchunks)]
+        mutdict = defaultdict(list)
+        for lo,hi in zip(lolist,hilist):
+            tmp_mutdict = self.get_partial_mutdict(seq[lo:hi],lo,hi)
+            for (rr,site),clist in tmp_mutdict.items():
+                mutdict[(rr,site)].extend(clist)
+        return mutdict
+
+    def alt_get_ssmlist(self,seq):
+        '''alternative get_ssmlist: seq -> list of ssm's '''
+        ## Can be faster because get_partial_mutdict can be more cache-able
+        ## because the subseq is likely to be a repeated argument (especially
+        ## when ndxhi-ndlxo is small
+        mutlist = []
+        mutdict = self.get_mutdict(seq)
+        for (rr,site),clist in mutdict.items():
+            mstr = "".join(clist)
+            mutlist.append(SingleSiteMutation(rr,site,mstr))
+        return mutlist
+
     def get_ssmlist(self,seq):
         '''convert sequence into a list of ssm's '''
         ## Scan mutations and put into dict of lists so that
@@ -303,7 +332,7 @@ class MutationManager(SiteIndexTranslator):
     def get_mutation(self,seq,exact=True):
         '''convert sequence into a mutation list'''
         ## since obtained from seq, assume mseq has exact=True
-        mutlist = self.get_ssmlist(seq)
+        mutlist = self.alt_get_ssmlist(seq)
         mut = Mutation(mutlist)
         mut.exact = exact
         return mut
@@ -404,7 +433,7 @@ class MutationManager(SiteIndexTranslator):
                     errmsg = \
                         f'ssm={ssm},site={ssm.site},topsite={self.topsite},' \
                         f'nex={ndx},len(mutseq)={len(mutseq)}'
-                    raise Exception(errmsg) from err
+                    raise IndexError(errmsg) from err
         mutseq = "".join(mutseq)
         return mutseq
 
