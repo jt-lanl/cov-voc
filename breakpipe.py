@@ -22,8 +22,11 @@ def wrapper(fcn,*pargs,**kwargs):
     except BrokenPipeError:
         # Python flushes standard streams on exit; redirect remaining output
         # to devnull to avoid another BrokenPipeError at shutdown
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, sys.stdout.fileno())
+        ## following two lines /had/ been advised, and /had/ worked
+        ## but /now/ it seems to trigger "I/O operation on closed file"
+        ## commenting out those two line, now it's quite again...
+        #devnull = os.open(os.devnull, os.O_WRONLY)
+        #os.dup2(devnull, sys.stdout.fileno())
         sys.exit(1)  # Python exits with error code 1 on EPIPE
     except KeyboardInterrupt:
         print(" Keyboard Interrupt",file=sys.stderr)
