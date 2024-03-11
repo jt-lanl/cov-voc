@@ -29,23 +29,6 @@ def _main(args):
     '''main'''
     v.vprint(args)
 
-    if not pathlib.Path(args.bloom).is_file():
-        v.print(f'Bloom file {args.bloom} does not exist; '
-                f'{args.output} will not be created')
-        return
-
-    ## merge based on truncated m-string (site+mutation, no wild-type)
-    ## will need to add tmstring columns for both dataframes
-    
-    jdf = pd.read_table(args.bloom)
-    jdf.insert(0, "tmstring", None)
-    for nr,row in jdf.iterrows():
-        tmstring = str(row.site) + row.mutant
-        jdf.loc[nr,"tmstring"] = tmstring
-
-    if args.verbose:
-        jdf.to_csv('jdf.tsv',sep='\t',index=False)
-
     df = pd.read_table(args.input)
     df.insert(0,"tmstring", None)
     for nr,row in df.iterrows():
@@ -58,22 +41,34 @@ def _main(args):
     init_columns = [numu.match_column_name(df.columns,name)
                     for name in ["parent","child","lineage_seq","total_seq"]]
 
-    df = df.merge(jdf,how='outer',on="tmstring")
-    if args.verbose:
-        df.to_csv('dfm.tsv',sep='\t',index=False)
+    if args.bloom and pathlib.Path(args.bloom).is_file():
+        ## merge based on truncated m-string (site+mutation, no wild-type)
+        ## will need to add tmstring columns for both dataframes
 
-    if 1: ## replace NA with 0 for init_columns
-        for col in init_columns:
-            for nr,row in df.iterrows():
-                if pd.isna(df.loc[nr,col]):
-                    df.loc[nr,col] = 0
+        jdf = pd.read_table(args.bloom)
+        jdf.insert(0, "tmstring", None)
+        for nr,row in jdf.iterrows():
+            tmstring = str(row.site) + row.mutant
+            jdf.loc[nr,"tmstring"] = tmstring
+
+        if args.verbose:
+            jdf.to_csv('jdf.tsv',sep='\t',index=False)
+        df = df.merge(jdf,how='outer',on="tmstring")
+        if args.verbose:
+            df.to_csv('dfm.tsv',sep='\t',index=False)
+
+    ## replace NA with 0 for init_columns
+    for col in init_columns:
+        for nr,row in df.iterrows():
+            if pd.isna(df.loc[nr,col]):
+                df.loc[nr,col] = 0
 
     if args.clade:
         wild = numu.match_column_name(df.columns,'wild')
         if wild:
             df = df.rename(columns={wild:"clade-wildtype"})
         else:
-            df.insert(0,"clade-wiletype")
+            df.insert(0,"clade-wildtype",None)
         df.insert(df.columns.get_loc("clade-wildtype"),
                   "wuhan-wildtype",None)
             
@@ -83,11 +78,12 @@ def _main(args):
     ## learning from jdf file
 
     if "lineage_transitions" in df.columns:
+        ## put lineage transitions as the last column
         col = df.pop("lineage_transitions")
         df.insert(len(df.columns),"lineage_transitions",col)
 
-    if "clade-wildtype" not in df.columns:
-        df.insert(1,"clade-wildtype")
+    if "clade-wildtype" not in df.columns: ## really, why?
+        df.insert(1,"clade-wildtype",None)
     if "mutant" not in df.columns:
         df.insert(1,"mutant",None)
     if "mutation" not in df.columns:
@@ -107,7 +103,8 @@ def _main(args):
             df.loc[nr,"clade-wildtype"] = \
                 wildtypes.clade_wildtype(args.clade,site)
         
-    df = df.drop(labels=['site_x','site_y','tmstring'],axis='columns')
+    df = df.drop(labels=['site_x','site_y','tmstring'],
+                 axis='columns',errors='ignore')
 
     df = df.sort_values(by="site")
 
