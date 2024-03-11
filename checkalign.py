@@ -44,7 +44,7 @@ def _getargs():
     paa("--viz",
         help="Write vizzy tables into this file")
     paa("--output","-o",
-        help="Write simple output (lo,hi,sa,sb)")
+        help="Write output lines that can be used as input for applytweaks")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     ## fix fracrange
@@ -267,6 +267,10 @@ def _main(args):
                        for ndx in range(ndxminlo,ndxmaxhi)))
     site_indexes = [mut_mgr.index_from_site(site)
                     for site in sites]
+    #this does not seem to work!
+    #site_indexes.extend(mut_mgr.index_from_site(site)+1
+    #                    for site in sites)
+    site_indexes = set(site_indexes)
 
     ## Fill seqctr with seqs
     v.vprint("Reading input, filling Counter...",end="")
@@ -333,7 +337,7 @@ def _main(args):
 
     if args.viz and minimal_incs:
         with xopen(args.viz,"w") as vizout:
-            print("\n\n".join(inc.viz(mut_mgr)
+            print("\n\n".join(inc.viz(mut_mgr,showcontext=True)
                               for inc in minimal_incs),
                   file=vizout)
 
