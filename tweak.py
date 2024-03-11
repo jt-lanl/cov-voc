@@ -157,28 +157,37 @@ class IndexTweak():
         return [tweak for tweak in tweaklist
                 if tweak not in losers]
 
-    def viz(self,mmgr):
-        '''print a kind of viz-ualization based on actual
-        site numbers'''
-        #TODO: conext-y version that shows all indices
-        #      over the given range of sites
-        sites = [mmgr.site_from_index(ndx) for
-                 ndx in range(self.ndxlo,self.ndxhi)]
+    def viz(self,mmgr,showcontext=False):
+        '''print a kind of viz-ualization based on actual site numbers'''
 
+        # counts (blank if zero or None)
         ca = f'(count={self.ca})' if self.ca else ''
         cb = f'(count={self.cb})' if self.cb else ''
 
-        ## if ma,mb attributes available
+        ## if ma,mb attributes available (blank if not)
         ma = getattr(self,'ma','')
         mb = getattr(self,'mb','')
 
+        sites = [mmgr.site_from_index(ndx) for
+                 ndx in range(self.ndxlo,self.ndxhi)]
+
+        ssb = self.sb
+        ssa = self.sa
         ref = mmgr.refseq[self.ndxlo:self.ndxhi]
+        if showcontext:
+            ctx_ndxlo = mmgr.index_from_site(min(sites))
+            if ctx_ndxlo < self.ndxlo:
+                sites = [mmgr.site_from_index(ndx) for
+                         ndx in range(ctx_ndxlo,self.ndxhi)]
+                ssb = " "*(self.ndxlo-ctx_ndxlo) + self.sb
+                ssa = " "*(self.ndxlo-ctx_ndxlo) + self.sa
+                ref = mmgr.refseq[ctx_ndxlo:self.ndxhi]
 
         lines = [f'    {line}'
                  for line in intlist.write_numbers_vertically(sites)]
         lines.append( f' R: {ref} Reference' )
-        lines.append( f' B: {self.sb} {mb} {cb}' )
-        lines.append( f' A: {self.sa} {ma} {ca}' )
+        lines.append( f' B: {ssb} {mb} {cb}' )
+        lines.append( f' A: {ssa} {ma} {ca}' )
         return "\n".join(lines)
 
 ########## SITE-BASED TWEAKS (mstring pairs)
