@@ -72,7 +72,7 @@ def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
             s.seq,wastweaked = tweak.apply_to_seq(s.seq)
             if wastweaked and change_counter is not None:
                 change_counter[tweak] += 1
-            yield s
+        yield s
 
 def _main(args):
     '''tweakalign main'''
