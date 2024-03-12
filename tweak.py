@@ -274,6 +274,12 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     seq_a = mut_mgr.seq_from_mutation(mut_a)
     seq_b = mut_mgr.seq_from_mutation(mut_b)
 
+    if seq_a[ndxlo] == seq_b[ndxlo]:
+        ## this can occur if one of the mstrings is of the form [+251V],
+        ## so we want to start not and ndxlo associated with site=251
+        ## but with ndxlo one higher than that.
+        ndxlo += 1
+
     seq_r = seq_r[ndxlo:ndxhi]
     seq_a = seq_a[ndxlo:ndxhi]
     seq_b = seq_b[ndxlo:ndxhi]
