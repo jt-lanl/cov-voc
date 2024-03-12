@@ -169,8 +169,12 @@ def main(args):
 
     if args.grep:
         args.grep = re.sub(r'/','',args.grep) ## you can use /---I--TT/ as a pattern
-        seqs = (s for s in seqs
-                if args.grep in s.seq)
+        greprange = slice(None,None)
+        if sites:
+            ndxlo = m_mgr.index_from_site(min(sites))
+            ndxhi = m_mgr.index_from_site(max(sites)+1)
+            greprange = slice(ndxlo,ndxhi)
+        seqs = (s for s in seqs if args.grep in s.seq[greprange])
 
     if args.uniq:
         seqs = keepuniq(seqs)
