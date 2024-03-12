@@ -117,7 +117,10 @@ def mut_pattern_match(m_mgr,mpatt,seqs,exact=False):
         ## convert list of indices to list of ranges
         ndxlist = []
         for ssm in mpatt:
-            ndxlist.extend( m_mgr.indices_from_site(ssm.site) )
+            ndxs = m_mgr.indices_from_site(ssm.site)
+            if ssm.ref == "+" and len(ndxs)>1:
+                ndxs = ndxs[1:] ## if leading with "+" don't need site iteslf
+            ndxlist.extend( ndxs )
         ndxrangelist = intlist.intlist_to_rangelist(ndxlist)
         ## pre-compute pattern for each range
         mpatt_seqlist = [mpatt_seq[lo:hi] for lo,hi in ndxrangelist]
