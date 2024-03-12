@@ -47,10 +47,17 @@ def getargs():
         help="Write mutations to a tsv file")
     paa("--reversionsfile","-R",
         help="Write reversions to a tsv file")
+    paa("--output","-o",
+        help="Write two tsv files: equivealent to -M new-OUTPUT -R rev-OUTPUT ")
     args = ap.parse_args()
     args = covid.corona_fixargs(args)
     if args.notesfile is None:
         args.notesfile = covid.find_seqfile(LineageNotes.default_file)
+    if args.output:
+        if not args.mutationsfile:
+            args.mutationsfile = covid.filename_prepend("new-",args.output)
+        if not args.reversionsfile:
+            args.reversionsfile = covid.filename_prepend("rev-",args.output)
     return args
 
 def most_common_forms(mut_manager,lin_partition):
