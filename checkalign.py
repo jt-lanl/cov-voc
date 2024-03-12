@@ -194,7 +194,7 @@ def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
     minsite = min(ssm.site for ssm in (bmut|gmut) if ssm.ref != "+")
     maxsite = max(ssm.site for ssm in (bmut|gmut))
     for ssm in commonmut:
-        if minsite < ssm.site < maxsite:
+        if minsite <= ssm.site <= maxsite:
             bmut.add(ssm)
             gmut.add(ssm)
 
