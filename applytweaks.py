@@ -97,13 +97,13 @@ def _main(args):
                 if wastweaked:
                     changes_by_tweak[tweak] += 1
 
+    if args.output:
+        sequtil.write_seqfile(args.output,seqs)
+
     if changes_by_tweak:
         v.vprint("Changes by tweak:")
         for tweak,cnt in changes_by_tweak.items():
             v.vprint(f'{tweak} (count={cnt})')
-
-    if args.output:
-        sequtil.write_seqfile(args.output,seqs)
 
 if __name__ == "__main__":
 
