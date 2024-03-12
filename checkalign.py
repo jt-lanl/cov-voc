@@ -267,9 +267,9 @@ def _main(args):
                        for ndx in range(ndxminlo,ndxmaxhi)))
     site_indexes = [mut_mgr.index_from_site(site)
                     for site in sites]
-    #this does not seem to work!
-    #site_indexes.extend(mut_mgr.index_from_site(site)+1
-    #                    for site in sites)
+    ## also, use site indexes that are +1 from site, enables [+251V,...] style tweaks
+    site_indexes.extend(mut_mgr.index_from_site(site)+1
+                        for site in sites)
     site_indexes = set(site_indexes)
 
     ## Fill seqctr with seqs
@@ -328,6 +328,10 @@ def _main(args):
     if args.bysite:
         for inc in minimal_incs:
             lo = mut_mgr.site_from_index(inc.ndxlo)
+            if mut_mgr.index_from_site(lo) < inc.ndxlo:
+                ## grit-teeth, kind of a hack...
+                ## needed for [+251V,...] style mutations
+                lo += 1
             muta = substr_to_mut(first.seq,lo,inc.ndxlo,inc.sa)
             mutb = substr_to_mut(first.seq,lo,inc.ndxlo,inc.sb)
             mstra,mstrb = mutpair_to_mstringpair(mut_mgr,muta,mutb)
