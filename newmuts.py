@@ -12,7 +12,6 @@ Find parent/child lineage pairs for which new mutations appear
 ## note, consensus is the most expensive part of the computation
 ## use --consensusnever to avoid that computation
 
-import re
 from collections import Counter,defaultdict
 import argparse
 
@@ -21,9 +20,9 @@ import breakpipe
 
 import covid
 import mutant
-import commonforms as cf
 from xopen import xopen
 from lineagenotes import LineageNotes
+from commonforms import LineagePartition
 
 def getargs():
     '''get arguments from command line'''
@@ -38,7 +37,9 @@ def getargs():
     paa("--cutoff","-c",type=int,default=0,
         help="Do not count any lineage mutations that occur fewer then c times")
     paa("--clade",
-        help="Restrict attention to sequences in clade's lineage")
+        help="Restrict attention to sequences in clade's lineages")
+    paa("--xclade",
+        help="Avoid sequences in xclade's lineages")
     paa("--mincount","-m",type=int,default=0,
         help="Show only lineage mutations with at least this many appearances")
     paa("--skipwuhan",action="store_true",
@@ -58,6 +59,11 @@ def getargs():
             args.mutationsfile = covid.filename_prepend("new-",args.output)
         if not args.reversionsfile:
             args.reversionsfile = covid.filename_prepend("rev-",args.output)
+    if args.clade and "-" in args.clade:
+        if args.xclade:
+            raise RuntimeError('Cannot use minus (-) in clade and also have an xclade')
+        args.clade,args.xclade = args.clade.split('-')
+
     return args
 
 def most_common_forms(mut_manager,lin_partition):
@@ -129,6 +135,10 @@ def main(args):
 
     lin_notes = LineageNotes.from_file(args.notesfile)
     lineage_set = lin_notes.get_lineage_set(args.clade)
+    if args.xclade:
+        xlineage_set = lin_notes.get_lineage_set(args.xclade)
+        lineage_set = lineage_set - xlineage_set
+    v.vprint('Total lineages:',len(lineage_set))
 
     if args.clade and args.clade in lineage_set:
         # Except for no clade (or clade=ALL),
@@ -142,11 +152,13 @@ def main(args):
     first,seqs = covid.get_first_item(seqs)
     mut_manager = mutant.MutationManager(first.seq)
 
-    lin_partition = cf.LineagePartition(seqs,restrict_to=lineage_set)
-    mcf_dict = most_common_forms(mut_manager,lin_partition)
-
+    lin_partition = LineagePartition(seqs,restrict_to=lineage_set)
     denominator = sum(lin_partition.counts.values())
     v.vprint(f'denominator={denominator}')
+    v.vprint(f'lineages in partition: {len(lin_partition.lineages)}')
+
+    mcf_dict = most_common_forms(mut_manager,lin_partition)
+
 
     ssm_total  = Counter() ## seqs with ssm, regardless of lin
     for lin in lineage_set: ## only consider lineages in clade
