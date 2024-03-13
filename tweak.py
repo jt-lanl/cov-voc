@@ -129,17 +129,20 @@ class IndexTweak():
     def contains(self,other):
         '''self contains other if:
         1/ other's interval is within self's
-        2/ other's sa/sb agrees with self's over that interval
+        2/ other's sa/sb agrees with self's sa/sb (or sb/sa) over that interval
         note that a tweak contains itself
         '''
         if not (self.ndxlo <= other.ndxlo and
                 self.ndxhi >= other.ndxhi):
             return False
         selfslice = slice(other.ndxlo-self.ndxlo,other.ndxhi-self.ndxlo)
-        if not (self.sa[selfslice] == other.sa and
-                self.sb[selfslice] == other.sb):
-            return False
-        return True
+        if (self.sa[selfslice] == other.sa and
+            self.sb[selfslice] == other.sb):
+            return True
+        if (self.sa[selfslice] == other.sb and
+            self.sb[selfslice] == other.sa):
+            return True
+        return False
 
     @staticmethod
     def get_minimal(tweaklist):
