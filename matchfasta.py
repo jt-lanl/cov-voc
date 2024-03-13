@@ -48,6 +48,8 @@ def getargs():
         help="eliminate sequences with duplicate ISL numbers")
     paa("--showmuts",action="store_true",
         help="show mutant string after sequence name")
+    paa("--showisl",action="store_true",
+        help="only show ISL number, not whole sequence name")
     paa("--jobno",type=int,default=1,
         help="job number if using parallel")
     paa("--count",action="store_true",
@@ -115,12 +117,17 @@ def mut_pattern_match(m_mgr,mpatt,seqs,exact=False):
                 yield s
     else:
         ## convert list of indices to list of ranges
+        ## minimal ndxlist enables [...,+18F] to be matched even if it's a +18FGH sequence
+        ## might fail if you ask for [L18L,+18F] and the sequence is "L-F"
         ndxlist = []
         for ssm in mpatt:
-            ndxs = m_mgr.indices_from_site(ssm.site)
-            if ssm.ref == "+" and len(ndxs)>1:
-                ndxs = ndxs[1:] ## if leading with "+" don't need site iteslf
-            ndxlist.extend( ndxs )
+            if ssm.ref == "+":
+                ndxs = m_mgr.indices_from_site(ssm.site)
+                ndxs = ndxs[1:1+len(ssm.mut)] ## if leading with "+" don't need site iteslf
+                ndxlist.extend( ndxs )
+            else:
+                ndx = m_mgr.index_from_site(ssm.site)
+                ndxlist.append(ndx)
         ndxrangelist = intlist.intlist_to_rangelist(ndxlist)
         ## pre-compute pattern for each range
         mpatt_seqlist = [mpatt_seq[lo:hi] for lo,hi in ndxrangelist]
@@ -211,7 +218,8 @@ def main(args):
                 print(line)
             seqs = it.chain([first],seqs)
         for s in seqs:
-            print( "".join(s.seq[n] for n in ndxlist), s.name, end=" ")
+            sname = covid.get_isl(s) if args.showisl and not covid.test_isref(s) else s.name
+            print( "".join(s.seq[n] for n in ndxlist), sname, end=" ")
             if args.showmuts:
                 print(m_mgr.get_mutation(s.seq),end="")
             print()
