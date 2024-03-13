@@ -70,7 +70,7 @@ class LineageNotes:
                     continue
                 lineages.append(name)
                 if (mat := RE_ALIAS.search(description)):
-                    v.vvprint(f'Alias: {name} -> {mat[1]}')
+                    v.vvvprint(f'Alias: {name} -> {mat[1]}')
                     alias_of[name] = mat[1]
                 elif re.match(r'[A-Z][A-Z]\..*',name):
                     ## all two-letter names should have aliases
@@ -188,11 +188,11 @@ class LineageNotes:
 
     def get_lineage_set(self,parent=None,excludeparent=False):
         '''return a set of lineages that have parent as an ancestor'''
-        lineage_set = set(self.lineages)
+        lineage_set = self.lineages
         if parent and parent in lineage_set:
             lineage_set = self.allchildren_of(parent,
                                               excludeparent=excludeparent)
-        return lineage_set
+        return set(lineage_set)
 
 if __name__ == "__main__":
     import covid
