@@ -100,8 +100,9 @@ def _main(args):
         if not row["tmstring"].startswith("+"):
             df.loc[nr,"mutation"] = ww + row["tmstring"]
         if args.clade:
+            theclade = re.sub(r'\-.*','',args.clade) ## strip off anything after dash
             df.loc[nr,"clade-wildtype"] = \
-                wildtypes.clade_wildtype(args.clade,site)
+                wildtypes.clade_wildtype(theclade,site)
         
     df = df.drop(labels=['site_x','site_y','tmstring'],
                  axis='columns',errors='ignore')
