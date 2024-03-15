@@ -17,7 +17,7 @@ def de_gap(seq):
     '''remove '-'s from sequence string'''
     return _DEDASH.sub("",seq)
 
-class IndexTweak():
+class IndexTweak(): # pylint: disable=too-many-instance-attributes
     '''pair of inconsistent subsequnces,
     along with their location in the full sequences
     and the count of how many sequences each appeared in'''
@@ -25,7 +25,7 @@ class IndexTweak():
     ## attribute which is a dict; could do counts (ca,cb)
     ## but could also do mstringpairs (ma,mb)
 
-    def __init__(self,ndxlo,ndxhi,sa,sb,ca=None,cb=None):
+    def __init__(self,ndxlo,ndxhi,sa,sb,ca=None,cb=None): # pylint: disable=too-many-arguments
         ndxlo = int(ndxlo)
         ndxhi = int(ndxhi)
         assert ndxhi-ndxlo == len(sa) == len(sb)
@@ -35,6 +35,7 @@ class IndexTweak():
         self.sb = sb
         self.ca = ca
         self.cb = cb
+        self.ma = self.mb = None
 
     @classmethod
     def from_string(cls,line):
@@ -68,6 +69,12 @@ class IndexTweak():
         for file in filelist or []:
             tweaklist.extend( cls.tweaks_from_file(file) )
         return tweaklist
+
+    def swap_ab(self):
+        '''swap sa <-> sb; also: ca <-> cb and ma <-> mb'''
+        self.sa,self.sb = self.sb,self.sa
+        self.ca,self.cb = self.cb,self.ca
+        self.ma,self.mb = self.mb,self.ma
 
     def is_trim(self):
         '''return True if sa and sb cannot be trimmed'''
@@ -177,6 +184,7 @@ class IndexTweak():
         ssb = self.sb
         ssa = self.sa
         ref = mmgr.refseq[self.ndxlo:self.ndxhi]
+        ctx_ndxlo = self.ndxlo
         if showcontext:
             ctx_ndxlo = mmgr.index_from_site(min(sites))
             if ctx_ndxlo < self.ndxlo:
@@ -186,8 +194,11 @@ class IndexTweak():
                 ssa = " "*(self.ndxlo-ctx_ndxlo) + self.sa
                 ref = mmgr.refseq[ctx_ndxlo:self.ndxhi]
 
-        lines = [f'    {line}'
-                 for line in intlist.write_numbers_vertically(sites)]
+        ndx_lines = [f'n   {line}'
+                     for line in intlist.write_numbers_vertically(range(ctx_ndxlo,self.ndxhi))]
+        site_lines = [f's   {line}'
+                      for line in intlist.write_numbers_vertically(sites)]
+        lines = sum([ndx_lines,site_lines],[])
         lines.append( f' R: {ref} Reference' )
         lines.append( f' B: {ssb} {mb} {cb}' )
         lines.append( f' A: {ssa} {ma} {ca}' )
@@ -324,7 +335,6 @@ def tweak_from_mstringpair(mut_mgr,mstring_a,mstring_b):
     ## add ma,mb to tweak object ... in an unclean way
     tweak.ma = mstring_a
     tweak.mb = mstring_b
-    v.vprint('tweak:',str(tweak))
     return tweak
 
 def expansion_needed(mut_mgr,mstringpairs):
@@ -377,3 +387,40 @@ def add_needed_dashes(seqs,mstringpairs):
     if xpand:
         seqs = expand_seqs(xpand,seqs)
     return seqs,xpand
+
+
+ALL_DASHES = re.compile(r'\-')
+TRAILING_DASHES = re.compile(r'\-+$')
+
+def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
+    '''
+    given a gappy substring gaseq (such as 'R---T-T-')
+    and the index associated with the first character
+    yield ssm's that would make up an mstring
+    call: Mutation(substr_to_ssms(...)) to get Mutation object
+    '''
+    de_dash = TRAILING_DASHES if insertwithdashes else ALL_DASHES
+    ndxhi = ndxlo + len(gseq)
+    while ndxlo < ndxhi:
+        site = xlator.site_from_index(ndxlo)
+        ndxlolo = xlator.index_from_site(site)
+        if ndxlolo == ndxlo:
+            ## substitution (or deletion) character
+            subchr,gseq = gseq[0],gseq[1:]
+            if subchr != xlator.refseq[ndxlo]:
+                yield mutant.SingleSiteMutation(xlator.refseq[ndxlo],site,subchr)
+            ndxlo = ndxlo + 1
+        elif ndxlolo < ndxlo:
+            ## insertion string
+            ndx_next = xlator.index_from_site(site+1)
+            insstr,gseq = gseq[:ndx_next-ndxlo],gseq[ndx_next-ndxlo:]
+            insstr = de_dash.sub('',insstr) ## remove (trailing) dashes
+            if insstr:
+                yield mutant.SingleSiteMutation("+",site,insstr)
+            ndxlo = ndx_next
+        else: # ndxlolo > ndxlo:
+            raise RuntimeError(f'{ndxlolo=} > {ndxlo=}: should never happen')
+
+def substr_to_mut(xlator,gseq,ndxlo=0,insertwithdashes=True):
+    '''return mutation object based on gapped subsequence'''
+    return mutant.Mutation(substr_to_ssms(xlator,gseq,ndxlo,insertwithdashes=insertwithdashes))

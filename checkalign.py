@@ -1,10 +1,7 @@
 '''check alignemnt consistency and provide suggested alignment tweaks'''
 ## But: unlike fixalign, do not bother trying to actually align!
 
-import sys
-import re
 from collections import Counter,defaultdict
-from functools import lru_cache
 import argparse
 
 import verbose as v
@@ -12,6 +9,7 @@ from breakpipe import no_broken_pipe
 from xopen import xopen
 import mutant
 import covid
+import tweak as tku
 from tweak import IndexTweak,de_gap
 
 def _getargs():
@@ -127,47 +125,7 @@ def check_subsequences(subseqctr):
             tweaklist.extend(tweaks)
     return tweaklist
 
-def _trimfront(ga,gb):
-    '''given two strings, trim from the front if there are identical
-    characters; eg: ABCLMNOP,ABCDEFOP -> LMNOP,DEFOP
-    '''
-    for n,(a,b) in enumerate(zip(ga,gb)):
-        if a!=b:
-            return (ga[n:],gb[n:])
-    ## if strings equal, return empty string
-    return ("","")
-
-def trimseqs(ga,gb):
-    '''Given two seqs (eg, 'FL-G-V--TSR-F' and 'FL-G-VT-S-R-F')
-    return trimmed sequences that illustrate the "core differeces"
-    (eg, '--TS' and 'T-S-') by trimming characters off the
-    front and back
-    '''
-    ## trim off the front then the back (trim-reverse, do it twice)
-    assert len(ga) == len(gb)
-    for _ in range(2):
-        ga,gb = _trimfront(ga,gb)
-        ga = ga[::-1]
-        gb = gb[::-1]
-    return ga,gb
-
-def substr_to_mut(firstseq,lo,ndxlo,gseq):
-    '''
-    given a gappy substring gaseq (such as 'R---T-T-')
-    and the site value we are starting with,
-    return the Mutation object associated with the gseq
-    '''
-    ndxhi = ndxlo + len(gseq)
-    v.vvprint('first:',firstseq[ndxlo:ndxhi])
-    v.vvprint(' gseq:',gseq)
-    mut_mgr = mutant.MutationManager(firstseq[ndxlo:ndxhi])
-    mut = mut_mgr.get_mutation(gseq)
-    for ssm in mut:
-        ssm.site += lo-1
-    return mut
-
-
-def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
+def mutpair_to_mstringpair(xlator,badmut,goodmut):
     '''
     given a pair of Mutation objects, return a pair of m-strings...
     making adjustments to snsure the mstrings can be used to
@@ -191,7 +149,13 @@ def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
 
     ## Adjustment 2: add back common ssm's that are in range
     ## (note: at this piont bmut,gmut are _sets_ of ssm's, not Mutation objects)
-    minsite = min(ssm.site for ssm in (bmut|gmut) if ssm.ref != "+")
+    try:
+        minsite = min(ssm.site for ssm in (bmut|gmut) if ssm.ref != "+")
+    except ValueError:
+        ## this can happen if only insertions are involved
+        minsite = min(ssm.site for ssm in (bmut|gmut))
+        ## if first site is "+18I", don't want to insist that "L18L" be in the string, so...
+        minsite = minsite+1
     maxsite = max(ssm.site for ssm in (bmut|gmut))
     for ssm in commonmut:
         if minsite <= ssm.site <= maxsite:
@@ -200,7 +164,7 @@ def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
 
     ## Adjustment 3: add back explicit identity ssm's (eg, 'S247S')
     for site in range(minsite,maxsite+1):
-        ref = mut_mgr.refval(site)
+        ref = xlator.refval(site)
         if ref=='-':
             raise RuntimeError(f'ref value at site {site} is "{ref}" '
                                '-- this should never happen')
@@ -211,29 +175,14 @@ def mutpair_to_mstringpair(mut_mgr,badmut,goodmut):
 
     return mstringify(bmut),mstringify(gmut)
 
-def get_inconsistent_mstringpair(mut_mgr,lo,ndxlo,gseqa,gseqb):
-    '''convert sequence fragments gseqa,gseqb into a pair of mstrings'''
-    ma = substr_to_mut(mut_mgr.refseq,lo,ndxlo,gseqa)
-    mb = substr_to_mut(mut_mgr.refseq,lo,ndxlo,gseqb)
-    mstr_a,mstr_b = mutpair_to_mstringpair(mut_mgr,ma,mb)
-    return mstr_a,mstr_b
-
-def show_inconsistency(lo,hi,
-                       gseqa,gseqb,
-                       mstr_a,mstr_b,
-                       file=sys.stderr):
-    '''write a summary of the inconsistency'''
-    def fprint(*args,**kwargs):
-        print(*args,**kwargs,file=file)
-
-    dseq = de_gap(gseqa)
-    assert dseq == de_gap(gseqb)
-
-    ga,gb = trimseqs(gseqa,gseqb)
-    dg = de_gap(ga)
-    fprint(f'{lo:>4d}:{hi:<4d}: {gseqa} : {ga}  :{dg}')
-    fprint(f'           {gseqb} : {gb}  :{dseq}')
-    fprint(f'{mstr_a} {mstr_b}')
+def tweak_to_mstringpair(tweak,xlator):
+    '''update attributes ma,mb based on current tweak substrings sa,sb'''
+    muta = tku.substr_to_mut(xlator, tweak.sa, tweak.ndxlo)
+    mutb = tku.substr_to_mut(xlator, tweak.sb, tweak.ndxlo)#, insertwithdashes=False)
+    mstra,mstrb = mutpair_to_mstringpair(xlator,muta,mutb)
+    tweak.ma = mstra
+    tweak.mb = mstrb
+    return mstra,mstrb
 
 def update_seq_counter(inctr,lo,hi=None):
     '''truncate seqs to hi:lo, and
@@ -255,7 +204,7 @@ def _main(args):
 
     seqs = covid.read_filter_seqfile(args)
     first,seqs = covid.get_first_item(seqs,keepfirst=True)
-    mut_mgr = mutant.MutationManager(first.seq)
+    xlator = mutant.SiteIndexTranslator(first.seq)
 
     num,den = args.fracrange
     ndxminlo = ndxmin = (num-1)*len(first.seq)//den
@@ -263,12 +212,12 @@ def _main(args):
     ndxmaxhi = ndxmaxlo + args.windowsize
     ndxmaxhi = min(ndxmaxhi,len(first.seq))
 
-    sites = sorted(set(mut_mgr.site_from_index(ndx)
+    sites = sorted(set(xlator.site_from_index(ndx)
                        for ndx in range(ndxminlo,ndxmaxhi)))
-    site_indexes = [mut_mgr.index_from_site(site)
+    site_indexes = [xlator.index_from_site(site)
                     for site in sites]
     ## also, use site indexes that are +1 from site, enables [+251V,...] style tweaks
-    site_indexes.extend(mut_mgr.index_from_site(site)+1
+    site_indexes.extend(xlator.index_from_site(site)+1
                         for site in sites)
     site_indexes = set(site_indexes)
 
@@ -292,14 +241,10 @@ def _main(args):
         for aux_ndxhi in range(ndxhi,ndxlo+1,-1):
             ## Loop over ranges lo:lo+2, lo:lo+3, ... ln:hi
             ## But do it backward, truncating subseq's at each step
-            ## next two lines commented out; enables use to find
-            ## more bysite tweaks
-            #if args.bysite and aux_ndxhi-1 not in site_indexes:
-            #    continue
             if args.bysite:
                 v.vvvprint('sites:'
-                           f'{mut_mgr.site_from_index(ndxlo)}-'
-                           f'{mut_mgr.site_from_index(aux_ndxhi-1)}',
+                           f'{xlator.site_from_index(ndxlo)}-'
+                           f'{xlator.site_from_index(aux_ndxhi-1)}',
                            end=" ")
                 v.vvvprint(f' ndx: {ndxlo}-{aux_ndxhi-1}',end="")
             v.vvvprint(f' slice: 0:{aux_ndxhi-ndxlo}')
@@ -317,31 +262,20 @@ def _main(args):
              f'in range {ndxminlo}:{ndxmaxlo}')
 
     for inc in inconsistencies:
-        v.vprint(inc)
+        v.vvprint(inc)
 
     if args.bysite:
         minimal_incs = IndexTweak.get_minimal(inconsistencies)
+        for inc in minimal_incs:
+            mstra,mstrb = tweak_to_mstringpair(inc,xlator)
+            v.vprint(f'{inc} {mstra} {mstrb}')
     else:
         minimal_incs = [inc for inc in inconsistencies
                         if inc.is_trim()]
 
-    if args.bysite:
-        for inc in minimal_incs:
-            lo = mut_mgr.site_from_index(inc.ndxlo)
-            if mut_mgr.index_from_site(lo) < inc.ndxlo:
-                ## grit-teeth, kind of a hack...
-                ## needed for [+251V,...] style mutations
-                lo += 1
-            muta = substr_to_mut(first.seq,lo,inc.ndxlo,inc.sa)
-            mutb = substr_to_mut(first.seq,lo,inc.ndxlo,inc.sb)
-            mstra,mstrb = mutpair_to_mstringpair(mut_mgr,muta,mutb)
-            inc.ma = mstra
-            inc.mb = mstrb
-            v.vprint(f'{inc} {mstra} {mstrb}')
-
     if args.viz and minimal_incs:
         with xopen(args.viz,"w") as vizout:
-            print("\n\n".join(inc.viz(mut_mgr,showcontext=True)
+            print("\n\n".join(inc.viz(xlator,showcontext=True)
                               for inc in minimal_incs),
                   file=vizout)
 
