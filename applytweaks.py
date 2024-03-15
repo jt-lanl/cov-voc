@@ -27,7 +27,7 @@ def _getargs():
     paa("--tfile","-T",action="append",
         help="read indexed tweaks from a file")
     paa("--checktweaks",action="store_true",
-        help="Check for dependencies among the tweaks [EXPERIMENTAL!]")
+        help="Check for dependencies among the tweaks")
     paa("--reverse",action="store_true",
         help="reverse the effect of tweak: b->a instead of a->b")
     paa("--output","-o",
@@ -87,6 +87,23 @@ def _main(args):
     mstringpairs = tku.get_mstring_pairs(args.mfile,args.mstrings)
     if args.reverse:
         mstringpairs = [(mb,ma) for ma,mb in mstringpairs]
+    ## Get all the index-based tweaks
+    if args.tfile:
+        tweaklist = IndexTweak.tweaks_from_filelist(args.tfile)
+        if args.reverse:
+            for tweak in tweaklist:
+                tweak.swap_ab()
+
+    if args.checktweaks:
+        if mstringpairs:
+            first,seqs = covid.get_first_item(seqs,keepfirst=True)
+            mut_mgr = mutant.MutationManager(first.seq)
+            tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
+                         for ma,mb in mstringpairs]
+        warnlist = checktweaks(tweaklist)
+        v.print("\n".join(warnlist))
+        return
+
     if mstringpairs:
         seqs = apply_mstringpairs(seqs,mstringpairs,changes_by_tweak)
     elif args.tfile:
@@ -99,6 +116,10 @@ def _main(args):
 
     if args.output:
         sequtil.write_seqfile(args.output,seqs)
+
+    for _ in seqs:
+        ## in case seq not written, empty the generator
+        pass
 
     if changes_by_tweak:
         v.vprint("Changes by tweak:")
