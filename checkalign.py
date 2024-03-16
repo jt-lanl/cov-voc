@@ -131,6 +131,22 @@ def mutpair_to_mstringpair(xlator,badmut,goodmut):
     making adjustments to snsure the mstrings can be used to
     tweak future sequences
     '''
+    raise RuntimeError('mutpair_to_mstringpair function in need of repair')
+    ##
+    ## Edge case for mutpair_to_mstringpair
+    ## n   222233333333334444444444
+    ## n   678901234567890123456789
+    ## s   111111122222222222222223
+    ## s   888889901223345567777890
+    ##  R: L----T-TRT-Q-LP-PA---YTN Reference
+    ##  B:  -N--------------------- [+18-N,T19-,T20-,R21-,T22-,Q23-,L24-,P25-,P26-,A27-,Y28-,T29-,N30-] (count=53)
+    ##  A:  ----------------------N [T19-,T20-,R21-,T22-,Q23-,L24-,P25-,P26-,A27-,Y28-,T29-,N30N] (count=10)
+    ##
+    ## T19- thru T29- are all common so taken out. then min is computed not as 18 (because 18 is a +18 insertion,
+    ## but as 30, which means that all those deletions never get put back.
+    ## If we took 18 as min, then we'd want an L18L at the beginning of the string, and that too would be a mistake.
+    ## With new subseq to mutation code, though, we can actually bypass (can we really?) this whole routine!!
+    ##
 
     def mstringify(mutlike):
         return str(mutant.Mutation(mutlike))
@@ -179,7 +195,8 @@ def tweak_to_mstringpair(tweak,xlator):
     '''update attributes ma,mb based on current tweak substrings sa,sb'''
     muta = tku.substr_to_mut(xlator, tweak.sa, tweak.ndxlo)
     mutb = tku.substr_to_mut(xlator, tweak.sb, tweak.ndxlo)#, insertwithdashes=False)
-    mstra,mstrb = mutpair_to_mstringpair(xlator,muta,mutb)
+    #mstra,mstrb = mutpair_to_mstringpair(xlator,muta,mutb)
+    mstra,mstrb = str(muta),str(mutb)
     tweak.ma = mstra
     tweak.mb = mstrb
     return mstra,mstrb

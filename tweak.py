@@ -407,8 +407,8 @@ def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
         if ndxlolo == ndxlo:
             ## substitution (or deletion) character
             subchr,gseq = gseq[0],gseq[1:]
-            if subchr != xlator.refseq[ndxlo]:
-                yield mutant.SingleSiteMutation(xlator.refseq[ndxlo],site,subchr)
+            #if subchr != xlator.refseq[ndxlo]: ## no, we want this, at least for now
+            yield mutant.SingleSiteMutation(xlator.refseq[ndxlo],site,subchr)
             ndxlo = ndxlo + 1
         elif ndxlolo < ndxlo:
             ## insertion string
@@ -423,4 +423,6 @@ def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
 
 def substr_to_mut(xlator,gseq,ndxlo=0,insertwithdashes=True):
     '''return mutation object based on gapped subsequence'''
-    return mutant.Mutation(substr_to_ssms(xlator,gseq,ndxlo,insertwithdashes=insertwithdashes))
+    mut = mutant.Mutation(substr_to_ssms(xlator,gseq,ndxlo,insertwithdashes=insertwithdashes))
+    #v.print('substr_to_mut: mut=',str(mut))
+    return mut
