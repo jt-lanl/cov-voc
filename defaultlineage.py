@@ -35,11 +35,11 @@ DefaultLineageTable = [
     (  'Aquamarine',            'XBB.2.3', r'((XBB\.2\.3)|(G[EJMSZ])|(H[GH])|(J[AESUY])|(KH))(\..*)?'),
     (   'LightPink',                'XBC', r'((XBC)|(GT)|(HW)|(JT)|(KD))(\..*)?'),
     (     'Magenta',            'XBC.1.6', r'((XBC\.1\.6)|(GT)|(HW)|(JT))(\..*)?'),
+    (      'Yellow',             'DV.7.1', r'((DV\.7\.1)|(JV)|(KG))(\..*)?'),
     (  'DodgerBlue',            'BA.2.86', r'((BA\.2\.86)|(J[NQ])|(K[PQRS]))(\..*)?'),
     (        'Cyan',               'JN.1', r'((JN\.1)|(K[PQRS]))(\..*)?'),
     (    'DarkBLue',             'JN.1.7', r'JN\.1\.7(\..*)?'),
     (   'LightBlue',            'JN.1.16', r'JN\.1\.16(\..*)?'),
     (   'SlateBlue',            'JN.1.18', r'JN\.1\.18(\..*)?'),
-    (      'Yellow',             'DV.7.1', r'((DV\.7\.1)|(JV)|(KG))(\..*)?'),
 
 ]
