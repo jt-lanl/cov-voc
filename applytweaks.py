@@ -1,9 +1,11 @@
 '''Tweak alignment according to specifed mutant strings'''
+import re
 import itertools as it
 from collections import Counter
 import argparse
 
 import verbose as v
+import intlist
 import covid
 import sequtil
 import mutant
@@ -36,19 +38,66 @@ def _getargs():
     args = covid.corona_fixargs(args)
     return args
 
+def showtweakpair(xlator,ts,to):
+    '''given a pair of tweaks (ts,to), show the result
+    of applying the tweaks; show two results, depending
+    on which tweaks is applied first'''
+    ndxmin = min(ts.ndxlo,to.ndxlo)
+    ndxmax = max(ts.ndxhi,to.ndxhi)
+    sites = [xlator.site_from_index(ndx)
+             for ndx in range(ndxmin,ndxmax)]
+    untweaked = ["."] * (ndxmax-ndxmin)
+    tweaked_so = untweaked.copy()
+    tweaked_os = untweaked.copy()
+    for tt in (ts,to):
+        untweaked[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin] = tt.sa
+    for tt in (ts,to):
+        if re.match("".join(tweaked_so[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin]),tt.sa):
+            tweaked_so[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin] = tt.sb
+    tweaked_so = [a if a != "." else b for a,b in zip(tweaked_so,untweaked)]
+    for tt in (to,ts):
+        if re.match("".join(tweaked_os[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin]),tt.sa):
+            tweaked_os[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin] = tt.sb
+    tweaked_os = [a if a != "." else b for a,b in zip(tweaked_os,untweaked)]
+
+    ## following roughly cut-and-pasted from IndexTweak.viz method
+    ndx_lines = [f'n   {line}'
+                 for line in intlist.write_numbers_vertically(range(ndxmin,ndxmax))]
+    site_lines = [f's   {line}'
+                  for line in intlist.write_numbers_vertically(sites)]
+    lines = sum([ndx_lines,site_lines],[])
+    lines.append( f' R: {xlator.refseq[ndxmin:ndxmax]} Reference')
+    lines.append( f' U: {"".join(untweaked)} Untweaked' )
+    lines.append( f' T: {"".join(tweaked_so)} if first {ts.ma} {ts.mb} then {to.ma} {to.mb}')
+    lines.append( f' T: {"".join(tweaked_os)} if first {to.ma} {to.mb} then {ts.ma} {ts.mb}')
+    return "\n".join(lines)
+
+def get_interacting_tweaks(tweaklist):
+    '''Look for pairs of tweaks in the tweaklist
+    such that the effect of applying the two tweaks
+    will depend on the order in which they are applied
+    '''
+    for ts,to in it.combinations(tweaklist,2):
+        act = ts.interacts_with(to)
+        if act:
+            yield ts,to,act
 
 def checktweaks(tweaklist):
     '''Look for pairs of tweaks in the tweaklist
     such that the effect of applying the two tweaks
     will depend on the order in which they are applied
     '''
-    warninglist=[]
-    for ts,to in it.combinations(tweaklist,2):
-        act = ts.interacts_with(to)
-        if act:
-            msg = f'{ts} + {to} : {act[0]}->[{act[1]} != {act[2]}]'
-            warninglist.append(msg)
-    return warninglist
+    return [f'{ts} + {to} : {act[0]}->[{act[1]} != {act[2]}]'
+            for ts,to,act in get_interacting_tweaks(tweaklist)]
+
+def show_checkedtweaks(xlator,tweaklist):
+    '''provides a more elaborate/informative description of what the
+    differences are when tweak pairs are applied in different order
+    '''
+    showlines = []
+    for ts,to,_ in get_interacting_tweaks(tweaklist):
+        showlines.append(showtweakpair(xlator,ts,to))
+    return "\n\n".join(showlines)
 
 def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
     '''apply tweaks, as defined by mseqpairs, to seqs'''
@@ -102,6 +151,11 @@ def _main(args):
                          for ma,mb in mstringpairs]
         warnlist = checktweaks(tweaklist)
         v.print("\n".join(warnlist))
+
+        first,seqs = covid.get_first_item(seqs,keepfirst=True)
+        xlator = mutant.SiteIndexTranslator(first.seq)
+        v.print( show_checkedtweaks(xlator,tweaklist) )
+
         return
 
     if mstringpairs:
