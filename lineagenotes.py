@@ -148,8 +148,6 @@ class LineageNotes:
             ## remove inconsistent aliases/lineages
             for alias in bad_aliases:
                 del self.fullname[alias]
-            self.lineages = [lin for lin in self.lineages
-                             if lin not in bad_aliases]
         if fix:
             return fixed
         return inconsistent
