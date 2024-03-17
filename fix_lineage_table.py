@@ -69,11 +69,10 @@ def _main(args):
     '''main'''
     v.vprint(args)
 
-    lin = LineageNotes.from_file(args.notesfile)
+    lin = LineageNotes.from_file(args.notesfile,fix=True)
     v.vprint(lin.report_size())
     for bad in lin.inconsistencies(remove=True):
         v.print(bad)
-    v.vprint(lin.report_size())
 
     with open(args.tablefile,'r') as fin:
         for line in fin:
@@ -85,7 +84,7 @@ def _main(args):
             if len(tokens) < 3:
                 v.vprint('Invalid line:',line)
                 continue
-            color,name,_ = tokens[:3]
+            color,name,old_regexp = tokens[:3]
             parent = name.split('/')[0]
             parent = Pango_WHO.get(parent,parent)
             if not re.match(r'[A-Z]+(\.[0-9\.]*)?$',parent):
@@ -93,7 +92,7 @@ def _main(args):
                 continue
 
             xparent = lin.fullname.get(parent,parent)
-            v.vprint(f'{parent}={xparent}')
+            v.vvprint(f'{parent}={xparent}')
             children=list()
             for pango in lin.lineages:
                 if pango.startswith(xparent+"."):
@@ -106,7 +105,11 @@ def _main(args):
                 if parent.startswith(kid):
                     continue
                 kids.add(kid)
-            print(color,name,get_regexp(parent,kids),sep='\t')
+            new_regexp = get_regexp(parent,kids)
+            if new_regexp != old_regexp:
+                v.vprint(f'OLD {name}: {old_regexp}')
+                v.vprint(f'NEW {name}: {new_regexp}')
+            print(color,name,new_regexp,sep='\t')
 
 
 if __name__ == "__main__":
