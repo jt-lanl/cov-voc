@@ -151,6 +151,12 @@ class IndexTweak(): # pylint: disable=too-many-instance-attributes
             return True
         return False
 
+    def update_mstringpair(self,xlator):
+        '''update attributes ma/mb with mstrings associated with sa/sb'''
+        self.ma = str(substr_to_mut(xlator,self.sa,self.ndxlo))
+        self.mb = str(substr_to_mut(xlator,self.sb,self.ndxlo))
+        return self.sa,self.sb
+
     @staticmethod
     def get_minimal(tweaklist):
         '''from an input list of tweaks, ouptut a subset

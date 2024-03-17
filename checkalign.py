@@ -284,7 +284,7 @@ def _main(args):
     if args.bysite:
         minimal_incs = IndexTweak.get_minimal(inconsistencies)
         for inc in minimal_incs:
-            mstra,mstrb = tweak_to_mstringpair(inc,xlator)
+            mstra,mstrb = inc.update_mstringpair(xlator)
             v.vprint(f'{inc} {mstra} {mstrb}')
     else:
         minimal_incs = [inc for inc in inconsistencies
