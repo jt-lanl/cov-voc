@@ -2,7 +2,7 @@
 
 import re
 import itertools as it
-from functools import lru_cache
+from functools import cache
 import warnings
 import verbose as v
 import xopen
@@ -12,7 +12,7 @@ import mutant
 import mstringfix
 
 _DEDASH = re.compile("-")
-@lru_cache(maxsize=None)
+@cache
 def de_gap(seq):
     '''remove '-'s from sequence string'''
     return _DEDASH.sub("",seq)
@@ -173,7 +173,7 @@ class IndexTweak(): # pylint: disable=too-many-instance-attributes
         return [tweak for tweak in tweaklist
                 if tweak not in losers]
 
-    def viz(self,mmgr,showcontext=False):
+    def viz(self,xlator,showcontext=False):
         '''print a kind of viz-ualization based on actual site numbers'''
 
         # counts (blank if zero or None)
@@ -184,21 +184,21 @@ class IndexTweak(): # pylint: disable=too-many-instance-attributes
         ma = getattr(self,'ma','')
         mb = getattr(self,'mb','')
 
-        sites = [mmgr.site_from_index(ndx) for
+        sites = [xlator.site_from_index(ndx) for
                  ndx in range(self.ndxlo,self.ndxhi)]
 
         ssb = self.sb
         ssa = self.sa
-        ref = mmgr.refseq[self.ndxlo:self.ndxhi]
+        ref = xlator.refseq[self.ndxlo:self.ndxhi]
         ctx_ndxlo = self.ndxlo
         if showcontext:
-            ctx_ndxlo = mmgr.index_from_site(min(sites))
+            ctx_ndxlo = xlator.index_from_site(min(sites))
             if ctx_ndxlo < self.ndxlo:
-                sites = [mmgr.site_from_index(ndx) for
+                sites = [xlator.site_from_index(ndx) for
                          ndx in range(ctx_ndxlo,self.ndxhi)]
                 ssb = " "*(self.ndxlo-ctx_ndxlo) + self.sb
                 ssa = " "*(self.ndxlo-ctx_ndxlo) + self.sa
-                ref = mmgr.refseq[ctx_ndxlo:self.ndxhi]
+                ref = xlator.refseq[ctx_ndxlo:self.ndxhi]
 
         ndx_lines = [f'n   {line}'
                      for line in intlist.write_numbers_vertically(range(ctx_ndxlo,self.ndxhi))]
@@ -395,8 +395,8 @@ def add_needed_dashes(seqs,mstringpairs):
     return seqs,xpand
 
 
-ALL_DASHES = re.compile(r'\-')
-TRAILING_DASHES = re.compile(r'\-+$')
+ALL_DASHES = re.compile(r'-')
+TRAILING_DASHES = re.compile(r'-+$')
 
 def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
     '''
@@ -405,7 +405,7 @@ def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
     yield ssm's that would make up an mstring
     call: Mutation(substr_to_ssms(...)) to get Mutation object
     '''
-    de_dash = TRAILING_DASHES if insertwithdashes else ALL_DASHES
+    re_dashes = TRAILING_DASHES if insertwithdashes else ALL_DASHES
     ndxhi = ndxlo + len(gseq)
     while ndxlo < ndxhi:
         site = xlator.site_from_index(ndxlo)
@@ -413,14 +413,13 @@ def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
         if ndxlolo == ndxlo:
             ## substitution (or deletion) character
             subchr,gseq = gseq[0],gseq[1:]
-            #if subchr != xlator.refseq[ndxlo]: ## no, we want this, at least for now
             yield mutant.SingleSiteMutation(xlator.refseq[ndxlo],site,subchr)
             ndxlo = ndxlo + 1
         elif ndxlolo < ndxlo:
             ## insertion string
             ndx_next = xlator.index_from_site(site+1)
             insstr,gseq = gseq[:ndx_next-ndxlo],gseq[ndx_next-ndxlo:]
-            insstr = de_dash.sub('',insstr) ## remove (trailing) dashes
+            insstr = re_dashes.sub('',insstr) ## remove (trailing) dashes
             if insstr:
                 yield mutant.SingleSiteMutation("+",site,insstr)
             ndxlo = ndx_next

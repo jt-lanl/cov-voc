@@ -1,5 +1,5 @@
 '''Tweak alignment according to specifed mutant strings'''
-import re
+
 import itertools as it
 from collections import Counter
 import argparse
@@ -44,28 +44,32 @@ def showtweakpair(xlator,ts,to):
     on which tweaks is applied first'''
     ndxmin = min(ts.ndxlo,to.ndxlo)
     ndxmax = max(ts.ndxhi,to.ndxhi)
+
+    oslice = slice(to.ndxlo-ndxmin,to.ndxhi-ndxmin)
+    sslice = slice(ts.ndxlo-ndxmin,ts.ndxhi-ndxmin)
+    ttslices = [(ts,sslice),(to,oslice)]
+
+    untweaked = ["."] * (ndxmax-ndxmin)
+    for tt,tslice in ttslices:
+        untweaked[tslice] = tt.sa
+    tweaked_so = untweaked.copy()
+    for tt,tslice in ttslices:
+        if tweaked_so[tslice] == list(tt.sa):
+            tweaked_so[tslice] = tt.sb
+    tweaked_os = untweaked.copy()
+    for tt,tslice in reversed(ttslices):
+        if tweaked_os[tslice] == list(tt.sa):
+            tweaked_os[tslice] = tt.sb
+
     sites = [xlator.site_from_index(ndx)
              for ndx in range(ndxmin,ndxmax)]
-    untweaked = ["."] * (ndxmax-ndxmin)
-    tweaked_so = untweaked.copy()
-    tweaked_os = untweaked.copy()
-    for tt in (ts,to):
-        untweaked[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin] = tt.sa
-    for tt in (ts,to):
-        if re.match("".join(tweaked_so[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin]),tt.sa):
-            tweaked_so[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin] = tt.sb
-    tweaked_so = [a if a != "." else b for a,b in zip(tweaked_so,untweaked)]
-    for tt in (to,ts):
-        if re.match("".join(tweaked_os[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin]),tt.sa):
-            tweaked_os[tt.ndxlo-ndxmin:tt.ndxhi-ndxmin] = tt.sb
-    tweaked_os = [a if a != "." else b for a,b in zip(tweaked_os,untweaked)]
 
-    ## following roughly cut-and-pasted from IndexTweak.viz method
-    ndx_lines = [f'n   {line}'
-                 for line in intlist.write_numbers_vertically(range(ndxmin,ndxmax))]
-    site_lines = [f's   {line}'
-                  for line in intlist.write_numbers_vertically(sites)]
-    lines = sum([ndx_lines,site_lines],[])
+    ## following is roughly cut-and-pasted from IndexTweak.viz method
+    lines = []
+    lines.extend([f'n   {line}'
+                  for line in intlist.write_numbers_vertically(range(ndxmin,ndxmax))])
+    lines.extend([f's   {line}'
+                  for line in intlist.write_numbers_vertically(sites)])
     lines.append( f' R: {xlator.refseq[ndxmin:ndxmax]} Reference')
     lines.append( f' U: {"".join(untweaked)} Untweaked' )
     lines.append( f' T: {"".join(tweaked_so)} if first {ts.ma} {ts.mb} then {to.ma} {to.mb}')
