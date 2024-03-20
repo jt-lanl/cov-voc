@@ -365,18 +365,18 @@ class MutationManager(SiteIndexTranslator):
         '''return a string that can be used as a simple regex'''
         if exact is None:
             exact = mut.exact
-        regexp_al_list = list(self.refseq) if exact else ["."] * len(self.refseq)
+        regexp_as_list = list(self.refseq) if exact else ["."] * len(self.refseq)
         for ssm in mut:
             ndxlo = self.index_from_site(ssm.site)
             if ssm.ref == "+":
                 ndxhi = self.index_from_site(ssm.site+1)
                 assert len(ssm.mut) <= ndxhi-ndxlo
-                regexp_al_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = self.mut
+                regexp_as_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = ssm.mut
             else:
-                assert self.ref == self.refseq[ndxlo]
-                assert len(self.mut) == 1
-                regexp_al_list[ndxlo] = self.mut
-        return str(regexp_al_list)
+                assert ssm.ref == self.refseq[ndxlo]
+                assert len(ssm.mut) == 1
+                regexp_as_list[ndxlo] = ssm.mut
+        return "".join(regexp_as_list)
     
     def pattern_from_mutation(self,mut,exact=None):
         '''
