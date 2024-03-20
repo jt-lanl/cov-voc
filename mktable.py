@@ -17,9 +17,10 @@ import datetime
 import argparse
 import warnings
 
-import intlist
-import sequtil
 import verbose as v
+import intlist
+import breakpipe
+import sequtil
 import covid
 import mutant
 import pseq
@@ -47,6 +48,7 @@ def _getargs():
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
+    args = covid.corona_fixargs(args)
 
     if args.days:
         warnings.warn("Probably you do not want to use --days; "
@@ -313,6 +315,7 @@ def format_row(row=None,sepchar='\t'):
                         for column_name in column_name_list)
 
 
+@breakpipe.no_broken_pipe
 def _main(args):
     '''mktable main'''
 

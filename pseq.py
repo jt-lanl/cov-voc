@@ -4,6 +4,7 @@ import warnings
 import re
 
 import covid
+import sequtil
 import mutant
 
 def parse_seq_name(name):
@@ -25,8 +26,8 @@ def lowest_isl(pseqs):
     islmin = min(islnumbers)
     return f'EPI_ISL_{islmin}'
 
-class ProcessedSequence():
-    def __init__(self,MM,s):
+class ProcessedSequence(sequtil.SequenceSample):
+    def __init__(self,mut_mgr,s):
         #self.s = s
         self.seq = s.seq
         self.name = s.name
@@ -34,25 +35,12 @@ class ProcessedSequence():
         self.ISL = isl
         self.lineage = lineage
         self.date = covid.date_fromiso(isodate)
-        self.mut = MM.get_mutation(s.seq)
-        self.altmut = MM.get_alt_mutation(s.seq)
-        #if not all(self.altmut.values()):
-        #    warnings.warn(f"init empty: {self.altmut}")
+        self.altmut = mut_mgr.get_alt_mutation(self.seq)
 
     def fits_pattern_inclusive(self,mpatt):
         '''return True if the sequence is consistent with pattern'''
-
-        #if not all(self.altmut.values()):
-        #    warnings.warn(f"incl empty: {self.altmut}")
-
-        #if mpatt == self.mut: ## easy case: if seq and patt are identical, then True
-        #    return True
         for ssm in mpatt:
             seqval = self.altmut.get(ssm.site, ssm.ref)
-            #if ssm.mut == "_":
-            #    ## may never happen, get's converted when read into SSM
-            #    if seqval != ssm.ref:
-            #        return False
             if ssm.mut == ".":
                 pass
             elif ssm.mut == "*":
@@ -95,12 +83,12 @@ class ProcessedSequence():
                 return False
         return True
 
-def filter_pseqs_by_pattern(MM,mpatt,pseqs,**kw):
+def filter_pseqs_by_pattern(mut_mgr,mpatt,pseqs,**kw):
     '''filter an iterable of processed seqs that match the pattern'''
     ## if input mpatt is string, this converts to Mutation object
     ## also, makes sure the ssm's in mpatt are sorted
     mpatt = mutant.Mutation(sorted(mutant.Mutation(mpatt)))
-    alt_mpatt = MM.get_alt_mutation_ssmlist(mpatt)
+    alt_mpatt = mut_mgr.get_alt_mutation_ssmlist(mpatt)
     #print("mpatt:",mpatt.as_string())
     #print("altmp:",alt_mpatt)
     for ps in pseqs:

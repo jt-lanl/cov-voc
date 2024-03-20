@@ -346,7 +346,7 @@ class MutationManager(SiteIndexTranslator):
         ## alt structure designed for describing sequences;
         ## if ssmlist is meant to be a pattern, then more likely to be problematic
         alt=dict()
-        for ssm in sorted(ssmlist):
+        for ssm in ssmlist:
             if ssm.ref == "+":
                 alt[ssm.site] = alt.get(ssm.site,self.refval(ssm.site)) + ssm.mut
             elif ssm.mut == "*":
@@ -357,9 +357,27 @@ class MutationManager(SiteIndexTranslator):
 
     def get_alt_mutation(self,seq):
         '''convert sequence into mutation dict'''
-        mutlist = self.get_ssmlist(seq)
+        mutlist = self.alt_get_ssmlist(seq)
         return self.get_alt_mutation_ssmlist(mutlist)
 
+
+    def regex_from_mutation(self,mut,exact=None):
+        '''return a string that can be used as a simple regex'''
+        if exact is None:
+            exact = mut.exact
+        regexp_al_list = list(self.refseq) if exact else ["."] * len(self.refseq)
+        for ssm in mut:
+            ndxlo = self.index_from_site(ssm.site)
+            if ssm.ref == "+":
+                ndxhi = self.index_from_site(ssm.site+1)
+                assert len(ssm.mut) <= ndxhi-ndxlo
+                regexp_al_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = self.mut
+            else:
+                assert self.ref == self.refseq[ndxlo]
+                assert len(self.mut) == 1
+                regexp_al_list[ndxlo] = self.mut
+        return str(regexp_al_list)
+    
     def pattern_from_mutation(self,mut,exact=None):
         '''
         returns a string of same length as refseq,
