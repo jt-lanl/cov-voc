@@ -10,7 +10,6 @@ Input is two columns: pango lineage name, and m-string
 ## parallel -k -N48 --pipe \
 ##  pm mktable --jobno {#} -M - < variants-in.tsv > variants-out.tsv
 
-import sys
 import re
 from collections import Counter
 import datetime
@@ -20,10 +19,10 @@ import warnings
 import verbose as v
 import intlist
 import breakpipe
+import xopen
 import sequtil
 import covid
 import mutant
-import pseq
 import mstringfix
 
 def _getargs():
@@ -94,8 +93,10 @@ ColumnHeaders = {
                                 "exactly match this pattern in Spike (and count)",
     'TotalLineagesMatchPatternInclusive': "Lineages with sequences that " \
                                 "contain this pattern in Spike (and count)",
-    'SixtyDaysLineagesMatchPatternFull': 'Lineages with sequences that exactly match pattern, last sixty days',
-    'SixtyDaysLineagesMatchPatternInclusive': 'Lineages with sequenecs that contain pattern, last sixty days',
+    'SixtyDaysLineagesMatchPatternFull':
+    'Lineages with sequences that exactly match pattern, last sixty days',
+    'SixtyDaysLineagesMatchPatternInclusive':
+    'Lineages with sequenecs that contain pattern, last sixty days',
     TotalPangoCount: "Total number of sequences with this Pango lineage designation",
     PangoPatternFullCount: "Number of sequences in the Pango lineage that " \
                                 "exactly match this pattern",
@@ -119,93 +120,45 @@ def column_header(column_name):
     ## if not in ColumnHeaders dict, then just return the name
     return ColumnHeaders.get(column_name,column_name)
 
-def get_lineage_from_name(name):
-    '''get pango lineage by parsing the sequence name'''
-    return re.sub(r".*EPI_ISL_\d+\.","",name)
+def get_region_from_name(level,name):
+    '''return the name of the region (based on level) in the full sequence name'''
+    tokens = name.split(".")
+    return tokens[level] if (tokens and len(tokens)>level) else None
 
 def get_country_from_name(name):
     '''get name of country from sequence name'''
     return get_region_from_name(2,name)
 
-def get_region_from_name(level,name):
-    '''return the name of the region (based on level) in the full sequence name'''
-    m = name.split(".")
-    return m[level] if m else None
-
 def pango_seqs(seqs,pango):
-    '''return an iterator of seqs whose names indicate the pango type'''
+    '''iterator of seqs that are consistent with pango lineage'''
     if not pango:
-        yield from []
-    else:
-        for s in seqs:
-            if pango == get_lineage_from_name(s.name):
-                yield s
-
-def pango_pseqs(pseqs,pango):
-    '''iterator of pseqs that are consistent with pango'''
-    if not pango:
-        yield from []
-    else:
-        pango = covid.expand_who_name_to_pangolin_pattern(pango)
-        for ps in pseqs:
-            try:
-                if re.match(pango,ps.lineage):
-                    yield ps
-            except:
-                v.print("pango=",pango)
-                v.print("ps.lineage=",ps.lineage)
-                raise RuntimeError(f"Invalid pango name: {pango}/{ps.lineage}")
+        return []
+    pango = covid.expand_who_name_to_pangolin_pattern(pango)
+    return [s for s in seqs
+            if re.match(pango,s.lineage)]
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
     lastdate = covid.lastdate_byfile(file,seqs)
-    t = covid.date_fromiso(lastdate)
-    f = t - datetime.timedelta(days=days)
-    v.vprint("Sixty days:",f,t)
-    return covid.filter_by_date(seqs,f,t,firstisref=False)
-
-def sixtydays_pseqs(pseqs,days=60,file=None):
-    '''return an iterator of seqs whose dates are in the last 60 days'''
-    lastdate = covid.lastdate_byfile(file,pseqs)
-    t = covid.date_fromiso(lastdate)
-    f = t - datetime.timedelta(days=days)
-    v.vprint("Sixty days:",f,t)
-    for ps in pseqs:
-        if ps.date and ps.date > f:
-            yield ps
+    tdate = covid.date_fromiso(lastdate)
+    fdate = tdate - datetime.timedelta(days=days)
+    v.vprint("Sixty days:",fdate,tdate)
+    return covid.filter_by_date(seqs,fdate,tdate,firstisref=False)
 
 def mstring_seqs(seqs,m_mgr,mstring,exact=False):
     '''return an iterator of seqs that match the mstring pattern'''
-    mpatt = mutant.Mutation(mstring)
-    v.vvprint("mpatt:",mpatt)
-    return m_mgr.filter_seqs_by_pattern(mpatt,seqs,exact=exact)
-
-def mstring_pseqs(pseqs,m_mgr,mstring,exact=False):
-    '''return an iterator of seqs that match the mstring pattern'''
-    mpatt = mutant.Mutation(mstring)
-    v.vvprint("mpatt:",mpatt)
-    ## if exact==True, then assume we just did inclusive (back when exact was False)
-    ## this helps a little, but not that much
-    return pseq.filter_pseqs_by_pattern(m_mgr,mpatt,pseqs,
-                                        exact=exact,assume_inclusive=exact)
-
-def xopen(filename):
-    if filename == '-':
-        return sys.stdin
-    return open(filename)
+    mregex = m_mgr.regex_from_mstring(mstring,exact=exact)
+    re_mregex = re.compile(mregex)
+    return [s for s in seqs
+            if re_mregex.match(s.seq)]
 
 def read_input_file(filename):
     '''return list of (pango,mstring) pairs'''
-    with xopen(filename) as f_input:
-        for line in f_input:
-            line = re.sub(r'#.*','',line)
-            line = line.strip()
-            if not line:
-                continue
+    with xopen.xopen(filename) as f_input:
+        for line in xopen.nonempty_lines(f_input):
             try:
                 pango,mstring = line.split('\t',1)
-                pango = pango.strip()
-                pango = re.sub(r' ','',pango)
+                pango = re.sub(r' ','',pango.strip())
                 mstring = mstringfix.mstring_brackets(mstring)
             except ValueError:
                 warnings.warn(f'Problem reading line: {line}')
@@ -213,7 +166,7 @@ def read_input_file(filename):
             yield (pango,mstring)
 
 def truncate_pango_name(pangofull):
-    '''
+    r'''
     return the pango lineage associated ith a full pango name
     it is the SECOND field, as delineated by underscores; eg
     Iota_B.1.526 -> B.1.526
@@ -248,7 +201,7 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     seqdict[Total] = seqs
     total_count = len(seqs)
     v.vvprint("Read",len(seqs),"sequences")
-    seqdict[Pango] = list(pango_pseqs(seqs,pango))
+    seqdict[Pango] = pango_seqs(seqs,pango)
     v.vvprint("Of which,",len(seqdict[Pango]),
              "sequences matched pango form",pangofull)
     if len(seqdict[Pango])==0:
@@ -258,6 +211,11 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     row[TotalPangoFraction] = row[TotalPangoCount]/total_count
     seqdict[Recent] = seqs_sixtydays
 
+    re_mstring_regexp = {
+        False: re.compile(m_mgr.regex_from_mstring(mstring,exact=False)),
+        True:  re.compile(m_mgr.regex_from_mstring(mstring,exact=True)),
+    }
+
     for seqtype in [Total,Pango,Recent]:
         seqs = seqdict[seqtype]
 
@@ -266,17 +224,17 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
 
             column_name = "PatternFull" if exact else "PatternInclusive"
             column_name = seqtype + column_name
-            matched_seqs = list(mstring_pseqs(matched_seqs,m_mgr,mstring,exact=exact))
+            matched_seqs = [s for s in matched_seqs
+                            if re_mstring_regexp[exact].match(s.seq)]
+
             v.vvprint(pango,seqtype,f'exact={exact}',len(matched_seqs),len(seqs))
 
             row[column_name + Count] = len(matched_seqs)
             row[column_name + Fraction] = len(matched_seqs)/len(seqs) if len(seqs) else 0
 
             if seqtype == Total and exact is True:
-                if len(matched_seqs):
-                    #exampleseq = matched_seqs[-1]
-                    #row[ExampleISL] = exampleseq.ISL
-                    row[ExampleISL] = pseq.lowest_isl(matched_seqs)
+                if matched_seqs:
+                    row[ExampleISL] = f'EPI_ISL_{min(s.ISL for s in matched_seqs)}'
                 else:
                     row[ExampleISL] = "NA"
                     warnings.warn(f"For pango={pangofull}, no sequences "
@@ -286,8 +244,8 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
                 lineages = [ps.lineage for ps in matched_seqs]
                 cnt_lineages = Counter(lineages)
                 sorted_lineages = sorted(cnt_lineages,key=cnt_lineages.get,reverse=True)
-                str_lineages = ",".join("%s(%d)" % (lin,cnt_lineages[lin])
-                                  for lin in sorted_lineages)
+                str_lineages = ",".join(f'{lin}({cnt_lineages[lin]})'
+                                        for lin in sorted_lineages)
                 column_name = "PatternFull" if exact else "PatternInclusive"
                 row[seqtype + "LineagesMatch" + column_name] = str_lineages
 
@@ -295,7 +253,7 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
                 countries = [get_country_from_name(s.name) for s in matched_seqs]
                 cnt_countries = Counter(countries)
                 sorted_countries = sorted(cnt_countries,key=cnt_countries.get,reverse=True)
-                str_countries = ",".join("%s(%d)" % (c,cnt_countries[c])
+                str_countries = ",".join(f'{c}({cnt_countries[c]})'
                                          for c in sorted_countries[:3])
                 row["Countries" + seqtype + column_name] = str_countries
 
@@ -338,7 +296,7 @@ def _main(args):
         raise RuntimeError('No mstrings are input: check -M or (-m and -p)')
 
     ## Do this now just to make sure we don't get an error
-    pango_truncated = [truncate_pango_name(pango) for pango in plist]
+    _ = [truncate_pango_name(pango) for pango in plist]
 
     fixer = mstringfix.MStringFixer(args.tweakfile)
     fixer.append(r'\s*ancestral\s*','')
@@ -358,7 +316,11 @@ def _main(args):
     first,seqs = sequtil.get_first_item(seqs,keepfirst=False)
     m_mgr = mutant.MutationManager(first.seq)
 
-    seqs = [pseq.ProcessedSequence(m_mgr,s) for s in seqs]
+    seqs = list(seqs)
+    for s in seqs:
+        tokens = s.name.split('.',6)
+        s.lineage = tokens[6] #covid.get_lineage(s)
+        s.ISL = int(tokens[5][8:]) #covid.get_isl(s))
 
     v.vprint("Sequences processed:",len(seqs))
 
@@ -375,7 +337,8 @@ def _main(args):
         #print(end="",flush=True) ## what does this do? just flush?
 
     if args.jobno == 1:
-        v.print("Having made table, you may want to run 'mutisl' to get fasta file with DNA sequences")
+        v.print("Having made table, you may want to run 'mutisl' "
+                "to get fasta file with DNA sequences")
 
 if __name__ == "__main__":
 
