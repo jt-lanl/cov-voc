@@ -1,6 +1,7 @@
 '''xopen is a replacement for open that handles compressed files'''
 
 import sys
+import re
 import gzip
 import lzma
 import zstdx
@@ -25,6 +26,17 @@ def xopen(filepath,mode='r'):
     ## default is just the usual
     return open(filepath,mode)
 
+def nonempty_lines(fp,commentchar='#'):
+    '''yield only nonempty lines, after stripping out comments'''
+    re_comment = re.compile(fr'{commentchar}.*')
+    for line in fp:
+        if commentchar:
+            line = re_comment.sub('',line)
+        line = line.strip()
+        if not line:
+            continue
+        yield line
+
 if __name__ == "__main__":
     import argparse
     argparser = argparse.ArgumentParser(description=__doc__)
@@ -35,5 +47,5 @@ if __name__ == "__main__":
 
     with xopen(args.input,'r') as fin:
         with xopen(args.output,'w') as fout:
-            for line in fin:
-                print(line,file=fout)
+            for theline in nonempty_lines(fin):
+                print(theline,file=fout)
