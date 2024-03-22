@@ -169,8 +169,7 @@ def reset_baseline(firstseq,lineage):
     base_mstring = get_baseline_mstring(lineage)
     if not base_mstring:
         return firstseq
-    base_mutant = mutant.Mutation.from_mstring(base_mstring)
-    base_seq = mut_mgr.seq_from_mutation(base_mutant)
+    base_seq = mut_mgr.regex_from_mstring(base_mstring,exact=True)
     return base_seq
 
 def ndxlist_from_sites(m_mgr,sites,compact=False,contig=False):

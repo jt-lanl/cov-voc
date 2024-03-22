@@ -361,23 +361,46 @@ class MutationManager(SiteIndexTranslator):
         return self.get_alt_mutation_ssmlist(mutlist)
 
 
-    def regex_from_mutation(self,mut,exact=None):
+    def regex_from_mstring(self,mstring,**kw):
+        '''return a string that can be used as a simple regex
+        that corresopnds to the mstring'''
+        if isinstance(mstring,Mutation):
+            raise ValueError(f'mstring argument is Mutation, not string; '
+                             f'use regex_from_mutation(...) instead')
+        mut = Mutation.from_mstring(mstring)
+        return self.regex_from_mutation(mut,**kw)
+
+    def regex_from_mutation(self,mut,exact=None,compile=False):
         '''return a string that can be used as a simple regex'''
+        ## similar to seq_from_mutation, especially if exact=True
+        ## but doen't do special characters
+        if isinstance(mut,str):
+            raise ValueError(f'mut is a string, not a Mutation; '
+                             f'use regex_from_mstring(...) instead')
         if exact is None:
             exact = mut.exact
-        regexp_as_list = list(self.refseq) if exact else ["."] * len(self.refseq)
+        regex_as_list = list(self.refseq) if exact else ["."] * len(self.refseq)
         for ssm in mut:
             ndxlo = self.index_from_site(ssm.site)
             if ssm.ref == "+":
                 ndxhi = self.index_from_site(ssm.site+1)
-                assert len(ssm.mut) <= ndxhi-ndxlo
-                regexp_as_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = ssm.mut
+                if len(ssm.mut) >= ndxhi-ndxlo:
+                    raise ValueError(f'Insertion {ssm} too long; '
+                                     f'only room for {ndxhi-ndxlo-1} characters')
+                regex_as_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = ssm.mut
             else:
-                assert ssm.ref == self.refseq[ndxlo]
-                assert len(ssm.mut) == 1
-                regexp_as_list[ndxlo] = ssm.mut
-        return "".join(regexp_as_list)
-    
+                if ssm.ref != self.refseq[ndxlo]:
+                    raise ValueError(f'{ssm=!s} ref {ssm.ref} disagrees with '
+                                     f'ref={self.refseq[ndxlo]} at site {ndxlo}')
+                if len(ssm.mut) != 1:
+                    raise ValueError(f'{ssm=!s} invalid: {len(ssm.mut)=} '
+                                     f'must have exactly one character')
+                regex_as_list[ndxlo] = ssm.mut
+        regex = "".join(regex_as_list)
+        if compile:
+            regex = re.compile(regex)
+        return regex
+
     def pattern_from_mutation(self,mut,exact=None):
         '''
         returns a string of same length as refseq,

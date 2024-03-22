@@ -97,7 +97,7 @@ def keepuniqisl(seqs):
         isl_set.add(isl)
         yield s
 
-## should this maybe be in mutant.py ??
+## i think this is obsolete; replaced by m_mgr.regex_from_mutation(...)
 def mut_pattern_match(m_mgr,mpatt,seqs,exact=False):
     '''alternative to (s for s in seqs if mutant.seq_fits_pattern(mpatt,s.seq))'''
     ## re-express the mpatt as an explicit full-length sequence
@@ -175,7 +175,10 @@ def main(args):
             seqs = wrapgen.keepcount(seqs,"Sequences matched pattern:")
 
     if mpatt and not args.extended:
-        seqs = mut_pattern_match(m_mgr,mpatt,seqs,exact=args.exact)
+        re_mpatt = m_mgr.regex_from_mutation(mpatt,exact=args.exact,compile=True)
+        seqs = (s for s in seqs
+                if re_mpatt.match(s.seq))
+        #seqs = mut_pattern_match(m_mgr,mpatt,seqs,exact=args.exact) #obsolete
 
     if args.grep:
         args.grep = re.sub(r'/','',args.grep) ## you can use /---I--TT/ as a pattern

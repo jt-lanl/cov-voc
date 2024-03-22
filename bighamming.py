@@ -57,7 +57,7 @@ def _main(args):
     if args.ref:
         refmstring = covid.BASELINE_MSTRINGS.get(args.ref,args.ref)
         refmut = mutant.Mutation.from_mstring(refmstring)
-        refseq = m_mgr.seq_from_mutation(refmut)
+        refseq = m_mgr.regex_from_mutation(refmut,exact=True)
     else:
         refseq = first.seq
 
