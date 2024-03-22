@@ -15,7 +15,10 @@ def _getargs():
     '''parse options from command line'''
     argparser = argparse.ArgumentParser(description=__doc__)
     paa = argparser.add_argument
+    paa("--verbose","-v",action="count",default=0,
+        help="verbose")
     covid.corona_args(argparser)
+    paa = argparser.add_argument_group("Eval Tweak Options").add_argument
     paa("--mstrings","-m",nargs=2,action="append",
         help="pair of from/to mstrings")
     paa("--mfile","-M",action="append",
@@ -24,8 +27,6 @@ def _getargs():
         help="read index-based tweaks from a file")
     paa("--output","-o",default="-",
         help="output table of entropies for various tweaks")
-    paa("--verbose","-v",action="count",default=0,
-        help="verbose")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
     return args
@@ -78,8 +79,10 @@ def _main(args):
 
     tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
                  for ma,mb in mstringpairs]
+    tweaklist = [tweak for tweak in tweaklist
+                 if tweak.sa != tweak.sb] ## eliminate no-op tweaks
 
-    v.print("\n".join(str(tweak) for tweak in tweaklist))
+    v.vprint("\n".join(str(tweak) for tweak in tweaklist))
 
     for tfile in args.tfile or []:
         tweaklist.extend( IndexTweak.tweaks_from_file(tfile) )

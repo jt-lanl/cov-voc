@@ -116,6 +116,8 @@ def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
                 mut_mgr = mutant.MutationManager(s.seq)
             tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
                          for ma,mb in mstringpairs]
+            tweaklist = [tweak for tweak in tweaklist
+                         if tweak.sa != tweak.sb] ## eliminate no-op tweaks
             yield s
             continue
 

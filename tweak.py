@@ -296,6 +296,11 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     seq_a = mut_mgr.regex_from_mutation(mut_a,exact=True)
     seq_b = mut_mgr.regex_from_mutation(mut_b,exact=True)
 
+    if seq_a == seq_b:
+        warnings.warn(f'Tweak {mstring_a}->{mstring_b} will not change anything!')
+        return 0,0,"",""
+
+
     while seq_a[ndxlo] == seq_b[ndxlo]:
         ## this can occur if one of the mstrings is of the form [+251V],
         ## so we want to start not at ndxlo associated with site=251
