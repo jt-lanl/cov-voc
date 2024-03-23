@@ -129,7 +129,7 @@ def main(args):
             if comm == cons:
                 cflag = True
                 cons_string = "(consensus)"
-            mut = mut_manager.get_mutation(comm)
+            mut = mut_manager.seq_to_mutation(comm)
             mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
 
             if args.lineagebaseline:
@@ -146,7 +146,7 @@ def main(args):
                    h,mstring,cons_string))
         if args.consensusalways and not cflag:
             hdist = hamming(top_comm,cons)
-            mut = mut_manager.get_mutation(cons)
+            mut = mut_manager.seq_to_mutation(cons)
             mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
             cnt = cntr[cons]
             print("%s %7d %6d %5.1f%% %3d %s %s" %

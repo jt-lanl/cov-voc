@@ -92,7 +92,7 @@ def _main(args):
         d,r = count_dashes(ss.seq)
         dcnt_sum += d
         rcnt_sum += r
-        mut = m_mgr.get_mutation(s.seq)
+        mut = m_mgr.seq_to_mutation(s.seq)
         ssm_sum += len(mut)
         ins_sum += sum(1 for ssm in mut if ssm.ref=='+')
         inschr_sum += sum(len(ssm.mut) for ssm in mut if ssm.ref=='+')

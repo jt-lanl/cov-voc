@@ -73,9 +73,9 @@ class LineagePartition:
     individual sequence lists for each lineage;
     '''
 
-    def __init__(self,fullseqlist,bylineage=True,restrict_to=None):
-        self.sequences = defaultdict(list) ## dict of lists
-        for s in fullseqlist:
+    def __init__(self,seqs,bylineage=True,restrict_to=None):
+        self.sequences = defaultdict(list) ## list of sequences for each lineage
+        for s in seqs:
             lin = covid.get_lineage(s) if bylineage else "N/A"
             lin = lin or "None"
             if restrict_to and lin not in restrict_to:
@@ -112,7 +112,7 @@ def get_baseline_mutation(lin_baseline,mut_manager,linpart,protein='Spike'):
         else:
             cntr = Counter(s.seq for s in linpart.sequences[lin_baseline])
             base_seq = cntr.most_common(1)[0][0]
-            base_mut = mut_manager.get_mutation(base_seq)
+            base_mut = mut_manager.seq_to_mutation(base_seq)
     if lin_baseline:
         print()
         print(f"Baseline {lin_baseline}: {str(base_mut)}")

@@ -77,7 +77,7 @@ def most_common_forms(mut_manager,lin_partition):
         cntr = Counter(s.seq for s in seqlin)
         mcf,_ = cntr.most_common(1)[0]
         ## Express as mutations
-        mcf_muts = mut_manager.get_mutation(mcf)
+        mcf_muts = mut_manager.seq_to_mutation(mcf)
         mcf_dict[lin] = set(mcf_muts)
 
     return mcf_dict
@@ -174,7 +174,7 @@ def main(args):
         ssm_appear = Counter() ## seqs where child has mat, parent does not
         ssm_revert = Counter() ## seqs where parent has ssm, child does not
         for seq,cnt in cntr.items():
-            mutset = set( mut_manager.get_mutation(seq) )
+            mutset = set( mut_manager.seq_to_mutation(seq) )
             ## cull out the X's
             mutset = set(ssm for ssm in mutset if "X" not in ssm.mut)
             for ssm in mutset:

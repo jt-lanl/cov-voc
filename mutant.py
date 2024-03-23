@@ -248,9 +248,9 @@ class Mutation(list):
 
     def checkref(self,refseq):
         ''' return True if ssm.ref = refseq at all mutation sites '''
-        translator = SiteIndexTranslator(refseq)
+        xlator = SiteIndexTranslator(refseq)
         for ssm in self:
-            ndx = translator.index_from_site(ssm.site)
+            ndx = xlator.index_from_site(ssm.site)
             if ssm.ref == '+':
                 continue
             if ssm.ref != refseq[ndx]:
@@ -269,13 +269,92 @@ class Mutation(list):
             mutstr += "-" + str(Mutation(ssms_cut))
         return mutstr
 
+ALL_DASHES = re.compile(r'-')
+TRAILING_DASHES = re.compile(r'-+$')
+
 class MutationManager(SiteIndexTranslator):
     '''
     Object that helps manage Mutation() mstrings,
     because it knows context; namely refseq
     (which it inherits from SiteIndexTranslator
     '''
+    ## A lot of deprecated functions here now; the new/good/recommended ones are:
+    ##    substr_to_mutation: uses substr_to_ssms, 
+    ##    seq_to_mutation: uses subseq_to_ssms, get_ndxlists
+    ##    get_mutation  (from seq): uses seq_to_mutation (indeed, kind of redundant with it)
+    ##    regex_from_mstring: uses regex_from_mutation
+    ##    regex_from_mutation
 
+    def substr_to_ssms(self,gseq,ndxlo=0,insertwithdashes=True,includeidentityssms=True):
+        '''
+        given a gappy substring gseq (such as 'R---T-T-')
+        and the index associated with the first character
+        yield ssm's that would make up an mstring
+        call: Mutation(substr_to_ssms(...)) to get Mutation object
+        '''
+        re_dashes = TRAILING_DASHES if insertwithdashes else ALL_DASHES
+        ndxhi = ndxlo + len(gseq)
+        while ndxlo < ndxhi:
+            site = self.site_from_index(ndxlo)
+            ndxlolo = self.index_from_site(site)
+            if ndxlolo == ndxlo:
+                ## substitution (or deletion) character
+                subchr,gseq = gseq[0],gseq[1:]
+                if includeidentityssms or self.refseq[ndxlo] != subchr:
+                    yield SingleSiteMutation(self.refseq[ndxlo],site,subchr)
+                ndxlo = ndxlo + 1
+            elif ndxlolo < ndxlo:
+                ## insertion string
+                ndx_next = self.index_from_site(site+1)
+                insstr,gseq = gseq[:ndx_next-ndxlo],gseq[ndx_next-ndxlo:]
+                insstr = re_dashes.sub('',insstr) ## remove (trailing) dashes
+                if insstr:
+                    yield SingleSiteMutation("+",site,insstr)
+                ndxlo = ndx_next
+            else: # ndxlolo > ndxlo:
+                raise RuntimeError(f'{ndxlolo=} > {ndxlo=}: should never happen')
+
+    def substr_to_mutation(self,gseq,ndxlo=0,insertwithdashes=True):
+        '''return mutation object based on gapped subsequence'''
+        fullseq = bool(ndxlo==0 and len(gseq) == len(self.refseq))
+        mut = Mutation(self.substr_to_ssms(gseq,ndxlo,
+                                           includeidentityssms = not fullseq,
+                                           insertwithdashes=insertwithdashes))
+        mut.exact = fullseq
+        #v.print('substr_to_mut: mut=',str(mut))
+        return mut
+
+    @cache # pylint: disable=method-cache-max-size-none
+    def subseq_to_ssms(self,gseq,ndxlo,insertwithdashes=True):
+        '''cached version of substr_to_ssms'''
+        return list(self.substr_to_ssms(gseq,ndxlo,
+                                        insertwithdashes=insertwithdashes,
+                                        includeidentityssms=False))
+
+    @cache # pylint: disable=method-cache-max-size-none
+    def get_ndxlists(self,nchunks):
+        '''return two lists, for site-aligned ndxlo and ndxhi used for slicing sequence into chunks'''
+        sites = [1+n*self.topsite//nchunks for n in range(nchunks)]
+        ndxlo_list = [self.index_from_site(site) for site in sites]
+        ndxhi_list = ndxlo_list[1:] + [len(self.refseq)]
+        return ndxlo_list,ndxhi_list
+        
+    def seq_to_mutation(self,seq,exact=True):
+        '''convert sequence to Mutation object, using chunked strategy for speed'''
+        ## Using chunks means subseq_to_ssms only works with small subseq lengths,
+        ## which makes the arguments more cache-able
+        nchunks = min(64,self.topsite//2)
+        los,his = self.get_ndxlists(nchunks)
+        ssmlist = []
+        for ndxlo,ndxhi in zip(los,his):
+            ssms = self.subseq_to_ssms(seq[ndxlo:ndxhi],ndxlo)
+            #print(ndxlo,ndxhi,seq[ndxlo:ndxhi],[str(ssm) for ssm in ssms])
+            ssmlist.extend(ssms)
+        mut = Mutation(ssmlist)
+        mut.exact = exact
+        return mut
+
+    #TODO: deprecated
     @cache # pylint: disable=method-cache-max-size-none
     def get_partial_mutdict(self,subseq,ndxlo,ndxhi):
         '''cached helper function used by alt_get_ssmlist'''
@@ -287,6 +366,7 @@ class MutationManager(SiteIndexTranslator):
                 partial_mutdict[(rr,site)].append(c)
         return partial_mutdict
 
+    #TODO: deprecated
     def get_mutdict(self,seq):
         '''helper function used by alt_get_ssmlist'''
         nchunks=64
@@ -299,6 +379,7 @@ class MutationManager(SiteIndexTranslator):
                 mutdict[(rr,site)].extend(clist)
         return mutdict
 
+    #TODO: deprecated
     def alt_get_ssmlist(self,seq):
         '''alternative get_ssmlist: seq -> list of ssm's '''
         ## Can be faster because get_partial_mutdict can be more cache-able
@@ -311,6 +392,7 @@ class MutationManager(SiteIndexTranslator):
             mutlist.append(SingleSiteMutation(rr,site,mstr))
         return mutlist
 
+    #TODO: deprecated
     def get_ssmlist(self,seq):
         '''convert sequence into a list of ssm's '''
         ## Scan mutations and put into dict of lists so that
@@ -329,14 +411,18 @@ class MutationManager(SiteIndexTranslator):
             mutlist.append(SingleSiteMutation(rr,site,mstr))
         return mutlist ## should already be sorted?
 
+    # Sort-of deprecated, still widely used, but seq_to_mutation does the same thing
     def get_mutation(self,seq,exact=True):
         '''convert sequence into a mutation list'''
         ## since obtained from seq, assume mseq has exact=True
-        mutlist = self.alt_get_ssmlist(seq)
-        mut = Mutation(mutlist)
+        ## OLD deprecated method
+        ## mutlist = self.alt_get_ssmlist(seq)
+        ## mut = Mutation(mutlist)
+        mut = self.seq_to_mutation(seq)
         mut.exact = exact
         return mut
 
+    #TODO deprecated
     def get_alt_mutation_ssmlist(self,ssmlist):
         '''convert list of ssms into an alt mutation structure'''
         ## alt mutation structure is a dictionary of sites
@@ -355,6 +441,7 @@ class MutationManager(SiteIndexTranslator):
                 alt[ssm.site] = ssm.mut
         return alt
 
+    #TODO deprecated
     def get_alt_mutation(self,seq):
         '''convert sequence into mutation dict'''
         mutlist = self.alt_get_ssmlist(seq)
@@ -388,19 +475,26 @@ class MutationManager(SiteIndexTranslator):
                     raise ValueError(f'Insertion {ssm} too long; '
                                      f'only room for {ndxhi-ndxlo-1} characters')
                 regex_as_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = ssm.mut
-            else:
-                if ssm.ref != self.refseq[ndxlo]:
-                    raise ValueError(f'{ssm=!s} ref {ssm.ref} disagrees with '
-                                     f'ref={self.refseq[ndxlo]} at site {ndxlo}')
-                if len(ssm.mut) != 1:
-                    raise ValueError(f'{ssm=!s} invalid: {len(ssm.mut)=} '
-                                     f'must have exactly one character')
-                regex_as_list[ndxlo] = ssm.mut
+                continue
+            if ssm.ref != self.refseq[ndxlo]:
+                raise ValueError(f'{ssm=!s} ref {ssm.ref} disagrees with '
+                                 f'ref={self.refseq[ndxlo]} at site {ndxlo}')
+            if len(ssm.mut) != 1:
+                raise ValueError(f'{ssm=!s} invalid: {len(ssm.mut)=} '
+                                 f'must have exactly one character')
+            ## possible extension: if ssm.mut == "*", then regex_as_list[ndxlo] = f'[^{ssm.ref}]'
+            if ssm.mut == "*":
+                ## asterisk means anything except ref
+                regex_as_list[ndxlo] = f'[^{ssm.ref}]'
+                continue
+            regex_as_list[ndxlo] = ssm.mut
+
         regex = "".join(regex_as_list)
         if compile:
             regex = re.compile(regex)
         return regex
 
+    ## Still used for spikevariants, but there's probably a better way
     def pattern_from_mutation(self,mut,exact=None):
         '''
         returns a string of same length as refseq,
@@ -432,6 +526,7 @@ class MutationManager(SiteIndexTranslator):
         mutseq = "".join(mutseq)
         return mutseq
 
+    ## Are you sure you wouldn't prefer regex_from_mutation(..,exact=True) ?
     def seq_from_mutation(self,mut,prescriptive=True):
         '''return sequence that is mutated version of refseq'''
         ## note: insertions at the head of the sequence will
@@ -473,11 +568,12 @@ class MutationManager(SiteIndexTranslator):
                 except IndexError as err:
                     errmsg = \
                         f'ssm={ssm},site={ssm.site},topsite={self.topsite},' \
-                        f'nex={ndx},len(mutseq)={len(mutseq)}'
+                        f'ndx={ndx},len(mutseq)={len(mutseq)}'
                     raise IndexError(errmsg) from err
         mutseq = "".join(mutseq)
         return mutseq
 
+    ## Now much faster to use regex_from_mutation, followed by re.match(...)
     ## This is one very intricate function!!! so many special cases!!
     ## any way to offload some of the cognitive budget? not to mention raw compute time
     ## if mpatt has no wild cards, this could go faster (separate routine for that?)
@@ -527,6 +623,7 @@ class MutationManager(SiteIndexTranslator):
                 return False
         return True
 
+    ## Now much faster to use regex_from_mutation, followed by re.match(...)
     def filter_seqs_by_pattern(self,mpatt,seqs,exact=None):
         '''filter an iterable of seqs that match the pattern'''
         ## if input mpatt is string, this converts to Mutation object

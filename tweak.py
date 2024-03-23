@@ -151,10 +151,10 @@ class IndexTweak(): # pylint: disable=too-many-instance-attributes
             return True
         return False
 
-    def update_mstringpair(self,xlator):
+    def update_mstringpair(self,mut_mgr):
         '''update attributes ma/mb with mstrings associated with sa/sb'''
-        self.ma = str(substr_to_mut(xlator,self.sa,self.ndxlo))
-        self.mb = str(substr_to_mut(xlator,self.sb,self.ndxlo))
+        self.ma = str(mut_mgr.substr_to_mutation(self.sa,self.ndxlo))
+        self.mb = str(mut_mgr.substr_to_mutation(self.sb,self.ndxlo))
         return self.sa,self.sb
 
     @staticmethod
@@ -401,40 +401,3 @@ def add_needed_dashes(seqs,mstringpairs):
         seqs = expand_seqs(xpand,seqs)
     return seqs,xpand
 
-
-ALL_DASHES = re.compile(r'-')
-TRAILING_DASHES = re.compile(r'-+$')
-
-def substr_to_ssms(xlator,gseq,ndxlo=0,insertwithdashes=True):
-    '''
-    given a gappy substring gaseq (such as 'R---T-T-')
-    and the index associated with the first character
-    yield ssm's that would make up an mstring
-    call: Mutation(substr_to_ssms(...)) to get Mutation object
-    '''
-    re_dashes = TRAILING_DASHES if insertwithdashes else ALL_DASHES
-    ndxhi = ndxlo + len(gseq)
-    while ndxlo < ndxhi:
-        site = xlator.site_from_index(ndxlo)
-        ndxlolo = xlator.index_from_site(site)
-        if ndxlolo == ndxlo:
-            ## substitution (or deletion) character
-            subchr,gseq = gseq[0],gseq[1:]
-            yield mutant.SingleSiteMutation(xlator.refseq[ndxlo],site,subchr)
-            ndxlo = ndxlo + 1
-        elif ndxlolo < ndxlo:
-            ## insertion string
-            ndx_next = xlator.index_from_site(site+1)
-            insstr,gseq = gseq[:ndx_next-ndxlo],gseq[ndx_next-ndxlo:]
-            insstr = re_dashes.sub('',insstr) ## remove (trailing) dashes
-            if insstr:
-                yield mutant.SingleSiteMutation("+",site,insstr)
-            ndxlo = ndx_next
-        else: # ndxlolo > ndxlo:
-            raise RuntimeError(f'{ndxlolo=} > {ndxlo=}: should never happen')
-
-def substr_to_mut(xlator,gseq,ndxlo=0,insertwithdashes=True):
-    '''return mutation object based on gapped subsequence'''
-    mut = mutant.Mutation(substr_to_ssms(xlator,gseq,ndxlo,insertwithdashes=insertwithdashes))
-    #v.print('substr_to_mut: mut=',str(mut))
-    return mut

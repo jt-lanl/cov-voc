@@ -224,7 +224,7 @@ def main(args):
             sname = covid.get_isl(s) if args.showisl and not covid.test_isref(s) else s.name
             print( "".join(s.seq[n] for n in ndxlist), sname, end=" ")
             if args.showmuts:
-                print(m_mgr.get_mutation(s.seq),end="")
+                print(m_mgr.seq_to_mutation(s.seq),end="")
             print()
 
 if __name__ == "__main__":

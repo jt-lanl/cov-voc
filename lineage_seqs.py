@@ -188,7 +188,7 @@ def _main(args):
     for ssm,child in children:
         ssm = mutant.SingleSiteMutation.from_string(ssm)
         candidates=[s for s in lincat.earlyseqs[child]
-                    if ssm in mmgr.get_mutation(s.seq)]
+                    if ssm in mmgr.seq_to_mutation(s.seq)]
         earlyseq = earliest_seq(candidates)
         if earlyseq is None:
             v.vprint('No seq for:',ssm,child)

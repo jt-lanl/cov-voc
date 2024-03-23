@@ -191,11 +191,10 @@ def mutpair_to_mstringpair(xlator,badmut,goodmut):
 
     return mstringify(bmut),mstringify(gmut)
 
-def tweak_to_mstringpair(tweak,xlator):
+def tweak_to_mstringpair(tweak,mut_mgr):
     '''update attributes ma,mb based on current tweak substrings sa,sb'''
-    muta = tku.substr_to_mut(xlator, tweak.sa, tweak.ndxlo)
-    mutb = tku.substr_to_mut(xlator, tweak.sb, tweak.ndxlo)#, insertwithdashes=False)
-    #mstra,mstrb = mutpair_to_mstringpair(xlator,muta,mutb)
+    muta = mut_mgr.substr_to_mutation(tweak.sa, tweak.ndxlo)
+    mutb = mut_mgr.substr_to_mutation(tweak.sb, tweak.ndxlo)
     mstra,mstrb = str(muta),str(mutb)
     tweak.ma = mstra
     tweak.mb = mstrb
@@ -221,7 +220,7 @@ def _main(args):
 
     seqs = covid.read_filter_seqfile(args)
     first,seqs = covid.get_first_item(seqs,keepfirst=True)
-    xlator = mutant.SiteIndexTranslator(first.seq)
+    mut_mgr = mutant.MutationManager(first.seq)
 
     num,den = args.fracrange
     ndxminlo = ndxmin = (num-1)*len(first.seq)//den
@@ -229,12 +228,12 @@ def _main(args):
     ndxmaxhi = ndxmaxlo + args.windowsize
     ndxmaxhi = min(ndxmaxhi,len(first.seq))
 
-    sites = sorted(set(xlator.site_from_index(ndx)
+    sites = sorted(set(mut_mgr.site_from_index(ndx)
                        for ndx in range(ndxminlo,ndxmaxhi)))
-    site_indexes = [xlator.index_from_site(site)
+    site_indexes = [mut_mgr.index_from_site(site)
                     for site in sites]
     ## also, use site indexes that are +1 from site, enables [+251V,...] style tweaks
-    site_indexes.extend(xlator.index_from_site(site)+1
+    site_indexes.extend(mut_mgr.index_from_site(site)+1
                         for site in sites)
     site_indexes = set(site_indexes)
 
@@ -260,8 +259,8 @@ def _main(args):
             ## But do it backward, truncating subseq's at each step
             if args.bysite:
                 v.vvvprint('sites:'
-                           f'{xlator.site_from_index(ndxlo)}-'
-                           f'{xlator.site_from_index(aux_ndxhi-1)}',
+                           f'{mut_mgr.site_from_index(ndxlo)}-'
+                           f'{mut_mgr.site_from_index(aux_ndxhi-1)}',
                            end=" ")
                 v.vvvprint(f' ndx: {ndxlo}-{aux_ndxhi-1}',end="")
             v.vvvprint(f' slice: 0:{aux_ndxhi-ndxlo}')
@@ -284,7 +283,7 @@ def _main(args):
     if args.bysite:
         minimal_incs = IndexTweak.get_minimal(inconsistencies)
         for inc in minimal_incs:
-            mstra,mstrb = inc.update_mstringpair(xlator)
+            mstra,mstrb = inc.update_mstringpair(mut_mgr)
             v.vprint(f'{inc} {mstra} {mstrb}')
     else:
         minimal_incs = [inc for inc in inconsistencies
@@ -292,7 +291,7 @@ def _main(args):
 
     if args.viz and minimal_incs:
         with xopen(args.viz,"w") as vizout:
-            print("\n\n".join(inc.viz(xlator,showcontext=True)
+            print("\n\n".join(inc.viz(mut_mgr,showcontext=True)
                               for inc in minimal_incs),
                   file=vizout)
 

@@ -207,7 +207,7 @@ def main(args):
         ## Now get most common forms
         cntr_both = Counter(s.seq for s in seqlin)
         top_comm = sorted(cntr_both,key=cntr_both.get,reverse=True)[0]
-        lineage_baseline = mut_manager.get_mutation(top_comm)
+        lineage_baseline = mut_manager.seq_to_mutation(top_comm)
         cntr_early = Counter(s.seq for s in seqlin_early)
         cntr_later = Counter(s.seq for s in seqlin_later)
         cntrlist = sorted(cntr_both,key=cntr_both.get,reverse=True)
@@ -222,7 +222,7 @@ def main(args):
             cons_string = ""
             if comm == cons:
                 cons_string = "(consensus)"
-            mut = mut_manager.get_mutation(comm)
+            mut = mut_manager.seq_to_mutation(comm)
             mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
 
             if args.lineagebaseline:

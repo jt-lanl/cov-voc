@@ -83,8 +83,7 @@ def _main(args):
 
         s = earliest_sequence(seqlist)
         print(f'{hamdist:3d} {seq_len:4d} {s.name}')
-        #print("%3d %4d %s" % (hamdist,seq_len,s.name))
-        print("        ",m_mgr.get_mutation(s.seq))
+        print("        ",m_mgr.seq_to_mutation(s.seq))
 
         if args.output:
             for s in seqlist:
