@@ -251,26 +251,37 @@ def get_mstring_pairs(mfiles,mpairs):
 
     return mstringpairs
 
-def get_extra_chars(mstringpairs):
+def extra_chars_from_mstrings(mstrings):
     '''
     Characterize extra chars:
     xtras[site] = number of extra chars after site
     Add xtra chars for all the +nnnABC mstring component
     '''
     xtras = dict()
+    for mstring in mstrings:
+        for ssm in mutant.Mutation.from_mstring(mstring):
+            if ssm.ref == "+":
+                xtras[ssm.site] = max( [xtras.get(ssm.site,0),
+                                        len(ssm.mut)] )
+    return xtras
+
+def get_extra_chars(mstringpairs):
+    '''
+    Characterize extra chars needed, based on mstring pairs
+    '''
+    mstrings = []
     for mspair in mstringpairs:
         for mstring in mspair:
-            for ssm in mutant.Mutation.from_mstring(mstring):
-                if ssm.ref == "+":
-                    xtras[ssm.site] = max( [xtras.get(ssm.site,0),
-                                            len(ssm.mut)] )
-    return xtras
+            mstrings.append(mstring)
+    return extra_chars_from_mstrings(mstrings)
 
 def add_extra_dashes(seqs,xxtras):
     '''xxtras is dict keyed by indices of s.seq strings;
        for each of those strings, we expand by extra dashes
     '''
     for s in seqs:
+        ## nb, could use bytearray instead of list
+        ## more memory efficient, but ... so what
         sseq = list(s.seq)
         for ndx in xxtras:
             sseq[ndx] += "-"*xxtras[ndx]
@@ -400,4 +411,3 @@ def add_needed_dashes(seqs,mstringpairs):
     if xpand:
         seqs = expand_seqs(xpand,seqs)
     return seqs,xpand
-
