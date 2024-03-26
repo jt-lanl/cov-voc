@@ -206,10 +206,16 @@ def get_pangoreplace(pangofile):
        pangofile (Path or str): name of file with pango names
     Returns:
        pangocat (dict): catalog maps ISL numbers to pango names'''
+    ## lower-case (possibly preceded by an underscore) indicates
+    ## non-standard pango name (eg, proposed, misc, dropout, _rev, _quad, etc)
+    ## in that case, removed the nonstandard part of the name
+    RE_NONPANGO=re.compile('_?[a-z_].*')
     pangocat = dict()
     if not pangofile:
         return pangocat
     with xopen(pangofile,"r") as fpin:
+        non_std_count = 0
+        total_count = 0
         for line in fpin:
             tokens = line.strip().split()
             if len(tokens) != 2 or tokens[0]=="name":
@@ -219,7 +225,15 @@ def get_pangoreplace(pangofile):
                 v.print_only(3,'badisl:',f'in seqname={tokens[0]}')
             isl = isl.group(0)
             pango = tokens[1]
+            pango = RE_NONPANGO.sub('',pango)
+            total_count += 1
+            if not pango:
+                non_std_count += 1
+                continue
             pangocat[isl]=pango
+        if non_std_count:
+            v.vprint(f'Nonstandard pango names '
+                     f'in usher catalog: {non_std_count}/{total_count}')
     return pangocat
 
 def filterclades(seqs,lin_notes,cladelist,exclude=False):
