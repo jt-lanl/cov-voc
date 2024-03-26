@@ -76,12 +76,7 @@ def _main(args):
 
     first,seqs = covid.get_first_item(seqs,keepfirst=False)
     mut_mgr = mutant.MutationManager(first.seq)
-
-    tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
-                 for ma,mb in mstringpairs]
-    tweaklist = [tweak for tweak in tweaklist
-                 if tweak.sa != tweak.sb] ## eliminate no-op tweaks
-
+    tweaklist = tku.tweaks_from_mstringpairs(mut_mgr,mstringpairs)
     v.vprint("\n".join(str(tweak) for tweak in tweaklist))
 
     for tfile in args.tfile or []:

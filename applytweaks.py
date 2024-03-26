@@ -114,10 +114,7 @@ def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
             if xpand:
                 s.seq = tku.expand_seq(xpand,s.seq)
                 mut_mgr = mutant.MutationManager(s.seq)
-            tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
-                         for ma,mb in mstringpairs]
-            tweaklist = [tweak for tweak in tweaklist
-                         if tweak.sa != tweak.sb] ## eliminate no-op tweaks
+            tweaklist = tku.tweaks_from_mstringpairs(mut_mgr,mstringpairs)
             yield s
             continue
 
@@ -153,8 +150,7 @@ def _main(args):
         if mstringpairs:
             first,seqs = covid.get_first_item(seqs,keepfirst=True)
             mut_mgr = mutant.MutationManager(first.seq)
-            tweaklist = [tku.tweak_from_mstringpair(mut_mgr,ma,mb)
-                         for ma,mb in mstringpairs]
+            tweaklist = tweaks_from_mstringpairs(mut_mgr,mstringpairs)
         warnlist = checktweaks(tweaklist)
         v.print("\n".join(warnlist))
 

@@ -8,7 +8,7 @@ import verbose as v
 import xopen
 import intlist
 import sequtil
-import mutant
+from mutant import Mutation, MutationManager
 import mstringfix
 
 _DEDASH = re.compile("-")
@@ -253,13 +253,13 @@ def get_mstring_pairs(mfiles,mpairs):
 
 def extra_chars_from_mstrings(mstrings):
     '''
-    Characterize extra chars:
+    Characterize extra chars that will be needed:
     xtras[site] = number of extra chars after site
-    Add xtra chars for all the +nnnABC mstring component
+    eg, +18ABC means xtras[18] should be at least 3
     '''
     xtras = dict()
     for mstring in mstrings:
-        for ssm in mutant.Mutation.from_mstring(mstring):
+        for ssm in Mutation.from_mstring(mstring):
             if ssm.ref == "+":
                 xtras[ssm.site] = max( [xtras.get(ssm.site,0),
                                         len(ssm.mut)] )
@@ -269,10 +269,8 @@ def get_extra_chars(mstringpairs):
     '''
     Characterize extra chars needed, based on mstring pairs
     '''
-    mstrings = []
-    for mspair in mstringpairs:
-        for mstring in mspair:
-            mstrings.append(mstring)
+    ## convert list ot tuples into list of lists, then into one big list
+    mstrings = sum(map(list,mstringpairs),[]) # list = sum(listoflists,[])
     return extra_chars_from_mstrings(mstrings)
 
 def add_extra_dashes(seqs,xxtras):
@@ -288,13 +286,13 @@ def add_extra_dashes(seqs,xxtras):
         s.seq = "".join(sseq)
         yield s
 
-def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
+def mstrings_to_ndx_tweak(mut_mgr,mstring_a,mstring_b):
     '''
     convert mstrings into short sequence-alignment fragments
     along with the indices of where those sequences start/end
     '''
-    mut_a = mutant.Mutation.from_mstring(mstring_a)
-    mut_b = mutant.Mutation.from_mstring(mstring_b)
+    mut_a = Mutation.from_mstring(mstring_a)
+    mut_b = Mutation.from_mstring(mstring_b)
 
     sites = sorted(set(ssm.site for ssm in it.chain(mut_a,mut_b)))
     lo,hi = sites[0],sites[-1]+1
@@ -309,11 +307,13 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
 
     if seq_a == seq_b:
         warnings.warn(f'Tweak {mstring_a}->{mstring_b} will not change anything!')
-        return 0,0,"",""
+        return None
 
+    ## if seq's are unequal, they should be unequal over the ndx range
+    assert seq_a[ndxlo:ndxhi] != seq_b[ndxlo:ndxhi]
 
     while seq_a[ndxlo] == seq_b[ndxlo]:
-        ## this can occur if one of the mstrings is of the form [+251V],
+        ## this can occur if one of the mstrings is of the form [+251V,...],
         ## so we want to start not at ndxlo associated with site=251
         ## but with ndxlo one higher than that.
         ndxlo += 1
@@ -333,33 +333,36 @@ def mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b):
     ## None of these should happen
     if seq_r == seq_a:
         warnings.warn(f"Edit {mstring_a} is same as ref sequence; "
-                      "Are you sure you wan to change it !?")
+                      "Are you sure you want that !?")
     if seq_a == seq_b:
+        ## Should never happen; this case should have been caught earlier
         v.vprint(f"Edit {mstring_a}->{mstring_b} will do nothing!")
     if de_gap(seq_a) != de_gap(seq_b):
         v.print(".".join(a+b for a,b in zip(de_gap(seq_a),de_gap(seq_b))))
         v.print(f'   r: {seq_r}')
         v.print(f'   a: {seq_a}')
         v.print(f'   b: {seq_b}')
-        warnings.warn(f"Edit {mstring_a}->{mstring_b} "
-                      "will change actual sequence!"
+        warnings.warn(f"Edit {mstring_a}->{mstring_b} disabled "
+                      "because it will change actual sequence!"
                       " not just the alignment\n"
                       f"  {seq_a}->{seq_b}")
         ## this shouldn't happen...but if it does, then don't do any replacing
-        seq_b = seq_a
+        return None
 
-    return ndxlo,ndxhi,seq_a,seq_b
-
-def tweak_from_mstringpair(mut_mgr,mstring_a,mstring_b):
-    '''
-    convert mstring pair into IndexTweak object
-    '''
-    tweak_tuple = mstrings_to_ndx_seqs(mut_mgr,mstring_a,mstring_b)
-    tweak = IndexTweak(*tweak_tuple)
-    ## add ma,mb to tweak object ... in an unclean way
+    tweak = IndexTweak(ndxlo,ndxhi,seq_a,seq_b)
     tweak.ma = mstring_a
     tweak.mb = mstring_b
     return tweak
+
+def tweaks_from_mstringpairs(mut_mgr,mstringpairs):
+    '''
+    convert list of mstring pairs into list of IndexTweak objects
+    '''
+    tweaklist=[]
+    for ma,mb in mstringpairs:
+        if (tweak := mstrings_to_ndx_tweak(mut_mgr,ma,mb)) is not None:
+            tweaklist.append(tweak)
+    return tweaklist
 
 def expansion_needed(mut_mgr,mstringpairs):
     '''check if the mstring pairs will require extra room in the sequences'''
@@ -406,7 +409,7 @@ def add_needed_dashes(seqs,mstringpairs):
     and if so, add the needed dashes to the sequences'''
 
     first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
-    mut_mgr = mutant.MutationManager(first.seq)
+    mut_mgr = MutationManager(first.seq)
     xpand = expansion_needed(mut_mgr,mstringpairs)
     if xpand:
         seqs = expand_seqs(xpand,seqs)
