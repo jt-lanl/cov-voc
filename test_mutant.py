@@ -55,14 +55,49 @@ def test_seq_to_mutations():
         #assert seq != MM.seq_from_mutation(mut)
 
 def seq_fits_mstring(mstring,seq,**kw):
-    mpatt = mutant.Mutation.from_mstring(mstring)
-    fits = MM.seq_fits_pattern(mpatt,seq,**kw)
-    #see if regex works, too
-    re_mpatt = MM.regex_from_mstring(mstring,compile=True,**kw)
-    re_fits = bool(re_mpatt.match(seq))
-    if re_fits != fits:
-        print(mstring,seq,MM.regex_from_mstring(mstring,**kw),'mpatt=',mpatt)
+    ## NEW way
+    try:
+        re_mpatt = MM.regex_from_mstring(mstring,compile=True,**kw)
+        re_fits = bool(re_mpatt.match(seq))
+    except ValueError:
+        re_fits = False
+    ## OLD way
+    if False:
+        mpatt = mutant.Mutation.from_mstring(mstring)
+        fits = MM.seq_fits_pattern(mpatt,seq,**kw)
+        if re_fits != fits:
+            print(mstring,seq,MM.regex_from_mstring(mstring,**kw),'mpatt=',mpatt)
     return re_fits
+
+def test_extended_mstrings():
+
+    assert seq_fits_mstring('[A1B,D4E,+4W,G7*]', 'BBC-EW-EFF',extended=False) == False
+    assert seq_fits_mstring('[A1BC,D4E,+4W,G7*]', 'BBC-EW-EFF',extended=False) == False
+
+    def seq_fits_mstring_x(*args,**kw):
+        return seq_fits_mstring(*args,**kw,extended=True)
+
+    assert seq_fits_mstring_x('[A1B,D4E,+4W,G7F]', 'BBC-EW-EFF')
+    assert seq_fits_mstring_x('[A1B,D4E,+4W,G7*]', 'BBC-EW-EFF')
+    assert seq_fits_mstring_x('[A1BC,D4E,+4W,G7*]', 'BBC-EW-EFF')
+    
+    assert seq_fits_mstring_x('[D4*]', 'BBC-E-WEFF')            == True
+    assert seq_fits_mstring_x('[D4*]', 'BBC-E-WEFF',exact=True) == False
+    assert seq_fits_mstring_x('[D4*]', 'BBC-EW-EFF')            == True
+    assert seq_fits_mstring_x('[D4*]', 'BBC-EW-EFF',exact=True) == False
+    assert seq_fits_mstring_x('[D4*]', 'BBC-E--EFF')            == True
+    assert seq_fits_mstring_x('[D4*]', 'BBC-E--EFF',exact=True) == False
+    assert seq_fits_mstring_x('[D4*]', 'ABCWEXYEFG')            == True
+    assert seq_fits_mstring_x('[D4*]', 'ABCWEXYEFG',exact=True) == False
+    assert seq_fits_mstring_x('[D4*]', 'ABCWDXYEFG')            == False
+    assert seq_fits_mstring_x('[D4*]', 'ABCWDXYEFG',exact=True) == False
+    assert seq_fits_mstring_x('[D4*]', 'ABC-E--EFG')            == True
+    assert seq_fits_mstring_x('[D4*]', 'ABC-E--EFG',exact=True) == True
+    assert seq_fits_mstring_x('[D4*]', 'ABCWD--EFH')            == False
+    assert seq_fits_mstring_x('[D4*]', 'ABCWD--EFH',exact=True) == False
+    assert seq_fits_mstring_x('[D4*]', 'AB--D--EFG')            == False
+    assert seq_fits_mstring_x('[D4*]', 'AB--D--EFG',exact=True) == False
+
 
 def test_seq_to_mutation():
     for seq,mstring in mut_dict.items():
@@ -175,22 +210,6 @@ def test_mstrings():
     assert seq_fits_mstring('[+3W,+4XY]', 'ABCWD--EFH',exact=True) == False
     assert seq_fits_mstring('[+3W,+4XY]', 'AB--D--EFG')            == False
     assert seq_fits_mstring('[+3W,+4XY]', 'AB--D--EFG',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'BBC-E-WEFF')            == True
-    assert seq_fits_mstring('[D4*]', 'BBC-E-WEFF',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'BBC-EW-EFF')            == True
-    assert seq_fits_mstring('[D4*]', 'BBC-EW-EFF',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'BBC-E--EFF')            == True
-    assert seq_fits_mstring('[D4*]', 'BBC-E--EFF',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'ABCWEXYEFG')            == True
-    assert seq_fits_mstring('[D4*]', 'ABCWEXYEFG',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'ABCWDXYEFG')            == False
-    assert seq_fits_mstring('[D4*]', 'ABCWDXYEFG',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'ABC-E--EFG')            == True
-    assert seq_fits_mstring('[D4*]', 'ABC-E--EFG',exact=True) == True
-    assert seq_fits_mstring('[D4*]', 'ABCWD--EFH')            == False
-    assert seq_fits_mstring('[D4*]', 'ABCWD--EFH',exact=True) == False
-    assert seq_fits_mstring('[D4*]', 'AB--D--EFG')            == False
-    assert seq_fits_mstring('[D4*]', 'AB--D--EFG',exact=True) == False
     assert seq_fits_mstring('[A1A,D4.]', 'BBC-E-WEFF')            == False
     assert seq_fits_mstring('[A1A,D4.]', 'BBC-E-WEFF',exact=True) == False
     assert seq_fits_mstring('[A1A,D4.]', 'BBC-EW-EFF')            == False

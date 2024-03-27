@@ -457,10 +457,27 @@ class MutationManager(SiteIndexTranslator):
         mut = Mutation.from_mstring(mstring)
         return self.regex_from_mutation(mut,**kw)
 
-    def regex_from_mutation(self,mut,exact=None,compile=False):
-        '''return a string that can be used as a simple regex'''
-        ## similar to seq_from_mutation, especially if exact=True
-        ## but doen't do special characters
+    def regex_from_mutation(self,mut,exact=None,compile=False,extended=False):
+        '''return a string that can be used as a simple regex
+        Arguments:
+          mut: object of Mutation class (list of SingleSiteMutations)
+          exact: if True, then regex matches full sequence;
+                 if False, just matches the sites in the Mutation object
+                 if None (default), then use value of mut.exact
+           compile: if True, return re.compile(regex); else return regex string
+           extended: if True, allow special characters, or multiple options
+                     eg: D614* corresponds to D614x for any x!=D
+                     eg: D614GA corresponds to D614x where x may be G or A
+        Note: D614. corresponds to D614x where x is anything;
+              but (currently) this holds regardless of whether extended=True 
+              [maybe for extended=False and exact=True, it should not be allowed?]         
+        Note: if exact=True, compile=False, and extended=False; then
+              this returns the sequence corresponding to the mutation
+        Returns:
+              string corresponding to regex that a sequence should match
+              if it is consistent with the Mutation object mut
+              if compile=True, then a compiled regex is returned
+           '''
         if isinstance(mut,str):
             raise ValueError(f'mut is a string, not a Mutation; '
                              f'use regex_from_mstring(...) instead')
@@ -475,19 +492,24 @@ class MutationManager(SiteIndexTranslator):
                     raise ValueError(f'Insertion {ssm} too long; '
                                      f'only room for {ndxhi-ndxlo-1} characters')
                 regex_as_list[ndxlo+1:ndxlo+1+len(ssm.mut)] = ssm.mut
-                continue
-            if ssm.ref != self.refseq[ndxlo]:
+            elif ssm.ref != self.refseq[ndxlo]:
                 raise ValueError(f'{ssm=!s} ref {ssm.ref} disagrees with '
                                  f'ref={self.refseq[ndxlo]} at site {ndxlo}')
-            if len(ssm.mut) != 1:
-                raise ValueError(f'{ssm=!s} invalid: {len(ssm.mut)=} '
-                                 f'must have exactly one character')
-            ## possible extension: if ssm.mut == "*", then regex_as_list[ndxlo] = f'[^{ssm.ref}]'
-            if ssm.mut == "*":
+            elif len(ssm.mut) != 1:
+                if extended:
+                    ## do not currently check, but ssm.mut should match [A-Z]+
+                    regex_as_list[ndxlo]=f'[{ssm.mut}]'
+                else:
+                    raise ValueError(f'{ssm=!s} invalid: {len(ssm.mut)=} != 1')
+            elif ssm.mut == "*":
                 ## asterisk means anything except ref
-                regex_as_list[ndxlo] = f'[^{ssm.ref}]'
-                continue
-            regex_as_list[ndxlo] = ssm.mut
+                if extended:
+                    regex_as_list[ndxlo] = f'[^{ssm.ref}]'
+                else:
+                    raise ValueError(f'{ssm=!s} invalid: asterisk (*) not allowed '
+                                     'unless extended=True')
+            else:
+                regex_as_list[ndxlo] = ssm.mut
 
         regex = "".join(regex_as_list)
         if compile:
