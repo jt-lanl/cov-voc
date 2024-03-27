@@ -134,7 +134,7 @@ xpand_WHO_Pangolin = {
     'Gamma':  r'P\.1.*',
     'Delta':  r'(B\.1\.617\.2)|(AY\.[1-9].*)',
     'Lambda': r'C\.37',
-    'Iota':   r'B\.1\.526'
+    'Iota':   r'B\.1\.526',
     'Mu':     r'B\.1\.621(\.1)?',
     'Omicron': r'(B\.1\.1\.529)|(BA\.[1-9].*)',
 }
