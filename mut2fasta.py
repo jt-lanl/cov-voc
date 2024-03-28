@@ -67,11 +67,9 @@ def _main(args):
     ## Grab the Wuhan base sequence
     wuhan = sequtil.SequenceSample( wildtypes.SEQUENCE_NAME,
                                     wildtypes.SEQUENCE )
-    if xtras := tku.extra_chars_from_mstrings(mstringlist):
-        ## hack (works only becuz wuhan has no dashes, initially)
-        xpand = {s-1:x for s,x in xtras.items()}
-        wuhan.seq = tku.expand_seq(xpand,wuhan.seq)
 
+    xpander = tku.ExpandSeq(mstringlist,wuhan.seq)
+    wuhan.seq = xpander.expand_seq(wuhan.seq)
     mut_mgr = mutant.MutationManager(wuhan.seq)
 
     mutseqs = []
