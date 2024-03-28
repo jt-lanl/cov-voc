@@ -10,7 +10,7 @@ import covid
 import sequtil
 import mutant
 import tweak as tku
-from tweak import IndexTweak
+from tweak import IndexTweak, ExpandSeq
 
 def _getargs():
     '''parse options from command line'''
@@ -104,22 +104,23 @@ def show_checkedtweaks(xlator,tweaklist):
     return "\n\n".join(showlines)
 
 def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
-    '''apply tweaks, as defined by mseqpairs, to seqs'''
+    '''apply tweaks, as defined by mstringpairs, to seqs'''
+    xpander = ExpandSeq.from_mstringpairs(mstringpairs)
     for s in seqs:
         if covid.test_isref(s):
             ## if it's a ref seq; then
             ## we re-initialize  everything
+            xpander.update_refseq(s.seq)
+            if xpander:
+                v.vprint('Expanding sequences')
+                s.seq = xpander.expand_seq(s.seq)
             mut_mgr = mutant.MutationManager(s.seq)
-            xpand = tku.expansion_needed(mut_mgr,mstringpairs)
-            if xpand:
-                s.seq = tku.expand_seq(xpand,s.seq)
-                mut_mgr = mutant.MutationManager(s.seq)
             tweaklist = tku.tweaks_from_mstringpairs(mut_mgr,mstringpairs)
             yield s
             continue
 
-        if xpand:
-            s.seq = tku.expand_seq(xpand,s.seq)
+        if xpander:
+            s.seq = xpander.expand_seq(s.seq)
         for tweak in tweaklist:
             s.seq,wastweaked = tweak.apply_to_seq(s.seq)
             if wastweaked and change_counter is not None:
@@ -150,7 +151,7 @@ def _main(args):
         if mstringpairs:
             first,seqs = covid.get_first_item(seqs,keepfirst=True)
             mut_mgr = mutant.MutationManager(first.seq)
-            tweaklist = tweaks_from_mstringpairs(mut_mgr,mstringpairs)
+            tweaklist = tku.tweaks_from_mstringpairs(mut_mgr,mstringpairs)
         warnlist = checktweaks(tweaklist)
         v.print("\n".join(warnlist))
 

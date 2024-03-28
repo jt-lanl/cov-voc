@@ -8,8 +8,10 @@ import verbose as v
 import xopen
 import intlist
 import sequtil
-from mutant import Mutation, MutationManager
+from mutant import Mutation, SiteIndexTranslator, MutationManager
 import mstringfix
+
+import covid # for deprecated
 
 _DEDASH = re.compile("-")
 @cache
@@ -251,42 +253,7 @@ def get_mstring_pairs(mfiles,mpairs):
 
     return mstringpairs
 
-def extra_chars_from_mstrings(mstrings):
-    '''
-    Characterize extra chars that will be needed:
-    xtras[site] = number of extra chars after site
-    eg, +18ABC means xtras[18] should be at least 3
-    '''
-    xtras = dict()
-    for mstring in mstrings:
-        for ssm in Mutation.from_mstring(mstring):
-            if ssm.ref == "+":
-                xtras[ssm.site] = max( [xtras.get(ssm.site,0),
-                                        len(ssm.mut)] )
-    return xtras
-
-def get_extra_chars(mstringpairs):
-    '''
-    Characterize extra chars needed, based on mstring pairs
-    '''
-    ## convert list ot tuples into list of lists, then into one big list
-    mstrings = sum(map(list,mstringpairs),[]) # list = sum(listoflists,[])
-    return extra_chars_from_mstrings(mstrings)
-
-def add_extra_dashes(seqs,xxtras):
-    '''xxtras is dict keyed by indices of s.seq strings;
-       for each of those strings, we expand by extra dashes
-    '''
-    for s in seqs:
-        ## nb, could use bytearray instead of list
-        ## more memory efficient, but ... so what
-        sseq = list(s.seq)
-        for ndx in xxtras:
-            sseq[ndx] += "-"*xxtras[ndx]
-        s.seq = "".join(sseq)
-        yield s
-
-def mstrings_to_ndx_tweak(mut_mgr,mstring_a,mstring_b):
+def tweak_from_mstringpair(mut_mgr,mstring_a,mstring_b):
     '''
     convert mstrings into short sequence-alignment fragments
     along with the indices of where those sequences start/end
@@ -360,10 +327,125 @@ def tweaks_from_mstringpairs(mut_mgr,mstringpairs):
     '''
     tweaklist=[]
     for ma,mb in mstringpairs:
-        if (tweak := mstrings_to_ndx_tweak(mut_mgr,ma,mb)) is not None:
+        if (tweak := tweak_from_mstringpair(mut_mgr,ma,mb)) is not None:
             tweaklist.append(tweak)
     return tweaklist
 
+
+class ExpandSeq:
+    '''routines that epxands a sequence (by adding dashes at selected
+    sites) to enable insertion mutations to "fit" into the sequence
+    without altering the alignment'''
+    ## Tasks:
+    ## 1. Determine what extra spaces are needed, given set of mstrings
+    ## 2. Determine what extra spaces are available, from MutaitonManager
+    ## 3. How many spaces need to be added (difference of 2 and 1)
+    ## 4. Apply extra spaces to sequences
+    def __init__(self,mstrings,refseq=None):
+        self.expand = None
+        self.needed = dict()
+        ## get single-site insertions from the mstring list
+        ss_ins_list = [ssm
+                       for mstring in mstrings
+                       for ssm in Mutation.from_mstring(mstring)
+                       if ssm.ref == "+"]
+        ## for every single-site insertion...
+        for ssm in ss_ins_list:
+            ## make sure there's room for ssm.mut
+            self.needed[ssm.site] = max( [self.needed.get(ssm.site,0),
+                                          len(ssm.mut)] )
+        ## from refseq, determine what's available in order
+        ## to see if we need to expand
+        if refseq:
+            self.update_refseq(refseq)
+
+    @classmethod
+    def from_mstringpairs(cls,mstringpairs,refseq=None):
+        '''initialize directly from mstringspairs instead of mstrings'''
+        mstrings = sum(map(list,mstringpairs),[]) # list = sum(listoflists,[])
+        return cls(mstrings,refseq)
+
+    def update_manager(self,xlator):
+        '''update the initialization based on a MutationManager
+        (or SiteIndexTranslator)'''
+        self.expand = dict()
+        for site,need in self.needed.items():
+            available = len(xlator.indices_from_site(site))-1
+            if need > available:
+                ndx = xlator.index_from_site(site) + available
+                self.expand[ndx] = need-available
+
+    def update_refseq(self,refseq):
+        '''update the initialization based on the reference sequence'''
+        xlator = SiteIndexTranslator(refseq)
+        return self.update_manager(xlator)
+
+    def __bool__(self):
+        '''return boolean True if sequences will need to be expanded'''
+        if self.expand is None:
+            raise RuntimeError('Expander object not fully initialized')
+        return bool(self.expand)
+
+    def expand_seq(self,seq):
+        '''expand single sequence string'''
+        if self.expand is None:
+            raise RuntimeError('ExpandSeq object not fully initialized')
+        if not self.expand:
+            ## if self.expand is empty dictionary, do nothing
+            return seq
+        seq_as_list = list(seq)
+        for ndx,nexpand in self.expand.items():
+            seq_as_list[ndx] += "-" * nexpand
+        return "".join(seq_as_list)
+
+    def expand_seqs(self,seqs):
+        '''expand a list/generator of SequenceSample's;
+        yield expanded sequences'''
+        for s in seqs:
+            s.seq = self.expand_seq(s.seq)
+            yield s
+
+############## All that follows is obsolete
+
+@covid.deprecated
+def extra_chars_from_mstrings(mstrings):
+    '''
+    Characterize extra chars that will be needed:
+    xtras[site] = number of extra chars after site
+    eg, +18ABC means xtras[18] should be at least 3
+    '''
+    xtras = dict()
+    for mstring in mstrings:
+        for ssm in Mutation.from_mstring(mstring):
+            if ssm.ref == "+":
+                xtras[ssm.site] = max( [xtras.get(ssm.site,0),
+                                        len(ssm.mut)] )
+    return xtras
+
+@covid.deprecated
+def get_extra_chars(mstringpairs):
+    '''
+    Characterize extra chars needed, based on mstring pairs
+    '''
+    ## convert list ot tuples into list of lists, then into one big list
+    mstrings = sum(map(list,mstringpairs),[]) # list = sum(listoflists,[])
+    return extra_chars_from_mstrings(mstrings)
+
+@covid.deprecated
+def add_extra_dashes(seqs,xxtras):
+    '''xxtras is dict keyed by indices of s.seq strings;
+       for each of those strings, we expand by extra dashes
+    '''
+    for s in seqs:
+        ## nb, could use bytearray instead of list
+        ## more memory efficient, but ... so what
+        sseq = list(s.seq)
+        for ndx in xxtras:
+            sseq[ndx] += "-"*xxtras[ndx]
+        s.seq = "".join(sseq)
+        yield s
+
+@covid.deprecated
 def expansion_needed(mut_mgr,mstringpairs):
     '''check if the mstring pairs will require extra room in the sequences'''
     if not mstringpairs:
@@ -391,6 +473,7 @@ def expansion_needed(mut_mgr,mstringpairs):
 
     return xpand
 
+@covid.deprecated
 def expand_seq(xpand,seq):
     '''based on xpand dict, eqpand sequence string'''
     seq_as_list = list(seq)
@@ -398,12 +481,14 @@ def expand_seq(xpand,seq):
         seq_as_list[ndx] += "-"*xpand[ndx]
     return "".join(seq_as_list)
 
+@covid.deprecated
 def expand_seqs(xpand,seqs):
     '''baed on xpand dict, expand a list/generator of seqs'''
     for s in seqs:
         s.seq = expand_seq(xpand,s.seq)
         yield s
 
+@covid.deprecated
 def add_needed_dashes(seqs,mstringpairs):
     '''check if mstring pairs will require extra room in the sequences;
     and if so, add the needed dashes to the sequences'''

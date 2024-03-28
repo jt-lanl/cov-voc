@@ -60,20 +60,23 @@ def _main(args):
     '''main'''
     v.vprint(args)
 
-    ## Read sequence file
-    seqs = covid.read_filter_seqfile(args)
-
     ## Get all the mstring pairs
     mstringpairs = tku.get_mstring_pairs(args.mfile,args.mstrings)
 
-    ## Adjust seqs if needed (not usually needed)
-    seqs,xtra = tku.add_needed_dashes(seqs,mstringpairs)
+    ## Read sequence file (keep first in case we need to expand it)
+    seqs = covid.read_filter_seqfile(args)
+    first,seqs = covid.get_first_item(seqs,keepfirst=True)
 
-    if xtra:
+    ## Expand sequences to accomodate mstring pairs, if necessary
+    xpander = tku.ExpandSeq.from_mstringpairs(mstringpairs,first.seq)
+    if xpander:
+        if args.tfile:
+            raise RuntimeError(f'Since seqs expanded, '
+                               f'cannot trust {args.tfile}')
+        seqs = xpander.expand_seqs(seqs)
         v.print('Sequences expanded to accomondate mstrings')
-    if xtra and args.tfile:
-        raise RuntimeError(f'Since seqs expanded, cannot trust {args.tfile}')
 
+    ## In case seqs have been expanded, get new first
     first,seqs = covid.get_first_item(seqs,keepfirst=False)
     mut_mgr = mutant.MutationManager(first.seq)
     tweaklist = tku.tweaks_from_mstringpairs(mut_mgr,mstringpairs)
