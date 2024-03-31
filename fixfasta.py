@@ -338,9 +338,9 @@ def filter_nonref_seqs(args,seqs):
         seqs = islreplace(isl_seqs,seqs)
 
     if args.badisls:
-        bads = isls_from_file(args.badisls)
+        bads = set(isls_from_file(args.badisls))
         seqs = (s for s in seqs
-                if not any( b in s.name for b in bads ))
+                if covid.get_isl(s) not in bads)
 
     if args.keepisls:
         keepers = set(isls_from_file(args.keepisls))
