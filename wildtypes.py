@@ -15,14 +15,19 @@ def wuhan_wildtype(site):
 def clade_defined(name):
     return bool(name in covid.BASELINE_MSTRINGS)
 
+def clade_ssmlist(name):
+    '''return ssm list associated with given clade'''
+    mstring = covid.BASELINE_MSTRINGS.get(name,None)
+    if mstring is None:
+        return []
+    mstring = mstringfix.mstring_brackets(mstring)
+    return mutant.Mutation.from_mstring(mstring)
+
 def clade_init(name):
     global CLADE_MUTATIONS
     if clade_defined(name):
         CLADE_MUTATIONS[name]=dict()
-        mstring = covid.BASELINE_MSTRINGS[name]
-        mstring = mstringfix.mstring_brackets(mstring)
-        ssmlist = mutant.Mutation.from_mstring(mstring)
-        for ssm in ssmlist:
+        for ssm in clade_ssmlist(name):
             CLADE_MUTATIONS[name][ssm.site]=ssm
         
 def clade_wildtype(name,site):
