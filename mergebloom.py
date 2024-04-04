@@ -1,8 +1,8 @@
 '''Expand the table/summary from newmuts by adding columns from Bloom's database'''
 import re
 import argparse
-import pandas as pd
 import pathlib
+import pandas as pd
 
 import verbose as v
 import numu
@@ -18,6 +18,8 @@ def _getargs():
         help="name of Bloom's database")
     paa("--clade",
         help="name of clade used as reference in Bloom's database")
+    paa("--backbone",
+        help="name of lineage used for comparison")
     paa("--output","-o",
         help="name of output file that has Bloom data merged in")
     paa("--verbose","-v",action="count",default=0,
@@ -40,6 +42,16 @@ def _main(args):
 
     init_columns = [numu.match_column_name(df.columns,name)
                     for name in ["parent","child","lineage_seq","total_seq"]]
+
+    ## Backbone: 1 or 0 if ssm is in the backbone (lineage)
+    if wildtypes.clade_defined(args.backbone):
+        bbname = f'backbone_{args.backbone}'
+        df.insert(1,bbname,None)
+        backbone = [str(ssm)
+                    for ssm in wildtypes.clade_ssmlist(args.backbone)]
+        for nr,row in df.iterrows():
+            df.loc[nr,bbname] = int(bool(row["mutation"] in backbone))
+
 
     if args.bloom and pathlib.Path(args.bloom).is_file():
         ## merge based on truncated m-string (site+mutation, no wild-type)
@@ -71,7 +83,7 @@ def _main(args):
             df.insert(0,"clade-wildtype",None)
         df.insert(df.columns.get_loc("clade-wildtype"),
                   "wuhan-wildtype",None)
-            
+
     ## maybe not complete -- what about clade wildtype for
     ## items in df not in jdf ??  will need to make a table
     ## of wildtype by site (either via covid's table, or
@@ -103,7 +115,7 @@ def _main(args):
             theclade = re.sub(r'\-.*','',args.clade) ## strip off anything after dash
             df.loc[nr,"clade-wildtype"] = \
                 wildtypes.clade_wildtype(theclade,site)
-        
+
     df = df.drop(labels=['site_x','site_y','tmstring'],
                  axis='columns',errors='ignore')
 
@@ -111,7 +123,7 @@ def _main(args):
 
     if args.output:
         df.to_csv(args.output,sep="\t",index=False)
-        
+
 
 if __name__ == "__main__":
     _args = _getargs()
