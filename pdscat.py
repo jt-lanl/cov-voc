@@ -13,6 +13,7 @@ _colormap = mpl.colormaps.get_cmap('gist_rainbow')
 _colors = _colormap(np.linspace(0,1,256))
 
 def set_colormap(name,ntotal,noff=0):
+    '''make global colormap'''
     global _colormap,_colors
     _colormap = plt.get_cmap(name,ntotal+noff)
     _colors = _colormap(np.linspace(0,1,ntotal+noff))
@@ -20,11 +21,10 @@ def set_colormap(name,ntotal,noff=0):
         _colors = _colors[noff:]
         _colormap = mpl.colors.ListedColormap(_colors)
 
-    
 def nth_color(n,ntotal):
+    '''get color from index n'''
     n = n % ntotal
     return _colors[n]
-    
 
 def _getargs():
     '''parse options from command line'''
@@ -43,10 +43,18 @@ def _getargs():
         help="list of columns whose values should be dithered")
     paa("--cmap",default="gist_rainbow",
         help="color map for ncolors>1")
+    paa("--skipzero",action="store_true",
+        help="skip mutations that have value of 0")
     paa("--xlog",action="store_true",
         help="plot x-axis with log scale")
     paa("--ylog",action="store_true",
         help="plot y-axis with log scale")
+    paa("--nocolorbar",action="store_true",
+        help="leave off the color bar")
+    paa("--title",
+        help="put title on the plot")
+    paa("--labels",action="store_true",
+        help="put mutation labels on backbone data")
     paa("--output","-o",
         help="output plot to file")
     paa("--verbose","-v",action="count",default=0,
@@ -57,8 +65,8 @@ def _getargs():
 
 def segment(N,M):
     '''Given an array [0,...,N] with N+1 elements, produce a shorter array
-    with m segments (so array with have m+1 elements), 
-    that are roughly equally spaced, 
+    with m segments (so array with have m+1 elements),
+    that are roughly equally spaced,
     begining with 0 and ending with N'''
     nstart=0
     nsegs=M
@@ -69,9 +77,9 @@ def segment(N,M):
         nsegs -= 1
         v.vprint('segment:',delta_n,nstart)
         yield nstart
-        
-    
-        
+
+
+
 def _main(args):
     '''main'''
     v.vprint(args)
@@ -87,7 +95,7 @@ def _main(args):
         return numu.match_column_name(df.columns,name)
 
     dithercolumns = set(fixname(name) for name in args.dithercolumns)
-    
+
     xname,yname = [fixname(name) for name in args.columns]
     if xname is None or yname is None:
         v.print(f'Invalid columns {args.columns}; '
@@ -96,12 +104,15 @@ def _main(args):
 
     xvals=[ df.iloc[nr][xname] for nr,_ in df.iterrows() ]
     yvals=[ df.iloc[nr][yname] for nr,_ in df.iterrows() ]
+    labls=[ df.iloc[nr]["mutation"] for nr,_ in df.iterrows() ]
 
     rng = np.random.default_rng()
     if xname in dithercolumns:
-        xvals=[x+0.5*rng.random() for x in xvals]
+        xvals=[x+0.5*rng.random() if x!=0 else 0 for x in xvals]
+        #xvals=[x+0.5*rng.random() for x in xvals]
     if yname in dithercolumns:
-        yvals=[y+0.5*rng.random() for y in yvals]
+        yvals=[y+0.5*rng.random() if y!=0 else 0 for y in yvals]
+        #yvals=[y+0.5*rng.random() for y in yvals]
 
     zcolors = ['Black'] * len(xvals)
     if args.ncolors and not args.colorscolumn:
@@ -110,7 +121,7 @@ def _main(args):
     if args.colorscolumn:
         colorscolumn = fixname(args.colorscolumn)
         zvals=[]
-        for nr,row in df.iterrows():
+        for nr,_ in df.iterrows():
             zvals.append( float(df.iloc[nr][colorscolumn]) )
         ncolors = args.ncolors
         noff = max([1,int(ncolors/10)])
@@ -120,15 +131,23 @@ def _main(args):
             ## include 0 but don't let zero's overwhelm
             ztmp = [0]+[z for z in zvals if z>0]
         else:
-            ztmp = z
-        zcut = np.nanpercentile(ztmp, pct,
-                                method='closest_observation')
+            ztmp = zvals
 
-        for n in range(len(zcut)-1):
-            ## hack, to avoid duplications
-            if zcut[n+1] <= zcut[n]:
-                zcut[n+1] = zcut[n]+1
-                
+        ## Get zcut
+        if len(set(z for z in ztmp if np.isfinite(z))) == 2:
+            ## if z is binary, special case
+            zcut = [np.nanmin(ztmp)-1,
+                    (np.nanmin(ztmp)+np.nanmax(ztmp))/2,
+                    np.nanmax(ztmp)+1]
+        else:
+            ## z is real-valued (or generally, non-binary)
+            zcut = np.nanpercentile(ztmp, pct,
+                                    method='closest_observation')
+            for n in range(len(zcut)-1):
+                ## hack, to avoid duplications
+                if zcut[n+1] <= zcut[n]:
+                    zcut[n+1] = zcut[n]+1
+
         v.vprint('z cuts:',zcut)
         for nc in range(ncolors):
             for nr,zval in enumerate(zvals):
@@ -140,15 +159,31 @@ def _main(args):
             v.vprint('zndx:',zndx[:5])
             xvals = [xvals[n] for n in zndx]
             yvals = [yvals[n] for n in zndx]
+            zvals = [zvals[n] for n in zndx] ## surely!
+            zcolors = [zcolors[n] for n in zndx] ## surely, for sure
 
+    if args.skipzero:
+        xynonzero = [n for n in range(len(xvals))
+                     if xvals[n]!=0 or yvals[n]!=0]
+        xvals = [xvals[n] for n in xynonzero]
+        yvals = [yvals[n] for n in xynonzero]
+        labls = [labls[n] for n in xynonzero]
+        zvals = [zvals[n] for n in xynonzero]
+        zcolors = [zcolors[n] for n in xynonzero]
+
+    plt.rcParams.update({'font.size': 14})
     plt.figure()
     if args.colorscolumn:
+        ## plots them all, but plots the nonzeros on top of the zeros
         zzero = [n for n in range(len(zvals)) if zvals[n]==0]
         zelse = [n for n in range(len(zvals)) if zvals[n]!=0]
         for ndx in (zzero,zelse):
             plt.scatter([xvals[n] for n in ndx],
                         [yvals[n] for n in ndx],
                         c=[zcolors[n] for n in ndx])
+        if args.labels:
+            for n in zelse:
+                plt.text(xvals[n],yvals[n]," "+labls[n],fontsize=10)
     else:
         plt.scatter(xvals,yvals,c=zcolors)
     if args.xlog:
@@ -165,21 +200,23 @@ def _main(args):
             zcut = [zcut[n] for n in ndx]
         else:
             ticks = np.linspace(0,1,len(zcut))
-            
-        fmt_zcut = ["%d" % z for z in zcut]
-        plt.colorbar(mpl.cm.ScalarMappable(cmap=_colormap),
-                     ax=plt.gca(),
-                     ticks=ticks,
-                     format=mpl.ticker.FixedFormatter(fmt_zcut),
-                     label=colorscolumn)
 
-        
+        fmt_zcut = ["%d" % z for z in zcut]
+        if not args.nocolorbar:
+            plt.colorbar(mpl.cm.ScalarMappable(cmap=_colormap),
+                         ax=plt.gca(),
+                         ticks=ticks,
+                         format=mpl.ticker.FixedFormatter(fmt_zcut),
+                         label=colorscolumn)
+
+
+    plt.title(args.title or "")
     plt.tight_layout()
     if args.output:
         plt.savefig(args.output)
     else:
         plt.show()
-    
+
 
 if __name__ == "__main__":
 
