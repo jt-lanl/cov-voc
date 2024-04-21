@@ -23,14 +23,14 @@ DEFAULTSEQFILE_SKIPX="Latest-skipx.fasta"
 REF_SEQUENCE_NAME="NC_045512" #first part of name for all proteins
 
 
-def find_seqfile(seqfilename,skipx=False):
+def find_seqfile(seqfilename,keepx=True):
     '''
     return the default file for input sequences;
     hunt around in various directories until you find it
     '''
     if not seqfilename or str(seqfilename) == ".":
-        seqfilename = (DEFAULTSEQFILE_SKIPX if skipx
-                       else DEFAULTSEQFILE_KEEPX)
+        seqfilename = (DEFAULTSEQFILE_KEEPX if keepx
+                       else DEFAULTSEQFILE_SKIPX)
 
     for special in ['-', '/dev/stdin']:
         if str(seqfilename) == special:
@@ -101,8 +101,7 @@ def corona_fixargs(args):
     then call this for cleanup'''
     if not args.input or str(args.input) == '.':
         args.fastread = True
-    args.input = find_seqfile(args.input,
-                              skipx=(not args.keepx))
+    args.input = find_seqfile(args.input,keepx=args.keepx)
     return args
 
 
@@ -146,8 +145,9 @@ def expand_who_name_to_pangolin_pattern(patt):
     '''
     return xpand_WHO_Pangolin.get(patt,patt)
 
+#pylint: disable=line-too-long
 BASELINE_MSTRINGS = {
-    'Wuhan' : "",
+    'Wuhan': "",
     'B.1.1.7': "[H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]",
     'B.1.617.2': "[T19R,G142D,E156G,F157-,R158-,L452R,T478K,D614G,P681R,D950N]",
     'BA.2' : "T19I,L24-,P25-,P26-,A27S,G142D,V213G,G339D,S371F,S373P,S375F,T376A,D405N,R408S,K417N,N440K,S477N,T478K,E484A,Q493R,Q498R,N501Y,Y505H,D614G,H655Y,N679K,P681H,N764K,D796Y,Q954H,N969K",
