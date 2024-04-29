@@ -20,7 +20,7 @@ MAX_TITLE_LENGTH=60 ## truncate long title names
 
 DEFAULTSEQFILE_KEEPX="Latest-keepx.fasta"
 DEFAULTSEQFILE_SKIPX="Latest-skipx.fasta"
-REF_SEQUENCE_NAME="NC_045512" #first part of name for all proteins
+REF_SEQUENCE_ID="NC_045512" #first part of name for all proteins
 
 
 def find_seqfile(seqfilename,keepx=True):
@@ -145,7 +145,7 @@ def expand_who_name_to_pangolin_pattern(patt):
     '''
     return xpand_WHO_Pangolin.get(patt,patt)
 
-#pylint: disable=line-too-long
+# pylint: disable=line-too-long
 BASELINE_MSTRINGS = {
     'Wuhan': "",
     'B.1.1.7': "[H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]",
@@ -323,7 +323,7 @@ def range_of_dates(seqlist):
 def test_isref(first):
     '''is this sequence actually the reference sequence?'''
     assert isinstance(first,sequtil.SequenceSample)
-    if REF_SEQUENCE_NAME not in first.name:
+    if REF_SEQUENCE_ID not in first.name:
         return False
     return True
 
@@ -405,7 +405,7 @@ def filter_seqs_by_date(seqs,args):
         raise RuntimeError("Cannot specify both --days AND --dates")
 
     if args.days:
-        args.dates = date_range_from_args(args)
+        args.dates = date_range_from_args(args,seqs)
 
     if args.dates:
         seqs = filter_by_date(seqs,args.dates[0],args.dates[1])
@@ -517,15 +517,24 @@ def read_filter_seqfile(args,firstisref=True,**kwargs):
 
     return seqs
 
-def lastdate_byfile(file,seqs=None):
+
+def lastdate_byseqs(seqs):
+    """return last date associated with seqs; require seqs to be a list"""
+    if seqs is None:
+        return None
+    if isinstance(seqs, list):
+        _, lastdate = range_of_dates(seqs)
+        return lastdate
+    warnings.warn("cannot get last date unless seqs is a list")
+    return None
+
+
+def lastdate_byfile(file):
     '''return the last date in the range of dates'''
     ## to get last date
     ## 1/ get modification date of input file
     ## 2/ if that doesn't work (eg, if file not found), get today's date
-    ## 3/ if that doesn't work (but why wouldn't it?), get last date in dataset
-    ## 4/ if that doesn't work, raise RuntimeError
-    ## Note, if seqs is None, then skip step 3
-
+    ## 3/ if that doesn't work, raise RuntimeError
     lastdate=None ## in case nothing works!
     try:
         mtime = os.path.getmtime(file)
@@ -535,18 +544,13 @@ def lastdate_byfile(file,seqs=None):
             lastdate = datetime.date.today().isoformat()
         except Exception as err: ## don't think this will ever happen
             v.print(f'Exception should never happen: {err}')
-            if seqs:
-                seqs = list(seqs)
-                _,lastdate = range_of_dates(seqs)
-
     if lastdate is None:
         raise RuntimeError('Cannot find last date for date range')
-
     return lastdate
 
 ## Filtering seqs, helper function
 ## Parsing args (used for filter-by-date, coming later
-def date_range_from_args(args):
+def date_range_from_args(args,seqs=None):
     '''return list of two iso-formatted dates (start and stop);
     obtain what /should/ be in args.dates, but if it is not set,
     then infer what it should be from args.days'''
@@ -554,7 +558,7 @@ def date_range_from_args(args):
         return [(None if date=='.' else date)
                 for date in args.dates]
     if args.days:
-        lastdate = lastdate_byfile(args.input)
+        lastdate = lastdate_byseqs(seqs) or lastdate_byfile(args.input)
         tdate = date_fromiso(lastdate)
         fdate = tdate - datetime.timedelta(days=args.days)
         return [fdate.isoformat(),tdate.isoformat()]
@@ -574,7 +578,6 @@ def expand_date_range(daterange,daysperweek=7):
         start_date = start_date - datetime.timedelta(days=daysperweek-1)
         start_date = start_date.isoformat()
     return [start_date,stop_date]
-
 
 
 site_specifications = {
