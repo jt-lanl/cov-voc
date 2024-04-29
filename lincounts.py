@@ -30,7 +30,7 @@ def _getargs():
 
 
 def order_lineages(lin_notes: LineageNotes, clade: str, restrict_to: set = None) -> str:
-    """return lineages in the order of a depth-first tree"""
+    """yield lineages in the order of a depth-first tree"""
     yield clade
     for lin in sorted(lin_notes.children_of(clade)):
         if restrict_to and lin in restrict_to:
@@ -38,7 +38,7 @@ def order_lineages(lin_notes: LineageNotes, clade: str, restrict_to: set = None)
 
 
 @breakpipe.no_broken_pipe
-def _main(args):
+def _main(args: argparse.Namespace):
     """main"""
     v.vprint("args:", args)
     lin_notes = LineageNotes.from_file(args.notesfile)
@@ -46,17 +46,15 @@ def _main(args):
     if args.xclade:
         xlineage_set = lin_notes.get_lineage_set(args.xclade)
         lineage_set = lineage_set - xlineage_set
-    v.vprint("Total lineages:", len(lineage_set))
+    v.vprint("Lineages in clade:", len(lineage_set))
 
     seqs = covid.read_filter_seqfile(args)
-
+    seqs = list(seqs)
     lin_partition = LineagePartition(seqs, restrict_to=lineage_set)
-    denominator = sum(lin_partition.counts.values())
-    v.vprint(f"denominator={denominator}")
-    v.vprint(f"lineages in partition: {len(lin_partition.lineages)}")
 
     args.days = 60
-    seqs60 = covid.read_filter_seqfile(args)
+    seqs60 = covid.filter_seqs(seqs, args)
+    v.vprint("Range of dates", args.dates)
     lin_part60 = LineagePartition(seqs60, restrict_to=lineage_set)
 
     init_offset = lin_notes.get_fullname(args.clade).count(".")
