@@ -139,7 +139,7 @@ def pango_seqs(seqs,pango):
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
-    lastdate = covid.lastdate_byfile(file,seqs)
+    lastdate = covid.lastdate_byseqs(seqs) or covid.lastdate_byfile(file)
     tdate = covid.date_fromiso(lastdate)
     fdate = tdate - datetime.timedelta(days=days)
     v.vprint("Sixty days:",fdate,tdate)
