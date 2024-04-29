@@ -1,6 +1,6 @@
 """Provide counts for all sublineages of a specified lineage"""
 
-from typing import Generator
+from collections.abc import Iterator
 import argparse
 import verbose as v
 import breakpipe
@@ -30,12 +30,13 @@ def _getargs():
     return args
 
 
-def order_lineages(lin_notes: LineageNotes, clade: str, restrict_to: set = None) -> Generator[str]:
+def order_lineages(lin_notes: LineageNotes, clade: str, restrict_to: set = None) -> Iterator[str]:
     """yield lineages in the order of a depth-first tree"""
     yield clade
     for lin in sorted(lin_notes.children_of(clade)):
-        if restrict_to and lin in restrict_to:
-            yield from order_lineages(lin_notes, lin, restrict_to=restrict_to)
+        if restrict_to and lin not in restrict_to:
+            continue
+        yield from order_lineages(lin_notes, lin, restrict_to=restrict_to)
 
 
 @breakpipe.no_broken_pipe
