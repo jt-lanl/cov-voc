@@ -2,6 +2,7 @@
 ## Available at:
 ## https://github.com/cov-lineages/pango-designation/blob/master/lineage_notes.txt
 import re
+from typing import List
 import verbose as v
 
 def first_last_splits(name,reverse=False):
@@ -31,9 +32,10 @@ class LineageNotes:
 
     default_file = "lineage_notes.txt"
 
-    def __init__(self,alias_of,fix=False):
+    def __init__(self,alias_of,describe=None,fix=False):
         self.fullname = alias_of
         self.shortname = {val:key for key,val in self.fullname.items()}
+        self.describe = describe
         if fix:
             self.fix_inconsistencies()
             for bad in self.remove_inconsistencies():
@@ -47,18 +49,19 @@ class LineageNotes:
     @classmethod
     def from_file(cls,lineagefile,keepwithdrawn=False,fix=False):
         '''initialize LineageNotes object from file'''
-        alias_of = cls.read_lineage_file(lineagefile,
-                                     keepwithdrawn=keepwithdrawn)
-        return cls(alias_of,fix=fix)
+        alias_of,describe = cls.read_lineage_file(lineagefile,
+                                        keepwithdrawn=keepwithdrawn)
+        return cls(alias_of,describe=describe,fix=fix)
 
     @staticmethod
     def read_lineage_file(lineagefile,keepwithdrawn=False):
         '''return a list of lineages, and dict of aliases'''
         ## parse lines of the form:
         ## GL.1	Alias of XAY.1.1.1.1, Europe, S:D420N, C19441T, from issue #2032
-        RE_ALIAS = re.compile(r'[Aa]lias\s+of\s+(((B)|(X[A-Z]+))[\.0-9]+)')
+        re_alias = re.compile(r'[Aa]lias\s+of\s+(((B)|(X[A-Z]+))[\.0-9]+)')
         lineages = list()
         alias_of = dict()
+        describe = dict()
         with open(lineagefile,'r') as fin:
             fin.readline() # skip header: "Lineage Description"
             for line in fin:
@@ -69,7 +72,8 @@ class LineageNotes:
                     ## asterisk indicates withdrawn lineage
                     continue
                 lineages.append(name)
-                if (mat := RE_ALIAS.search(description)):
+                describe[name] = description.strip()
+                if (mat := re_alias.search(description)):
                     v.vvvprint(f'Alias: {name} -> {mat[1]}')
                     alias_of[name] = mat[1]
                 elif re.match(r'[A-Z][A-Z]\..*',name):
@@ -80,7 +84,7 @@ class LineageNotes:
 
         assert len(lineages) == len(alias_of)
         v.vprint(f'Lineages:  {len(alias_of)}')
-        return alias_of
+        return alias_of,describe
 
     def report_size(self):
         '''return string with size of lineages and aliases'''
@@ -137,7 +141,7 @@ class LineageNotes:
                     parent_full = self.fullname[parent_alias]
                     new_full = parent_full + lastno_alias
                 else:
-                    #just fix the last number
+                    # just fix the last number
                     new_full = re.sub(r'(.*)\.\d+$',r'\1'+lastno_alias,full)
                 fixed_aliases[alias] = new_full
                 fixed.append(f'Fix {alias}: {full} -> {new_full}')
@@ -168,6 +172,19 @@ class LineageNotes:
             fullparent = "Wuhan"
         parent = self.shortname.get(fullparent,fullparent)
         return parent
+
+    def children_of(self, parent: str) -> List[str]:
+        """return list of lineages that are immediate chlindren of parent"""
+        children = []
+        parent = self.fullname.get(parent, parent)
+        pcount = parent.count(".")
+        for lin in self.lineages:
+            longlin = self.fullname.get(lin, lin)
+            if longlin == parent:
+                continue
+            if longlin.startswith(parent) and longlin.count(".") == pcount + 1:
+                children.append(lin)
+        return children
 
     def allchildren_of(self,parent,excludeparent=False):
         '''return a list of lineages, all of which are children
