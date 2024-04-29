@@ -331,7 +331,7 @@ def get_first_item(seqs,keepfirst=None):
     '''wraps the sequtil version, checking if the first really is a ref'''
     kwargs = {'keepfirst': keepfirst} if keepfirst is not None else {}
     first,seqs = sequtil.get_first_item(seqs,**kwargs)
-    if keepfirst is False and test_isref(first) is False:
+    if keepfirst is False and test_isref(first) is False and first.seq:
         warnings.warn('first seq is not reference sequence')
     return first,seqs
 
