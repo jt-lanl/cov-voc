@@ -186,19 +186,17 @@ class LineageNotes:
                 children.append(lin)
         return children
 
-    def allchildren_of(self,parent,excludeparent=False):
-        '''return a list of lineages, all of which are children
+    def allchildren_of(self, parent, excludeparent=False):
+        """return a list of lineages, all of which are children
         (or grandchildren, or great grandchildren, etc) of the parent
         NOTE: The parent is included, unless excludeparent=True
-        '''
-        children=[]
-        parent = self.fullname.get(parent,parent)
-        for lin in self.lineages:
-            longlin = self.fullname.get(lin,lin)
-            if excludeparent and longlin == parent:
-                continue
-            if longlin.startswith(parent):
-                children.append(lin)
+        """
+        children = []
+        longparent = self.fullname.get(parent, parent)
+        for child in self.lineages:
+            longchild = self.fullname.get(child, child)
+            if longchild.startswith(longparent + ".") or (not excludeparent and longchild == longparent):
+                children.append(child)
         return children
 
     def get_lineage_set(self,parent=None,excludeparent=False):
