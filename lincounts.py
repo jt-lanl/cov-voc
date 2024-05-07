@@ -1,6 +1,5 @@
 """Provide counts for all sublineages of a specified lineage"""
 
-from collections.abc import Iterator
 import argparse
 import verbose as v
 import breakpipe
@@ -10,7 +9,7 @@ from lineagenotes import LineageNotes
 from commonforms import LineagePartition
 
 
-def _getargs():
+def _getargs() -> argparse.Namespace:
     """parse options from command line"""
     argparser = argparse.ArgumentParser(description=__doc__)
     generic_paa = argparser.add_argument
@@ -30,17 +29,8 @@ def _getargs():
     return args
 
 
-def order_lineages(lin_notes: LineageNotes, clade: str, restrict_to: set = None) -> Iterator[str]:
-    """yield lineages in the order of a depth-first tree"""
-    yield clade
-    for lin in sorted(lin_notes.children_of(clade)):
-        if restrict_to and lin not in restrict_to:
-            continue
-        yield from order_lineages(lin_notes, lin, restrict_to=restrict_to)
-
-
 @breakpipe.no_broken_pipe
-def _main(args: argparse.Namespace):
+def _main(args: argparse.Namespace) -> None:
     """main"""
     v.vprint("args:", args)
     lin_notes = LineageNotes.from_file(args.notesfile)
@@ -60,7 +50,8 @@ def _main(args: argparse.Namespace):
     lin_part60 = LineagePartition(seqs60, restrict_to=lineage_set)
 
     init_offset = lin_notes.get_fullname(args.clade).count(".")
-    for lin in order_lineages(lin_notes, args.clade, restrict_to=lineage_set):
+
+    for lin in sorted(lineage_set, key=lin_notes.sortkey):
         full = lin_notes.get_fullname(lin)
         offset = full.count(".") - init_offset
         count = lin_partition.counts.get(lin, 0)
