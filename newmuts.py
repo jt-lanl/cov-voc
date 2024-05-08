@@ -11,9 +11,9 @@ Find parent/child lineage pairs for which new mutations appear
 """
 
 from operator import attrgetter
-from collections import Counter, defaultdict, namedtuple
+from collections import Counter, defaultdict
 from collections.abc import Iterable
-from typing import Dict, DefaultDict, List, Tuple, MutableSet
+from dataclasses import dataclass, field
 import argparse
 
 import verbose as v
@@ -25,15 +25,6 @@ from mutant import SingleSiteMutation, MutationManager
 from lineagenotes import LineageNotes
 from commonforms import LineagePartition
 
-Transition = namedtuple("Transition", ["parent", "child", "count"])
-
-
-def show_transition(transit: Transition):
-    """__str__ for Transiton type"""
-    if transit.parent == "Wuhan":
-        return f"{transit.child}({transit.count})"
-    return f"{transit.parent}->{transit.child}({transit.count})"
-
 
 def getargs():
     """get arguments from command line"""
@@ -43,11 +34,20 @@ def getargs():
     covid.corona_args(ap)
     paa = ap.add_argument_group("New Mutations Options").add_argument
     paa("--notesfile", help="lineage_notes.txt")
-    paa("--cutoff", "-c", type=int, default=0, help="Do not count any lineage mutations that occur fewer then c times")
+    paa(
+        "--cutoff",
+        "-c",
+        type=int,
+        default=0,
+        help="Do not count any lineage mutations that occur fewer then c times",
+    )
     paa("--clade", help="Restrict attention to sequences in clade's lineages")
     paa("--xclade", help="Avoid sequences in xclade's lineages")
-    paa("--skiprecomb", action="store_true", help="skip recombinant lineages (whose names begin with X)")
-    paa("--mincount", "-m", type=int, default=0, help="Show only lineage mutations with at least this many appearances")
+    paa(
+        "--skiprecomb",
+        action="store_true",
+        help="skip recombinant lineages (whose names begin with X)",
+    )
     paa("--mutationsfile", "-M", help="Write mutations to a tsv file")  # default="-",
     paa("--reversionsfile", "-R", help="Write reversions to a tsv file")
     paa("--output", "-o", help="Write two tsv files: equivealent to -M new-OUTPUT -R rev-OUTPUT ")
@@ -72,7 +72,7 @@ def getargs():
     return args
 
 
-def most_common_forms(mmgr: MutationManager, lin_partition: LineagePartition) -> Dict[str, MutableSet]:
+def most_common_forms(mmgr: MutationManager, lin_partition: LineagePartition) -> dict[str, set]:
     """return a dict with most common form (mcf) for each lineage,
     with mcf expressed as a set of SingleSiteMutation's"""
     mcf_dict = dict()  ## most common form for each lineage
@@ -86,65 +86,97 @@ def most_common_forms(mmgr: MutationManager, lin_partition: LineagePartition) ->
     return mcf_dict
 
 
-def count_appearances(transdict: DefaultDict[str, List[Transition]]) -> Tuple:
+@dataclass
+class Transition:
+    """Transition is a single-site mutation between two lineages"""
+
+    parent: str
+    child: str
+    count: int
+
+    def __str__(self):
+        """__str__ for Transiton type"""
+        if self.parent == "Wuhan":
+            return f"{self.child}({self.count})"
+        return f"{self.parent}->{self.child}({self.count})"
+
+
+@dataclass
+class CountAppearances:
+    """count appearances of various mutations/reversions"""
+
+    seq_child: Counter = field(default_factory=Counter)  ## how many sequences have mutation
+    lin_child: Counter = field(default_factory=Counter)  ## how many disctinct lineages
+    lin_parent: Counter = field(default_factory=Counter)  ## how many distinct parents
+    mcf_small: Counter = field(default_factory=Counter)  ## how many below-cutoff MCF mutations
+
+
+def count_appearances(
+    transdict: dict[str, list[Transition]], cutoff: int
+) -> tuple[Counter, Counter, Counter, Counter]:
     """parse mutsdict dict to count apppearances"""
-    count_seq_child = Counter()  ## how many sequences (of child lineage) have mutation
-    count_lin_child = Counter()  ## how many disctinct lineages have mutation
-    count_lin_parent = Counter()  ## how many distinct parents
+    ca = CountAppearances()
     for ssm in transdict:
         pset = set()
         for transit in transdict[ssm]:
+            if transit.count < cutoff:
+                if transit.parent != transit.child:
+                    ca.mcf_small[ssm] += 1
+                continue
             pset.add(transit.parent)
-            count_seq_child[ssm] += transit.count
-            count_lin_child[ssm] += 1
-        count_lin_parent[ssm] = len(pset)
+            ca.seq_child[ssm] += transit.count
+            ca.lin_child[ssm] += 1
+        ca.lin_parent[ssm] = len(pset)
+    return ca
 
-    return count_seq_child, count_lin_child, count_lin_parent
+
+def tab_join_map_str(*pargs) -> str:
+    """convert positional arguments (pargs) into a tab separated string"""
+    return "\t".join(map(str, pargs))
 
 
 def write_mutations_summary(
     filename: str,
-    transdict: DefaultDict[str, List[Transition]],
-    count_seq_total: Dict[str, int],
+    transdict: dict[str, list[Transition]],
+    count_seq_total: dict[str, int],
     denominator: int,
-    mincount: int = 0,
+    cutoff: int,
 ):
     """write tsv file summarizing the mutations"""
     if not filename:
         return
-    (count_seq_child, count_lin_child, count_lin_parent) = count_appearances(transdict)
+    ca = count_appearances(transdict, cutoff)
 
-    header = "\t".join(
-        [
-            "site",
-            "mutation",
-            "parent_lineages",
-            "child_lineages",
-            "lineage_sequences",
-            "total_sequences",
-            "denominator",
-            "lineage_transitions",
-        ]
+    header = tab_join_map_str(
+        "site",
+        "mutation",
+        "parent_lineages",
+        "child_lineages",
+        "transitory_lineages",
+        "lineage_sequences",
+        "total_sequences",
+        "denominator",
+        "lineage_transitions",
     )
-    fmt = "\t".join("%d %s %d %d %d %d %d %s".split())
 
     with xopen(filename, "w") as fout:
         print(header, file=fout)
         v.vprint(f"Writing {len(transdict)} mutations to file={filename}")
         for ssm in sorted(transdict):
-            if count_seq_child[ssm] < mincount:
+            if count_seq_total[ssm] < cutoff:
                 continue
             lineage_transitions = ", ".join(
-                show_transition(transit) for transit in sorted(transdict[ssm], key=attrgetter("count"), reverse=True)
+                str(transit)
+                for transit in sorted(transdict[ssm], key=attrgetter("count"), reverse=True)
             )
             print(
-                fmt
-                % (
+                tab_join_map_str(
                     ssm.site,
                     ssm,
-                    count_lin_parent[ssm],
-                    count_lin_child[ssm],
-                    count_seq_child[ssm],
+                    ca.lin_parent[ssm],
+                    ca.lin_child[ssm],
+                    ca.mcf_small[ssm],
+                    ca.seq_child[ssm],
                     count_seq_total[ssm],
                     denominator,
                     lineage_transitions,
@@ -153,7 +185,9 @@ def write_mutations_summary(
             )
 
 
-def get_lineages(notesfile: str, clade: str, xclade: str = None, skiprecomb: bool = False) -> Tuple[LineageNotes, set]:
+def get_lineages(
+    notesfile: str, clade: str, xclade: str = None, skiprecomb: bool = False
+) -> tuple[LineageNotes, set]:
     """return set of lineages in the given clade (minus those in xclade)"""
     lin_notes = LineageNotes.from_file(notesfile)
     lineage_set = lin_notes.get_lineage_set(clade)
@@ -161,12 +195,14 @@ def get_lineages(notesfile: str, clade: str, xclade: str = None, skiprecomb: boo
         xlineage_set = lin_notes.get_lineage_set(xclade)
         lineage_set = lineage_set - xlineage_set
     if skiprecomb:
-        lineage_set = set(lin for lin in lineage_set if not lin_notes.get_fullname(lin).startswith("X"))
+        lineage_set = set(
+            lin for lin in lineage_set if not lin_notes.get_fullname(lin).startswith("X")
+        )
     v.vprint("Total lineages:", len(lineage_set))
     return lin_notes, lineage_set
 
 
-def set_filter_out_x(ssms: Iterable[SingleSiteMutation]) -> MutableSet[SingleSiteMutation]:
+def set_filter_out_x(ssms: Iterable[SingleSiteMutation]) -> set[SingleSiteMutation]:
     """return set of ssm's, with X's filtered out"""
     return set(ssm for ssm in ssms if "X" not in str(ssm))
 
@@ -176,7 +212,9 @@ def main(args: argparse.Namespace):
     """newmuts main"""
     v.vprint(args)
 
-    lin_notes, lineage_set = get_lineages(args.notesfile, args.clade, args.xclade, skiprecomb=args.skiprecomb)
+    lin_notes, lineage_set = get_lineages(
+        args.notesfile, args.clade, args.xclade, skiprecomb=args.skiprecomb
+    )
 
     seqs = covid.read_filter_seqfile(args)
     first, seqs = covid.get_first_item(seqs)
@@ -218,40 +256,47 @@ def main(args: argparse.Namespace):
         ssm_appear_int = Counter()  ## but child MCF does not have ssm
         ssm_appear_ext = Counter()  ## and child MCF also has ssm, but parent MCF does not have ssm
         ## ssm_revert: for seqs inn child(lin) population that do not have ssm...
+        ##              AND mut[site] = ref[site]
         ssm_revert_int = Counter()  ## but child MCF does have ssm
         ssm_revert_ext = Counter()  ## and child MCF also lacks ssm, but parent MCF does have ssm
         for seq, cnt in seq_counter.items():
             mut = mut_manager.seq_to_mutation(seq)
-            for site in siteset - set(ssm.site for ssm in mut if ssm.ref != "+"):
+            # mut_ref_sites: set of sites NOT in mut; so have Wuhan ref values
+            mut_ref_sites = siteset - set(ssm.site for ssm in mut if ssm.ref != "+")
+            for site in mut_ref_sites:
                 site_total_ref[site] += cnt
             mutset = set_filter_out_x(mut)
             for ssm in mutset:
                 ssm_total[ssm] += cnt
-            if cnt < args.cutoff:
-                continue
+
             for ssm in mutset - linmutset:
                 ssm_appear_int[ssm] += cnt
             for ssm in (mutset & linmutset) - parmutset:
                 ssm_appear_ext[ssm] += cnt
-            for ssm in linmutset - mutset:
+            for ssm in mut_ref_sites & (linmutset - mutset):
                 ssm_revert_int[ssm] += cnt
-            for ssm in parmutset - (mutset | linmutset):
+            for ssm in mut_ref_sites & (parmutset - (mutset | linmutset)):
                 ssm_revert_ext[ssm] += cnt
 
         for ssm, mcnt in ssm_appear_int.items():
-            ssm_appearances[ssm].append(Transition(lin, lin, mcnt))
+            if mcnt >= args.cutoff:
+                ssm_appearances[ssm].append(Transition(lin, lin, mcnt))
         for ssm, mcnt in ssm_appear_ext.items():
+            ## no cutoff for external transitions
             ssm_appearances[ssm].append(Transition(parent, lin, mcnt))
         for ssm, mcnt in ssm_revert_int.items():
-            ssm_reversions[ssm].append(Transition(lin, lin, mcnt))
+            if mcnt >= args.cutoff:
+                ssm_reversions[ssm].append(Transition(lin, lin, mcnt))
         for ssm, mcnt in ssm_revert_ext.items():
             ssm_reversions[ssm].append(Transition(parent, lin, mcnt))
 
     ssm_total_reversions = {ssm: site_total_ref[ssm.site] for ssm in ssm_reversions}
 
-    write_mutations_summary(args.mutationsfile, ssm_appearances, ssm_total, denominator, mincount=args.mincount)
     write_mutations_summary(
-        args.reversionsfile, ssm_reversions, ssm_total_reversions, denominator, mincount=args.mincount
+        args.mutationsfile, ssm_appearances, ssm_total, denominator, cutoff=args.cutoff
+    )
+    write_mutations_summary(
+        args.reversionsfile, ssm_reversions, ssm_total_reversions, denominator, cutoff=args.cutoff
     )
 
 
