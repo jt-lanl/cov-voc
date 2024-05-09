@@ -48,6 +48,8 @@ def getargs():
         help="eliminate sequences with duplicate ISL numbers")
     paa("--showmuts",action="store_true",
         help="show mutant string after sequence name")
+    paa("--baseline",
+        help="show mutant string relative to baseline")
     paa("--showisl",action="store_true",
         help="only show ISL number, not whole sequence name")
     paa("--jobno",type=int,default=1,
@@ -216,6 +218,9 @@ def main(args):
         ## write summary to stdout
         ndxlist,sitelist = ndx_and_site_lists(m_mgr,sites,
                                               compact=args.compact)
+        if args.baseline:
+            base_mstring = covid.get_baseline_mstring(args.baseline)
+            base_mut = mutant.Mutation.from_mstring(base_mstring)
         if args.jobno == 1:
             for line in intlist.write_numbers_vertically(sitelist):
                 print(line)
@@ -224,7 +229,9 @@ def main(args):
             sname = covid.get_isl(s) if args.showisl and not covid.test_isref(s) else s.name
             print( "".join(s.seq[n] for n in ndxlist), sname, end=" ")
             if args.showmuts:
-                print(m_mgr.seq_to_mutation(s.seq),end="")
+                mut = m_mgr.seq_to_mutation(s.seq)
+                mstring = mut.relative_to(base_mut) if args.baseline else str(mut)
+                print(mstring,end="")
             print()
 
 if __name__ == "__main__":
