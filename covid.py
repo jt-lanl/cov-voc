@@ -102,6 +102,8 @@ def corona_fixargs(args):
     if not args.input or str(args.input) == '.':
         args.fastread = True
     args.input = find_seqfile(args.input,keepx=args.keepx)
+    if args.days and args.dates:
+        raise RuntimeError("Cannot specify both --days and --dates")
     return args
 
 
@@ -309,9 +311,10 @@ def count_bad_dates(seqlist):
         raise TypeError(f'argument is of type {type(seqlist)} and should be a list')
     return sum(get_date(s.name) is None for s in seqlist)
 
-def range_of_dates(seqlist):
+def range_of_dates(seqlist,warn_if_destructive=True):
     '''return tuple of iso-formatted dates'''
-    assert isinstance(seqlist,list)
+    if not isinstance(seqlist,list) and warn_if_destructive:
+        warnings.warn("getting range of dates will consume seqs")
     dates = map(get_date,seqlist)
     dates = [d for d in dates if d is not None]
     v.vprint("Range of dates based on",len(dates),"sequences")
