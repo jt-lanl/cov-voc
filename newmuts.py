@@ -273,10 +273,12 @@ def main(args: argparse.Namespace):
                 ssm_appear_int[ssm] += cnt
             for ssm in (mutset & linmutset) - parmutset:
                 ssm_appear_ext[ssm] += cnt
-            for ssm in mut_ref_sites & (linmutset - mutset):
-                ssm_revert_int[ssm] += cnt
-            for ssm in mut_ref_sites & (parmutset - (mutset | linmutset)):
-                ssm_revert_ext[ssm] += cnt
+            for ssm in linmutset - mutset:
+                if ssm.site in mut_ref_sites:
+                    ssm_revert_int[ssm] += cnt
+            for ssm in parmutset - (mutset | linmutset):
+                if ssm.site in mut_ref_sites:
+                    ssm_revert_ext[ssm] += cnt
 
         for ssm, mcnt in ssm_appear_int.items():
             if mcnt >= args.cutoff:
