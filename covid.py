@@ -99,11 +99,13 @@ def corona_args(ap):
 def corona_fixargs(args):
     '''after argparser.parse_args() has been called,
     then call this for cleanup'''
+    if args.days and args.dates:
+        raise RuntimeError("Cannot specify both --days and --dates")
+    if args.days and str(args.input) == "-":
+        raise RuntimeError("Cannot read stdin if --days is invoked")
     if not args.input or str(args.input) == '.':
         args.fastread = True
     args.input = find_seqfile(args.input,keepx=args.keepx)
-    if args.days and args.dates:
-        raise RuntimeError("Cannot specify both --days and --dates")
     return args
 
 
