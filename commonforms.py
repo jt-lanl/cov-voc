@@ -58,17 +58,7 @@ def consensus(seqlist):
 
 def get_input_sequences(args, minseqs=1):
     """read input file and return firstseq and seqlist"""
-    ## read twice if needed to get last date
-    seqs = covid.read_seqfile(args)
-    if args.days:
-        ## this should be built into covid.py
-        _,lastdate = covid.range_of_dates(seqs,warn_if_destructive=False)
-        tdate = covid.date_fromiso(lastdate)
-        fdate = tdate - datetime.timedelta(days=args.days)
-        args.days = None
-        args.dates = [fdate.isoformat(),tdate.isoformat()]
-        seqs = covid.read_seqfile(args)
-    seqs = covid.filter_seqs(seqs, args)
+    seqs = covid.read_filter_seqfile(args)
     v.vprint_only_summary("Invalid date:", "skipped sequences")
     seqs = sequtil.checkseqlengths(seqs)
 
