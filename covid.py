@@ -305,6 +305,7 @@ def date_from_seqname(seqname,**kwargs):
 
 ## Parse info in all the seqnames
 
+@deprecated ## not so much deprecated as just never used
 def count_bad_dates(seqlist):
     '''return a count of how many bad dates in the seqlist'''
     if not hasattr(seqlist, '__len__'):
@@ -405,9 +406,13 @@ def filter_seqs_by_date(seqs,args):
     if not args.days and not args.dates:
         return seqs
     if args.days and args.dates:
+        ## this case should already have been caught
         raise RuntimeError("Cannot specify both --days AND --dates")
 
     if args.days:
+        ## if seqs has been read, then args.days should no longer be set (see read_seqfile)
+        warnings.warn("Is this really happening? "
+                      "args.days should NOT be set at this opint")
         args.dates = date_range_from_args(args,seqs)
 
     if args.dates:
@@ -487,9 +492,9 @@ def fix_seqs(first,seqs,args):
 
     return seqs
 
-def read_seqfile(args,**kwargs):
+def read_seqfile_once(args,**kwargs):
     '''
-    read sequences file from args.input
+    read sequence file from args.input
     return a generator of sequences
     '''
     if args.fastread:
@@ -500,11 +505,32 @@ def read_seqfile(args,**kwargs):
         if kwargs:
             warnings.warn(f'Ignoring keyword args: {kwargs}')
         seqs = readseq.read_seqfile(args.input,nofilter=True)
-        return seqs
+    else:
+        seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
+        first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
+        seqs = fix_seqs(first,seqs,args)
+    return seqs
 
-    seqs = readseq.read_seqfile(args.input,badchar='X',**kwargs)
-    first,seqs = sequtil.get_first_item(seqs,keepfirst=True)
-    seqs = fix_seqs(first,seqs,args)
+def read_seqfile(args,**kwargs):
+    '''
+    read sequences file from args.input
+    return a generator of sequences; 
+    may end up reading file twice if --days is specified
+    '''
+    seqs = read_seqfile_once(args,**kwargs)
+    if args.days:
+        ## if --days is specified, then convert args.days to args.dates
+        ## based on the last date in the sequence file; that means reading
+        ## every sequence in the file, and then re-reading from the beginning
+        _,lastdate = range_of_dates(seqs,warn_if_destructive=False)
+        tdate = date_fromiso(lastdate)
+        fdate = tdate - datetime.timedelta(days=args.days)
+        args.dates = (fdate.isoformat(),tdate.isoformat())
+        v.vprint(f'{args.days=} reset to None; reset {args.dates=}')
+        args.days = None
+        ## read that seqfuile a second time!
+        seqs = read_seqfile_once(args,**kwargs)
+
     if args.verbose:
         seqs = wrapgen.keepcount(seqs,"Sequences read:")
     return seqs
@@ -520,7 +546,7 @@ def read_filter_seqfile(args,firstisref=True,**kwargs):
 
     return seqs
 
-
+@deprecated
 def lastdate_byseqs(seqs):
     """return last date associated with seqs; require seqs to be a list"""
     if seqs is None:
@@ -531,7 +557,7 @@ def lastdate_byseqs(seqs):
     warnings.warn("cannot get last date unless seqs is a list")
     return None
 
-
+@deprecated
 def lastdate_byfile(file):
     '''return the last date in the range of dates'''
     ## to get last date
@@ -553,6 +579,7 @@ def lastdate_byfile(file):
 
 ## Filtering seqs, helper function
 ## Parsing args (used for filter-by-date, coming later
+@deprecated  ## i don't think we should need this anymore (read_seqfile took care of args.days)
 def date_range_from_args(args,seqs=None):
     '''return list of two iso-formatted dates (start and stop);
     obtain what /should/ be in args.dates, but if it is not set,
