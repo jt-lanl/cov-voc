@@ -581,7 +581,7 @@ def lastdate_byfile(file):
 
 ## Filtering seqs, helper function
 ## Parsing args (used for filter-by-date, coming later
-@deprecated  ## i don't think we should need this anymore (read_seqfile took care of args.days)
+@deprecated()  ## i don't think we should need this anymore (read_seqfile took care of args.days)
 def date_range_from_args(args,seqs=None):
     '''return list of two iso-formatted dates (start and stop);
     obtain what /should/ be in args.dates, but if it is not set,
