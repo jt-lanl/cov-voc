@@ -120,9 +120,11 @@ def filter_seqs_by_padded_dates(seqs,args,firstisref=False):
     pad the date range so that weekly or cumulative plots are still correct
     side effect: args.dates potentially gets modified
     '''
-    start_date,stop_date = covid.date_range_from_args(args)
-    args.dates = [start_date,stop_date]
-    start_date,stop_date = covid.expand_date_range([start_date,stop_date],args.daily)
+    if args.days:
+        raise RuntimeError(f"{args.days=} should be empty")
+    if not args.dates:
+        args.dates = [None,None]
+    start_date,stop_date = covid.expand_date_range(args.dates,args.daily)
     if not (start_date is None and stop_date is None):
         seqs = covid.filter_by_date(seqs,start_date,stop_date,firstisref=firstisref)
 
