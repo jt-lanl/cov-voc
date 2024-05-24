@@ -37,7 +37,7 @@ def commonforms_args(argparser):
 
 def commonforms_fixargs(args):
     """after args are parsed, do some checks and fixes"""
-    if args.lineagebaseline or args.baseline == "WUHAN":
+    if args.lineagebaseline or args.baseline == "WUHAN" or args.protein.upper() != "SPIKE":
         args.baseline = None
     if not args.bylineage and args.lineagebaseline:
         v.print("Warning: use --bylineage if you also want --lineagebaseline.")
