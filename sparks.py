@@ -123,7 +123,8 @@ def main(args):
     if nmatches==0:
         ifilters = " ".join(args.filterbyname) if args.filterbyname else "Global"
         xfilters = " w/o " + " ".join(args.xfilterbyname) if args.xfilterbyname else ""
-        raise RuntimeError(f"No sequences for: {ifilters}{xfilters}")
+        v.print(f"No sequences for: {ifilters}{xfilters}")
+        return
 
     onsets=dict()
     if args.onsets:
