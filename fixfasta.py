@@ -71,6 +71,8 @@ def getargs():
         help="Remove gap-only columns")
     paa("--random",action="store_true",
         help="randomize input data order")
+    paa("--reverse",action="store_true",
+        help="reverse input data order")
     paa("--output","-o",type=Path,
         help="output fasta file")
     args = ap.parse_args()
@@ -403,6 +405,12 @@ def main(args):
         seqs = list(seqs)
         v.vprint("Randomizing sequence order...",end="")
         seqs = random.sample(seqs,k=len(seqs))
+        v.vprint("ok")
+
+    if args.reverse:
+        assert args.jobno == 1
+        v.vprint("Reversing sequences order ..",end="")
+        seqs = reversed(list(seqs))
         v.vprint("ok")
 
     if args.rmgapcols:
