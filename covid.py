@@ -307,7 +307,7 @@ def date_from_seqname(seqname,**kwargs):
 
 ## Parse info in all the seqnames
 
-@deprecated ## not so much deprecated as just never used
+@deprecated() ## not so much deprecated as just never used
 def count_bad_dates(seqlist):
     '''return a count of how many bad dates in the seqlist'''
     if not hasattr(seqlist, '__len__'):
@@ -548,7 +548,7 @@ def read_filter_seqfile(args,firstisref=True,**kwargs):
 
     return seqs
 
-@deprecated
+@deprecated()
 def lastdate_byseqs(seqs):
     """return last date associated with seqs; require seqs to be a list"""
     if seqs is None:
@@ -559,7 +559,7 @@ def lastdate_byseqs(seqs):
     warnings.warn("cannot get last date unless seqs is a list")
     return None
 
-@deprecated
+@deprecated()
 def lastdate_byfile(file):
     '''return the last date in the range of dates'''
     ## to get last date
