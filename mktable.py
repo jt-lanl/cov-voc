@@ -234,7 +234,16 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
 
             if seqtype == Total and exact is True:
                 if matched_seqs:
-                    row[ExampleISL] = f'EPI_ISL_{min(s.ISL for s in matched_seqs)}'
+                    lineage_ctr = Counter(s.lineage for s in matched_seqs)
+                    v.print(f"{pango=}:",lineage_ctr.most_common(5))
+                    matched_seqs_pango = [s for s in matched_seqs if s.lineage == pango]
+                    #matched_seqs_pango = []
+                    if not matched_seqs_pango:
+                        warnings.warn(f"No sequences have this {pango=}")
+                        matched_seqs_pango = matched_seqs
+                    isl_min = min(s.ISL for s in matched_seqs_pango)
+                    row[ExampleISL] = f'EPI_ISL_{isl_min}'
+                    v.print(f"EPI_ISL_{isl_min}:",[s.name for s in matched_seqs if s.ISL == isl_min ])
                 else:
                     row[ExampleISL] = "NA"
                     warnings.warn(f"For pango={pangofull}, no sequences "

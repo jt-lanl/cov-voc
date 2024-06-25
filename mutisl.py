@@ -109,14 +109,20 @@ def get_isl_matches(seqs,nom_mut_list,fmt_mstring=None):
 
     isl_matches = dict() ## list of isl names for seq's that match pattern
     for nom,mstring in nom_mut_list:
+        _,pango,_ = nom.split("_",2)
         mregex = m_mgr.regex_from_mstring(mstring,exact=True)
         re_regex = re.compile(mregex)
-        islnames = [covid.get_isl(s) for s in seqs
-                    if re_regex.match(s.seq)]
+        seqlist = [s for s in seqs if re_regex.match(s.seq)]
+        seqlist_pango = [s for s in seqlist if covid.get_lineage(s) == pango]
+        if not seqlist_pango:
+            warnings.warn(f"No matches for {pango=}")
+            seqlist_pango = seqlist
+        islnames = [covid.get_isl(s) for s in seqlist]
         islnames = sorted(islnames,
                           key=lambda isl: int(re.sub('EPI_ISL_','',isl)))
         if len(islnames)==0:
             warnings.warn(f"No matches found for {nom}: {mstring}")
+
         v.vprint(fmt_mstring[mstring] if fmt_mstring else mstring,
                  " ".join(islnames[:3]),
                  "..." if len(islnames)>3 else "")
