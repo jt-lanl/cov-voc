@@ -89,45 +89,43 @@ ColumnHeaders = {
     TotalPatternInclusiveCount: "Number of sequences that contain this pattern",
     SixtyDaysPatternFullCount: "Number of sequences that exactly match this pattern, last 60 days",
     SixtyDaysPatternInclusiveCount: "Number of sequences that contain this pattern, last 60 days",
-    'TotalLineagesMatchPatternFull': "Lineages with sequences that " \
-                                "exactly match this pattern in Spike (and count)",
-    'TotalLineagesMatchPatternInclusive': "Lineages with sequences that " \
-                                "contain this pattern in Spike (and count)",
-    'SixtyDaysLineagesMatchPatternFull':
-    'Lineages with sequences that exactly match pattern, last sixty days',
-    'SixtyDaysLineagesMatchPatternInclusive':
-    'Lineages with sequenecs that contain pattern, last sixty days',
+    "TotalLineagesMatchPatternFull": "Lineages with sequences that "
+    "exactly match this pattern in Spike (and count)",
+    "TotalLineagesMatchPatternInclusive": "Lineages with sequences that "
+    "contain this pattern in Spike (and count)",
+    "SixtyDaysLineagesMatchPatternFull": "Lineages with sequences that exactly match pattern, last sixty days",
+    "SixtyDaysLineagesMatchPatternInclusive": "Lineages with sequenecs that contain pattern, last sixty days",
     TotalPangoCount: "Total number of sequences with this Pango lineage designation",
-    PangoPatternFullCount: "Number of sequences in the Pango lineage that " \
-                                "exactly match this pattern",
-    PangoPatternFullFraction: "Fraction of sequences in the Pango lineage that " \
-                                "exactly match this pattern",
-    PangoPatternInclusiveCount: "Number of sequences in the Pango lineage that " \
-                                "contain this pattern",
-    PangoPatternInclusiveFraction: "Fraction of sequences in the Pango lineage that " \
-                                "contain this pattern",
-    'CountriesTotalPatternFull': "Countries that exactly match this pattern",
-    'CountriesTotalPatternInclusive': "Countries that contain this pattern",
-    'CountriesSixtyDaysPatternFull': "Countries that exactly match this pattern, "\
+    PangoPatternFullCount: "Number of sequences in the Pango lineage that "
+    "exactly match this pattern",
+    PangoPatternFullFraction: "Fraction of sequences in the Pango lineage that "
+    "exactly match this pattern",
+    PangoPatternInclusiveCount: "Number of sequences in the Pango lineage that "
+    "contain this pattern",
+    PangoPatternInclusiveFraction: "Fraction of sequences in the Pango lineage that "
+    "contain this pattern",
+    "CountriesTotalPatternFull": "Countries that exactly match this pattern",
+    "CountriesTotalPatternInclusive": "Countries that contain this pattern",
+    "CountriesSixtyDaysPatternFull": "Countries that exactly match this pattern, "
     "counts based on last 60 days",
-    'CountriesSixtyDaysPatternInclusive': "Countries that contain this pattern, "\
+    "CountriesSixtyDaysPatternInclusive": "Countries that contain this pattern, "
     "counts based on last 60 days",
-    ExampleISL: 'Example ISL number for this pattern',
+    ExampleISL: "Example ISL number for this pattern",
 }
 
-def column_header(column_name):
+def column_header(column_name: str) -> str:
     '''fuller column header given shorter column name'''
     ## if not in ColumnHeaders dict, then just return the name
     return ColumnHeaders.get(column_name,column_name)
 
-def get_region_from_name(level,name):
+def get_region_from_name(name:str,level:int) -> str:
     '''return the name of the region (based on level) in the full sequence name'''
     tokens = name.split(".")
     return tokens[level] if (tokens and len(tokens)>level) else None
 
-def get_country_from_name(name):
+def get_country_from_name(name:str) ->str:
     '''get name of country from sequence name'''
-    return get_region_from_name(2,name)
+    return get_region_from_name(name,2)
 
 def pango_seqs(seqs,pango):
     '''iterator of seqs that are consistent with pango lineage'''
@@ -136,6 +134,7 @@ def pango_seqs(seqs,pango):
     pango = covid.expand_who_name_to_pangolin_pattern(pango)
     return [s for s in seqs
             if re.match(pango,s.lineage)]
+    #return [s for s in seqs if s.lineage == pango]
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
@@ -181,6 +180,7 @@ def truncate_pango_name(pangofull):
     with an indeterminate number (possibly even zero)
     of '.numerical' strings
     '''
+    ## why not: pangofull.strip("_")[1] ?
     match = re.match(r'[^_]+_+([A-Z]+(\.\d+)*)',pangofull)
     if not match:
         raise RuntimeError(f'Invalid designation: {pangofull}')
