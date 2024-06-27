@@ -127,14 +127,13 @@ def get_country_from_name(name:str) ->str:
     '''get name of country from sequence name'''
     return get_region_from_name(name,2)
 
-def pango_seqs(seqs,pango):
+def pango_seqs(seqs: list,pango: str) -> str:
     '''iterator of seqs that are consistent with pango lineage'''
     if not pango:
         return []
     pango = covid.expand_who_name_to_pangolin_pattern(pango)
-    return [s for s in seqs
-            if re.match(pango,s.lineage)]
-    #return [s for s in seqs if s.lineage == pango]
+    ## note: "... if re.match(pango,s.lineage)" would be a bug
+    return [s for s in seqs if s.lineage == pango]
 
 def sixtydays_seqs(seqs,days=60,file=None):
     '''return an iterator of seqs whose dates are in the last 60 days'''
@@ -346,7 +345,7 @@ def _main(args):
         #print(end="",flush=True) ## what does this do? just flush?
 
     if args.jobno == 1:
-        v.print("Having made table, you may want to run 'mutisl' "
+        v.print("Having made table, you may want to run 'tabletodna' "
                 "to get fasta file with DNA sequences")
 
 if __name__ == "__main__":
