@@ -8,8 +8,8 @@ import verbose as v
 from breakpipe import no_broken_pipe
 from xopen import xopen
 import mutant
+import sequtil
 import covid
-import tweak as tku
 from tweak import IndexTweak,de_gap
 
 def _getargs():
@@ -34,7 +34,7 @@ def _getargs():
     paa("--fracrange","-F",type=int,nargs=2,default=(1,1),
         help="Restrict attention to this range of sites in the sequence")
     paa("--na",action="store_true",
-        help="set for nucleotide alignment (default is amino acid alignment)")
+        help="set for codon-algined nucleotides (default is amino acids)")
     paa("--speedhack",type=int,default=0,
         help="for full-range spike, 50 is a good nubmer")
     paa("--speedhackhelp",action="store_true",
@@ -219,11 +219,14 @@ def _main(args):
         return
 
     seqs = covid.read_filter_seqfile(args)
+    seqs = sequtil.checkseqlengths(seqs)
     first,seqs = covid.get_first_item(seqs,keepfirst=True)
     mut_mgr = mutant.MutationManager(first.seq)
 
     num,den = args.fracrange
     ndxminlo = ndxmin = (num-1)*len(first.seq)//den
+    if args.na:
+        ndxminlo = ndxmin = 3*(ndxminlo//3)
     ndxmaxlo = num*len(first.seq)//den
     ndxmaxhi = ndxmaxlo + args.windowsize
     ndxmaxhi = min(ndxmaxhi,len(first.seq))
@@ -244,6 +247,8 @@ def _main(args):
 
     inconsistencies=[]
     for ndxlo in range(ndxminlo,ndxmaxlo):
+        if args.na and ndxlo % 3 != 0:
+            continue
         if args.bysite and ndxlo not in site_indexes:
             continue
         ndxhi = min(ndxlo + args.windowsize,ndxmaxhi)
@@ -257,6 +262,8 @@ def _main(args):
         for aux_ndxhi in range(ndxhi,ndxlo+1,-1):
             ## Loop over ranges lo:lo+2, lo:lo+3, ... ln:hi
             ## But do it backward, truncating subseq's at each step
+            if (aux_ndxhi-ndxlo)%3 != 0:
+                continue
             if args.bysite:
                 v.vvvprint('sites:'
                            f'{mut_mgr.site_from_index(ndxlo)}-'
@@ -269,6 +276,10 @@ def _main(args):
             for (gsa,gsb) in tweaklist:
                 if args.xavoid and 'X' in gsa:
                     continue
+                if not (aux_ndxhi-ndxlo == len(gsa) == len(gsb)):
+                    ## should never happen, so write out bad values
+                    v.print(f"{ndxlo=}, {aux_ndxhi=}, {gsa=}, {gsb=}")
+                    v.print(f"{aux_ndxhi-ndxlo=}, {len(gsa)=}, {len(gsb)=}")
                 inconsistencies.append(IndexTweak(ndxlo,aux_ndxhi,
                                                   gsa,gsb,
                                                   ca=subseqctr[gsa],

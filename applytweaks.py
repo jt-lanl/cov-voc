@@ -127,6 +127,16 @@ def apply_mstringpairs(seqs,mstringpairs,change_counter=None):
                 change_counter[tweak] += 1
         yield s
 
+def apply_tweaks(seqs,tweaklist,change_counter=None):
+    '''apply tweaks, as defined by tweaklist'''
+    for s in seqs:
+        for tweak in tweaklist:
+            s.seq,wastweaked = tweak.apply_to_seq(s.seq)
+            if wastweaked and change_counter is not None:
+                change_counter[tweak] += 1
+        yield s
+
+
 def _main(args):
     '''tweakalign main'''
     v.vprint(args)
@@ -165,11 +175,7 @@ def _main(args):
         seqs = apply_mstringpairs(seqs,mstringpairs,changes_by_tweak)
     elif args.tfile:
         tweaklist = IndexTweak.tweaks_from_filelist(args.tfile)
-        for s in seqs:
-            for tweak in tweaklist:
-                s.seq,wastweaked = tweak.apply_to_seq(s.seq)
-                if wastweaked:
-                    changes_by_tweak[tweak] += 1
+        seqs = apply_tweaks(seqs,tweaklist,changes_by_tweak)
 
     if args.output:
         sequtil.write_seqfile(args.output,seqs)
