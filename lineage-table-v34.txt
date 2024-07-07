@@ -1,0 +1,75 @@
+## v34: remove JG.3, FL.1.5.1, BQ.1
+##      combine XBC.1.6+XBC, using XBC color
+##      remove XBB.1.16, give its color to BA.2
+##      give BA.2 color to KP.2.3 (over KP.2)
+## v33: LB.1 instead of KZ.1.1.1; also add KP.3.1.1
+## v32: JN.1.7 -> KP.2, JN.1.16-> KP.3, JN.1.18 -> XDQ, DV.7.1->KZ.1.1.1
+## v31: new variants of JN.1 (JN.1.{7,16,18}), removed JF.1, FL.1.5.2, XBB.1.16.6
+## v30: removed FK.1 and FD.1.1; replaced with JG.1 and FL.1.5.2
+## v29x: added JN.1 (subset of BA.2.86)
+## v29: added JD.1, moved GK (and JD.1) to be up near XBB.1.5
+## v28: remove FY.3.1, XBB.1.42.2, GL.1, FE.1
+##      add DB.7.1, GK, FE.1, JF.1
+##      recolor Epsilon: cyan->green
+## v27: big update is that the regex's are not generated automatically,
+##      using info from lineage_notes.txt, using fix_lineage_table.py
+##
+## Note, regex patterns are fit starting from the bottom (last) lineage
+##       so more specific lineages should come after more general ones
+##
+## Columns are: color, name, and regex pattern to match pangolin lineage
+##
+
+Black           Unassigned (None|Unassigned|)
+
+WhiteSmoke	Other_Recombinants	X.*
+AntiqueWhite	XBF	XBF(\..*)?
+
+DarkGray	Ancestral (A)|(A\.2)|(A\.2\.[^5](\..*)?)|(A.[^2](\..*)?)|(A\.1[01234567](\..*)?)|(A\.[^1][0-9](\..*)?)|(B)|(B\.1\.1\.161)|(B\.1\.14)|(B\.1\.260)|(B\.1[0123589])|(B\.2[036789])|(B\.3(\.1)?)|(B.3[0-9])|(B\.4(\.[124567])?)|(B\.4[012345679])|(B\.5([01235678]?))|(B.6(\.[1234568])?)|(B\.6[01])
+
+Yellow          D614G/Other  $OTHER
+
+Orange	Alpha	((B\.1\.1\.7)|(Q))(\..*)?
+Burlywood	Beta	B\.1\.351(\..*)?
+FireBrick	Gamma	((B\.1\.1\.28)|(P))(\..*)?
+DarkCyan	Mu	((B\.1\.621)|(BB))(\..*)?
+Green		Epsilon	B\.1\.42[97](\..*)?
+LightBlue	Iota	B\.1\.526(\..*)?
+BlueViolet	Delta	((B\.1\.617\.2)|(AY))(\..*)?
+HotPink	BA.1	((BA\.1)|(B[CD]))(\..*)?
+LightSkyBlue	BA.2	((BA\.2)|(B[GHJLMNPRSY])|(C[ABHJMV])|(D[DSV])|(E[JP])|(F[JKRSV])|(G[PQ])|(J[LNPQV])|(K[GPQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDE]))(\..*)?
+Red	BA.2.12.1	((BA\.2\.12\.1)|(BG))(\..*)?
+Chocolate	BA.4	((BA\.4)|(CS)|(DC))(\..*)?
+MidnightBlue	BA.5	((BA\.5)|(B[EFKQTUVWZ])|(C[CDEFGKLNPQRTUWYZ])|(D[ABEFGHJKLMNPQRTUWYZ])|(E[ABCDEFHNQRSTVWYZ])|(F[ABCFMNQ])|(JH))(\..*)?
+#Gold	BQ.1	((BQ\.1)|(C[WZ])|(D[KMNPRTU])|(E[ACDEFHNRSTVWYZ])|(F[ABCFMNQ])|(JH))(\..*)?
+
+ForestGreen	BA.2.75	((BA\.2\.75)|(B[LMNRY])|(C[ABHJV])|(D[SV])|(E[JP])|(F[JKRS])|(G[PQ])|(J[LPV])|(KG))(\..*)?
+
+DarkRed	XBB	((XBB)|(E[GKLMU])|(F[DEGHLPTUWYZ])|(G[ABCDEFGHJKMNRSUVWYZ])|(H[ABCDEFGHJKLMNPQRSTUVYZ])|(J[ABCDEFGJKMRSUWYZ])|(K[ABCEFHJKLMNT]))(\..*)?
+Salmon	XBB.1.9	((XBB\.1\.9)|(EG)|(FL)|(GD)|(H[KNV])|(J[GJR])|(K[BCFL]))(\..*)?
+Crimson	XBB.1.5	((XBB\.1\.5)|(E[KLMU])|(F[DGHTZ])|(G[BCFGKNRUV])|(H[ACDJMPQRSTYZ])|(J[BDKZ])|(K[AKMN]))(\..*)?
+Goldenrod	GK	GK(\..*)?
+Brown	JD.1	((JD\.1)|(KK))(\..*)?
+#LightSkyBlue	XBB.1.16	((XBB\.1\.16)|(FU)|(GY)|(HF)|(J[FM])|(KJ))(\..*)?
+LimeGreen	CH.1	((CH\.1)|(DV)|(F[JKS])|(G[PQ])|(J[LPV])|(KG))(\..*)?
+Khaki	BN.1	((BN\.1)|(DS)|(EJ)|(FR))(\..*)?
+Purple	EG.5.1	((EG\.5\.1)|(H[KV])|(J[GJR])|(K[BL]))(\..*)?
+Thistle	HK.3	HK\.3(\..*)?
+Violet	HV.1	((HV\.1)|(KL))(\..*)?
+##DarkOrange	FL.1.5.1	((FL\.1\.5\.1)|(HN))(\..*)?
+##Cornsilk	JG.3	JG\.3(\..*)?
+Aquamarine	XBB.2.3	((XBB\.2\.3)|(G[EJMSZ])|(H[GH])|(J[AESUY])|(K[HT]))(\..*)?
+LightPink	XBC	((XBC)|(GT)|(HW)|(JT)|(KD))(\..*)?
+#Magenta	XBC.1.6	((XBC\.1\.6)|(GT)|(HW)|(JT))(\..*)?
+DodgerBlue	BA.2.86	((BA\.2\.86)|(J[NQ])|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDE]))(\..*)?
+Cyan	JN.1	((JN\.1)|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUWYZ])|(M[ABCDE]))(\..*)?
+DarkBLue	KP.2	KP\.2(\..*)?
+RoyalBlue	KP.2.3	KP\.2\.3(\..*)?
+LightBlue	KP.3	((KP\.3)|(LW)|(MC))(\..*)?
+
+SlateBlue	KP.3.1.1	((KP\.3\.1\.1)|(MC))(\..*)?
+Yellow	XDQ	XDQ(\..*)?
+Coral	LB.1	LB\.1(\..*)?
+
+
+
