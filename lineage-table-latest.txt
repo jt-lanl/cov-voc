@@ -1,3 +1,7 @@
+## v34: remove JG.3, FL.1.5.1, BQ.1
+##      combine XBC.1.6+XBC, using XBC color
+##      remove XBB.1.16, give its color to BA.2
+##      give BA.2 color to KP.2.3 (over KP.2)
 ## v33: LB.1 instead of KZ.1.1.1; also add KP.3.1.1
 ## v32: JN.1.7 -> KP.2, JN.1.16-> KP.3, JN.1.18 -> XDQ, DV.7.1->KZ.1.1.1
 ## v31: new variants of JN.1 (JN.1.{7,16,18}), removed JF.1, FL.1.5.2, XBB.1.16.6
@@ -33,11 +37,11 @@ Green		Epsilon	B\.1\.42[97](\..*)?
 LightBlue	Iota	B\.1\.526(\..*)?
 BlueViolet	Delta	((B\.1\.617\.2)|(AY))(\..*)?
 HotPink	BA.1	((BA\.1)|(B[CD]))(\..*)?
-RoyalBlue	BA.2	((BA\.2)|(B[GHJLMNPRSY])|(C[ABHJMV])|(D[DSV])|(E[JP])|(F[JKRSV])|(G[PQ])|(J[LNPQV])|(K[GPQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVW]))(\..*)?
+LightSkyBlue	BA.2	((BA\.2)|(B[GHJLMNPRSY])|(C[ABHJMV])|(D[DSV])|(E[JP])|(F[JKRSV])|(G[PQ])|(J[LNPQV])|(K[GPQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDEFGHJKLMN]))(\..*)?
 Red	BA.2.12.1	((BA\.2\.12\.1)|(BG))(\..*)?
 Chocolate	BA.4	((BA\.4)|(CS)|(DC))(\..*)?
 MidnightBlue	BA.5	((BA\.5)|(B[EFKQTUVWZ])|(C[CDEFGKLNPQRTUWYZ])|(D[ABEFGHJKLMNPQRTUWYZ])|(E[ABCDEFHNQRSTVWYZ])|(F[ABCFMNQ])|(JH))(\..*)?
-Gold	BQ.1	((BQ\.1)|(C[WZ])|(D[KMNPRTU])|(E[ACDEFHNRSTVWYZ])|(F[ABCFMNQ])|(JH))(\..*)?
+#Gold	BQ.1	((BQ\.1)|(C[WZ])|(D[KMNPRTU])|(E[ACDEFHNRSTVWYZ])|(F[ABCFMNQ])|(JH))(\..*)?
 
 ForestGreen	BA.2.75	((BA\.2\.75)|(B[LMNRY])|(C[ABHJV])|(D[SV])|(E[JP])|(F[JKRS])|(G[PQ])|(J[LPV])|(KG))(\..*)?
 
@@ -46,25 +50,26 @@ Salmon	XBB.1.9	((XBB\.1\.9)|(EG)|(FL)|(GD)|(H[KNV])|(J[GJR])|(K[BCFL]))(\..*)?
 Crimson	XBB.1.5	((XBB\.1\.5)|(E[KLMU])|(F[DGHTZ])|(G[BCFGKNRUV])|(H[ACDJMPQRSTYZ])|(J[BDKZ])|(K[AKMN]))(\..*)?
 Goldenrod	GK	GK(\..*)?
 Brown	JD.1	((JD\.1)|(KK))(\..*)?
-LightSkyBlue	XBB.1.16	((XBB\.1\.16)|(FU)|(GY)|(HF)|(J[FM])|(KJ))(\..*)?
+#LightSkyBlue	XBB.1.16	((XBB\.1\.16)|(FU)|(GY)|(HF)|(J[FM])|(KJ))(\..*)?
 LimeGreen	CH.1	((CH\.1)|(DV)|(F[JKS])|(G[PQ])|(J[LPV])|(KG))(\..*)?
 Khaki	BN.1	((BN\.1)|(DS)|(EJ)|(FR))(\..*)?
 Purple	EG.5.1	((EG\.5\.1)|(H[KV])|(J[GJR])|(K[BL]))(\..*)?
 Thistle	HK.3	HK\.3(\..*)?
 Violet	HV.1	((HV\.1)|(KL))(\..*)?
-DarkOrange	FL.1.5.1	((FL\.1\.5\.1)|(HN))(\..*)?
-Cornsilk	JG.3	JG\.3(\..*)?
+##DarkOrange	FL.1.5.1	((FL\.1\.5\.1)|(HN))(\..*)?
+##Cornsilk	JG.3	JG\.3(\..*)?
 Aquamarine	XBB.2.3	((XBB\.2\.3)|(G[EJMSZ])|(H[GH])|(J[AESUY])|(K[HT]))(\..*)?
 LightPink	XBC	((XBC)|(GT)|(HW)|(JT)|(KD))(\..*)?
-Magenta	XBC.1.6	((XBC\.1\.6)|(GT)|(HW)|(JT))(\..*)?
-DodgerBlue	BA.2.86	((BA\.2\.86)|(J[NQ])|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVW]))(\..*)?
-Cyan	JN.1	((JN\.1)|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUW]))(\..*)?
+#Magenta	XBC.1.6	((XBC\.1\.6)|(GT)|(HW)|(JT))(\..*)?
+DodgerBlue	BA.2.86	((BA\.2\.86)|(J[NQ])|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDEFGHJKLMN]))(\..*)?
+Cyan	JN.1	((JN\.1)|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUWYZ])|(M[ABCDEFGHJKLMN]))(\..*)?
 DarkBLue	KP.2	KP\.2(\..*)?
-LightBlue	KP.3	((KP\.3)|(LW))(\..*)?
+RoyalBlue	KP.2.3	KP\.2\.3(\..*)?
+LightBlue	KP.3	((KP\.3)|(LW)|(M[CKLM]))(\..*)?
 
-SlateBlue	KP.3.1.1 KP\.3\.1\.1(\..*)?
-Yellow XDQ	XDQ(\..*)?
-Coral	LB.1	LB\.1(\..*)?
+SlateBlue	KP.3.1.1	((KP\.3\.1\.1)|(MC))(\..*)?
+Yellow	XDQ	XDQ(\..*)?
+Coral	LB.1	((LB\.1)|(MH))(\..*)?
 
 
 
