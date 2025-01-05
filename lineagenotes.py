@@ -157,6 +157,7 @@ class LineageNotes:
         if fix:
             for alias, new_full in fixed_aliases.items():
                 self.fullname[alias] = new_full
+                self.shortname[new_full] = alias
         if remove:
             ## remove inconsistent aliases/lineages
             for alias in bad_aliases:
