@@ -1,4 +1,5 @@
-"""Provide counts for all sublineages of a specified lineage"""
+"""Provide counts for all sublineages of a specified lineage;
+   show lineage, counts, and 60-day counts"""
 
 import argparse
 import verbose as v
@@ -50,7 +51,7 @@ def _main(args: argparse.Namespace) -> None:
     lin_part60 = LineagePartition(seqs60, restrict_to=lineage_set)
 
     init_offset = lin_notes.get_fullname(args.clade).count(".")
-
+    print("Lineage               count 60-day Notes")
     for lin in sorted(lineage_set, key=lin_notes.sortkey):
         full = lin_notes.get_fullname(lin)
         offset = full.count(".") - init_offset
