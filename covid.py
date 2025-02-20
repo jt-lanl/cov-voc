@@ -154,6 +154,7 @@ BASELINE_MSTRINGS = {
     'Wuhan': "",
     'B.1.1.7': "[H69-,V70-,Y144-,N501Y,A570D,D614G,P681H,T716I,S982A,D1118H]",
     'B.1.617.2': "[T19R,G142D,E156G,F157-,R158-,L452R,T478K,D614G,P681R,D950N]",
+    'BA.1' : "A67V,H69-,V70-,T95I,G142D,V143-,Y144-,Y145-,N211-,L212I,+214EPE,G339D,R346K,S371L,S373P,S375F,K417N,N440K,G446S,S477N,T478K,E484A,Q493R,G496S,Q498R,N501Y,Y505H,T547K,D614G,H655Y,N679K,P681H,N764K,D796Y,N856K,Q954H,N969K,L981F",
     'BA.2' : "T19I,L24-,P25-,P26-,A27S,G142D,V213G,G339D,S371F,S373P,S375F,T376A,D405N,R408S,K417N,N440K,S477N,T478K,E484A,Q493R,Q498R,N501Y,Y505H,D614G,H655Y,N679K,P681H,N764K,D796Y,Q954H,N969K",
     'BA.5' : "T19I,L24-,P25-,P26-,A27S,H69-,V70-,G142D,V213G,G339D,S371F,S373P,S375F,T376A,D405N,R408S,K417N,N440K,L452R,S477N,T478K,E484A,F486V,Q498R,N501Y,Y505H,D614G,H655Y,N679K,P681H,N764K,D796Y,Q954H,N969K",
     'BA.2.75': "T19I,L24-,P25-,P26-,A27S,G142D,K147E,W152R,F157L,I210V,V213G,G257S,G339H,S371F,S373P,S375F,T376A,D405N,R408S,K417N,N440K,G446S,N460K,S477N,T478K,E484A,Q498R,N501Y,Y505H,D614G,H655Y,N679K,P681H,N764K,D796Y,Q954H,N969K",
@@ -226,7 +227,7 @@ def parse_seqname(myparser):
             raise TypeError(f'argument seq_or_seqname in function {myparser.__name__} '
                             f'is of type {type(seq_or_name)}, but it needs to be '
 	                    'either a string or a SequenceSample')
-        return myparser(name,*args,*kwargs)
+        return myparser(name,*args,**kwargs)
     return wrapper
 
 def deprecated(usefcn=None):
@@ -284,7 +285,7 @@ def date_fromiso(yyyymmdd):
         return None
 
 @parse_seqname
-def get_date(sname,as_string=False):
+def get_date(sname,as_string=False,check_date=True):
     '''extract date string from sequence name'''
     try:
         tokens = sname.split('.')
@@ -294,8 +295,10 @@ def get_date(sname,as_string=False):
         datestr = sname
     if not ISO_DATE_REGEX.match(datestr):
         v.vvprint_only(5,"Invalid date:",datestr,sname)
-        mat = ISO_DATE_REGEX_DOTS.search(sname)
-        datestr = mat[1] if mat else None
+        if check_date:
+            v.vvprint_only(5,"Checking invalid date:",datestr)
+            mat = ISO_DATE_REGEX_DOTS.search(sname)
+            datestr = mat[1] if mat else None
     if as_string:
         return datestr
     return date_fromiso(datestr)
