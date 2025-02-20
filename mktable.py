@@ -30,16 +30,10 @@ def _getargs():
     argparser = argparse.ArgumentParser(description=__doc__)
     covid.corona_args(argparser)
     paa = argparser.add_argument
-    paa("--pmfile","-M",
-        help="file with pango lineages and mstrings")
+    paa("--pmfile","-M",required=True,
+        help="tsv file with five columns: WHO,Pango,ISL,name(ignored),mlist")
     paa("--rows","-R",
         help="(0-based int)List of rows to compute")
-    paa("--mutant","-m",
-        help="mutant mstring; eg, [Q414K,D614G,T716I]")
-    paa("--pango","-p",
-        help="name of Pango lineage; eg, B.1.1.7")
-    paa("--nopango",action="store_true",
-        help="do no pango lineage computation")
     paa("--tweakfile",
         help="Use tweakfile to fix mstrings")
     paa("--jobno",type=int,default=1,
@@ -57,7 +51,9 @@ def _getargs():
 
 ## ColumnNames
 Total = 'Total'
+WHO = 'WHO'
 Pango = 'Pango'
+Description = 'Description'
 Pattern = 'Pattern'
 Count = 'Count'
 Fraction = 'Fraction'
@@ -83,7 +79,10 @@ CommonPango3Count = 'CommonPango3Count'
 ExampleISL = 'ExampleISL'
 
 ColumnHeaders = {
+    WHO: "WHO Designation",
     Pango: "Pango lineage",
+    ExampleISL: "Min ISL number for this pattern/pango",
+    Description: "Description",
     Pattern: "Spike backbone for variant...",
     TotalPatternFullCount: "Number of sequences that exactly match this pattern",
     TotalPatternInclusiveCount: "Number of sequences that contain this pattern",
@@ -110,7 +109,6 @@ ColumnHeaders = {
     "counts based on last 60 days",
     "CountriesSixtyDaysPatternInclusive": "Countries that contain this pattern, "
     "counts based on last 60 days",
-    ExampleISL: "Example ISL number for this pattern",
 }
 
 def column_header(column_name: str) -> str:
@@ -151,17 +149,17 @@ def mstring_seqs(seqs,m_mgr,mstring,exact=False):
             if re_mregex.match(s.seq)]
 
 def read_input_file(filename):
-    '''return list of (pango,mstring) pairs'''
+    '''return list of (who,pango,isl,descr,mstring) tuples'''
     with xopen.xopen(filename) as f_input:
         for line in xopen.nonempty_lines(f_input):
             try:
-                pango,mstring = line.split('\t',1)
+                who,pango,isl,descr,mstring = line.split('\t',4)
                 pango = re.sub(r' ','',pango.strip())
                 mstring = mstringfix.mstring_brackets(mstring)
             except ValueError:
                 warnings.warn(f'Problem reading line: {line}')
                 continue
-            yield (pango,mstring)
+            yield (who,pango,isl,descr,mstring)
 
 def truncate_pango_name(pangofull):
     r'''
@@ -180,20 +178,21 @@ def truncate_pango_name(pangofull):
     of '.numerical' strings
     '''
     ## why not: pangofull.strip("_")[1] ?
+    warnings.warn("OBSOLETE!")
     match = re.match(r'[^_]+_+([A-Z]+(\.\d+)*)',pangofull)
     if not match:
         raise RuntimeError(f'Invalid designation: {pangofull}')
     pango = match[1].strip()
     return pango
 
-def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
+def get_row(seqs,seqs_sixtydays,m_mgr,who,pango,descr,mstring):
     '''produce a single row of the spreadsheet as a dict()'''
 
     row = dict()
 
-    row[Pango] = pangofull ## give it the full name
-    pango = truncate_pango_name(pangofull)
-
+    row[WHO] = who
+    row[Pango] = pango
+    row[Description] = descr
     row[Pattern] = re.sub(r'[\[\]]','',mstring) ## brackets off
 
     seqdict=dict()
@@ -202,9 +201,9 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
     v.vvprint("Read",len(seqs),"sequences")
     seqdict[Pango] = pango_seqs(seqs,pango)
     v.vvprint("Of which,",len(seqdict[Pango]),
-             "sequences matched pango form",pangofull)
+             "sequences matched pango form",pango)
     if len(seqdict[Pango])==0:
-        v.print(f'No matches to pango form {pango}, full name {pangofull}')
+        v.print(f'No matches to pango form {pango}')
 
     row[TotalPangoCount] = len(seqdict[Pango])
     row[TotalPangoFraction] = row[TotalPangoCount]/total_count
@@ -245,7 +244,7 @@ def get_row(seqs,seqs_sixtydays,m_mgr,pangofull,mstring):
                     v.print(f"EPI_ISL_{isl_min}:",[s.name for s in matched_seqs if s.ISL == isl_min ])
                 else:
                     row[ExampleISL] = "NA"
-                    warnings.warn(f"For pango={pangofull}, no sequences "
+                    warnings.warn(f"For pango={pango}, no sequences "
                                   f"exactly match: {mstring}")
 
             if seqtype in [Total,Recent]:
@@ -285,26 +284,24 @@ def format_row(row=None,sepchar='\t'):
 def _main(args):
     '''mktable main'''
 
+    wlist=[]
     plist=[]
+    dlist=[]
     mlist=[]
-    if args.pango and args.mutant:
-        plist.append(args.pango)
-        mlist.append(args.mutant)
 
-    if args.pmfile:
-        for pango,mstring in read_input_file(args.pmfile):
-            if args.nopango:
-                pango=""
-            v.vprint(pango,'\t',mstring)
-            plist.append(pango)
-            mlist.append(mstring)
+    for who,pango,_,descr,mstring in read_input_file(args.pmfile):
+        v.vprint(f'{who}_{pango}\t{mstring}')
+        wlist.append(who)
+        plist.append(pango)
+        dlist.append(descr)
+        mlist.append(mstring)
 
     ## If at this point mlist is empty, then something is wrong!
     if not mlist:
-        raise RuntimeError('No mstrings are input: check -M or (-m and -p)')
+        raise RuntimeError('No mstrings are input: check -M')
 
     ## Do this now just to make sure we don't get an error
-    _ = [truncate_pango_name(pango) for pango in plist]
+    ## OBSOLETE _ = [truncate_pango_name(pango) for pango in plist]
 
     fixer = mstringfix.MStringFixer(args.tweakfile)
     fixer.append(r'\s*ancestral\s*','')
@@ -314,8 +311,11 @@ def _main(args):
 
     if args.rows:
         ndxlist = intlist.string_to_intlist(args.rows)
+        wlist = [wlist[ndx] for ndx in ndxlist]
         plist = [plist[ndx] for ndx in ndxlist]
+        dlist = [dlist[ndx] for ndx in ndxlist]
         mlist = [mlist[ndx] for ndx in ndxlist]
+        
 
     seqs = covid.read_seqfile(args)
     seqs = covid.filter_seqs(seqs,args)
@@ -339,8 +339,8 @@ def _main(args):
 
     if args.jobno == 1:
         print(format_row(None)) ## print the header
-    for pango,mstring in zip(plist,mlist):
-        row = get_row(seqs,seqs_sixtydays,m_mgr,pango,mstring)
+    for who,pango,descr,mstring in zip(wlist,plist,dlist,mlist):
+        row = get_row(seqs,seqs_sixtydays,m_mgr,who,pango,descr,mstring)
         print(format_row(row),flush=True)
         #print(end="",flush=True) ## what does this do? just flush?
 

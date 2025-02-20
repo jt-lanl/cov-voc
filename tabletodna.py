@@ -18,14 +18,15 @@ import breakpipe
 import xopen
 import sequtil
 import covid
+import numu
 
 def _getargs():
     '''get arguments from command line'''
     aparser = argparse.ArgumentParser(description=__doc__)
     paa = aparser.add_argument
-    paa("--tablefile", "-t",
+    paa("--tablefile", "-t",required=True,
         help="tsv file created by mktable")
-    paa("--dnainputfile","-d",
+    paa("--dnainputfile","-d",required=True,
         help="sequence file with reference (eg, DNA) sequences")
     paa("--output","-o",
         help="output fasta file with reference sequences")
@@ -36,17 +37,31 @@ def _getargs():
 
 @dataclass
 class SeqInfo:
-    name: str
+    who: str
+    pango: str
     isl: str
+
+
+def get_row_item(row,shortkey):
+    fullkey = numu.match_column_name(row.keys(),shortkey)
+    if not fullkey:
+        raise RuntimeError(f'Cannot match {shortkey} among {row.keys()}')
+    item = row[fullkey]
+    try:
+        item = item.strip()
+    except AttributeError:
+        pass
+    return item
 
 def read_tablefile(filename):
     '''read mutant file and return mstring list'''
     ## assume tab separated columns
     df = pd.read_csv(filename,sep='\t')
     for _,row in df.iterrows():
-        name = row["Pango lineage"]
-        isl = row["Example ISL number for this pattern"]
-        yield SeqInfo(name,isl)
+        who = get_row_item(row,"WHO")
+        pango = get_row_item(row,"Pango lineage")
+        isl = get_row_item(row,"ISL")
+        yield SeqInfo(who,pango,isl)
 
 def get_refseqdict(dnainputfile,seqinfolist):
     '''read DNA file, make a dict of sequences indexed by ISL number,
@@ -72,8 +87,6 @@ def _main(args):
 
     seqinfolist = list(read_tablefile(args.tablefile))
     v.vprint(seqinfolist)
-    if not args.dnainputfile:
-        raise RuntimeError("Must specify -d <DNA-input-file.fasta>")
     firstref,refseqdict = get_refseqdict(args.dnainputfile,seqinfolist)
 
     dna_seqs = []
@@ -85,7 +98,8 @@ def _main(args):
             warnings.warn(f"Did not find seq for ISL={seqinfo.isl}")
             continue
         dnaseq = refseqdict[seqinfo.isl]
-        new_name = f'{seqinfo.name}_{seqinfo.isl}'
+        sample_date = covid.get_date(dnaseq.name,as_string=True,check_date=False)
+        new_name = f'{seqinfo.who}_{seqinfo.pango}_{seqinfo.isl}_{sample_date}'
         dna_seqs.append( sequtil.SequenceSample(new_name,dnaseq.seq) )
 
     if args.output:
