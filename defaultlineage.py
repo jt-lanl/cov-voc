@@ -11,7 +11,7 @@ DefaultLineageTable = [
     (   'LightBlue',               'Iota', r'B\.1\.526(\..*)?'),
     (  'BlueViolet',              'Delta', r'((B\.1\.617\.2)|(AY))(\..*)?'),
     (     'HotPink',               'BA.1', r'((BA\.1)|(B[CD]))(\..*)?'),
-    ('LightSkyBlue',               'BA.2', r'((BA\.2)|(B[GHJLMNPRSY])|(C[ABHJMV])|(D[DSV])|(E[JP])|(F[JKRSV])|(G[PQ])|(J[LNPQV])|(K[GPQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDEFGHJKLMNPQRSTUVWYZ])|(N[ACDEFGHJKLMNPQRSTUVWYZ])|(P[AB]))(\..*)?'),
+    ('LightSkyBlue',               'BA.2', r'((BA\.2)|(B[GHJLMNPRSY])|(C[ABHJMV])|(D[DSV])|(E[JP])|(F[JKRSV])|(G[PQ])|(J[LNPQV])|(K[GPQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDEFGHJKLMNPQRSTUVWYZ])|(N[ACDEFGHJKLMNPQRSTUVWYZ])|(P[ABC]))(\..*)?'),
     (         'Red',          'BA.2.12.1', r'((BA\.2\.12\.1)|(BG))(\..*)?'),
     (   'Chocolate',               'BA.4', r'((BA\.4)|(CS)|(DC))(\..*)?'),
     ('MidnightBlue',               'BA.5', r'((BA\.5)|(B[EFKQTUVWZ])|(C[CDEFGKLNPQRTUWYZ])|(D[ABEFGHJKLMNPQRTUWYZ])|(E[ABCDEFHNQRSTVWYZ])|(F[ABCFMNQ])|(JH))(\..*)?'),
@@ -24,8 +24,8 @@ DefaultLineageTable = [
     (     'Thistle',               'HK.3', r'HK\.3(\..*)?'),
     (      'Violet',               'HV.1', r'((HV\.1)|(KL))(\..*)?'),
     (  'Aquamarine',            'XBB.2.3', r'((XBB\.2\.3)|(G[EJMSZ])|(H[GH])|(J[AESUY])|(K[HT]))(\..*)?'),
-    (  'DodgerBlue',            'BA.2.86', r'((BA\.2\.86)|(J[NQ])|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDEFGHJKLMNPQRSTUVWYZ])|(N[ACDEFGHJKLMNPQRSTUVWYZ])|(P[AB]))(\..*)?'),
-    (        'Cyan',               'JN.1', r'((JN\.1)|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUWYZ])|(M[ABCDEFGHJKLMNQRSTUVWYZ])|(N[ACDEFGHJKLMNPQRSTUVWYZ])|(P[AB]))(\..*)?'),
+    (  'DodgerBlue',            'BA.2.86', r'((BA\.2\.86)|(J[NQ])|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUVWYZ])|(M[ABCDEFGHJKLMNPQRSTUVWYZ])|(N[ACDEFGHJKLMNPQRSTUVWYZ])|(P[ABC]))(\..*)?'),
+    (        'Cyan',               'JN.1', r'((JN\.1)|(K[PQRSUVWYZ])|(L[ABCDEFGHJKLMNPQRSTUWYZ])|(M[ABCDEFGHJKLMNQRSTUVWYZ])|(N[ACDEFGHJKLMNPQRSTUVWYZ])|(P[ABC]))(\..*)?'),
     (       'Brown',               'KP.1', r'((KP\.1)|(LP)|(M[GU])|(N[EWY]))(\..*)?'),
     (   'RoyalBlue',               'KP.2', r'((KP\.2)|(MW)|(N[GHKMN]))(\..*)?'),
     (    'DarkBlue',             'KP.2.3', r'((KP\.2\.3)|(MW)|(N[GKMN]))(\..*)?'),
@@ -37,6 +37,6 @@ DefaultLineageTable = [
     (   'PaleGreen',                'XDV', r'((XDV)|(NB))(\..*)?'),
     (   'Turquoise',                'XEC', r'XEC(\..*)?'),
     ( 'ForestGreen',              'XEC.4', r'XEC\.4(\..*)?'),
-    (   'FireBrick',             'MB.1.1', r'((MB\.1\.1)|(MV)|(NA))(\..*)?'),
+    (   'FireBrick',               'LF.7', r'((LF\.7)|(NT)|(PC))(\..*)?'),
 
 ]
