@@ -192,12 +192,14 @@ def main(args):
             print()
             rne = ne/total_ne if total_ne>0 else 0
             rnl = nl/total_nl if total_nl>0 else 0
+            if max([nl*total_ne,ne*total_nl]) == 0:
+                vprint("ZERO:",nl,total_ne,ne,total_nl)
             table_line = table_format % \
                 (lp.format(''),total_ne+total_nl,ne+nl,
                  100*(ne+nl)/(total_ne+total_nl),
                  ne,nl,rne,rnl,
                  100*(rnl-rne),
-                 100*(nl*total_ne-ne*total_nl)/max([nl*total_ne,ne*total_nl]),
+                 100*(nl*total_ne-ne*total_nl)/max([nl*total_ne,ne*total_nl,1]),
                  strpval(pval),
                  0,f" Full {lin}","lineage")
             table_line = re.sub(" ","_",table_line)
