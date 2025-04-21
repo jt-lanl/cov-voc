@@ -131,11 +131,17 @@ def main(args):
     firstseq,seqlist = cf.get_input_sequences(args,minseqs=2)
     mut_manager = mutant.MutationManager(firstseq)
 
-    print_header(args)
-
     early,later = split_date_range_bycounts(seqlist)
     total_ne = len(list(covid.filter_by_date(seqlist,*early)))
     total_nl = len(list(covid.filter_by_date(seqlist,*later)))
+
+    if total_ne == 0 or total_nl == 0:
+        errmsg=f"Insufficient data: earlier={total_ne}, later={total_nl}"
+        v.vprint(errmsg)
+        print(errmsg)
+        return
+
+    print_header(args)
 
     last_days = f" in the last {args.days} days from our last update,"
     last_days = last_days if args.days else ""
@@ -193,13 +199,13 @@ def main(args):
             rne = ne/total_ne if total_ne>0 else 0
             rnl = nl/total_nl if total_nl>0 else 0
             if max([nl*total_ne,ne*total_nl]) == 0:
-                vprint("ZERO:",nl,total_ne,ne,total_nl)
+                v.vprint("ZERO:",nl,total_ne,ne,total_nl)
             table_line = table_format % \
                 (lp.format(''),total_ne+total_nl,ne+nl,
                  100*(ne+nl)/(total_ne+total_nl),
                  ne,nl,rne,rnl,
                  100*(rnl-rne),
-                 100*(nl*total_ne-ne*total_nl)/max([nl*total_ne,ne*total_nl,1]),
+                 100*(nl*total_ne-ne*total_nl)/max([nl*total_ne,ne*total_nl]),
                  strpval(pval),
                  0,f" Full {lin}","lineage")
             table_line = re.sub(" ","_",table_line)
