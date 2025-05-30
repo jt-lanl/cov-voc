@@ -73,7 +73,11 @@ class LineageNotes:
                 if not keepwithdrawn and name.startswith("*"):
                     ## asterisk indicates withdrawn lineage
                     continue
-                lineages.append(name)
+                if name in lineages:
+                    v.print(f"Name {name} already appeared in lineage notes tile")
+                else:
+                    lineages.append(name)
+                alias_of[name]=name ## default?
                 describe[name] = description.strip()
                 if mat := re_alias.search(description):
                     v.vvvprint(f"Alias: {name} -> {mat[1]}")
@@ -84,8 +88,8 @@ class LineageNotes:
                 else:
                     alias_of[name] = name
 
+        v.vprint(f"Lineages:  {len(alias_of)} =?= {len(lineages)}")
         assert len(lineages) == len(alias_of)
-        v.vprint(f"Lineages:  {len(alias_of)}")
         return alias_of, describe
 
     def report_size(self):
