@@ -69,10 +69,16 @@ def getargs():
         help="Filter sequences to exclude those in the xclade(s)")
     paa("--rmgapcols",action="store_true",
         help="Remove gap-only columns")
+    paa("--notesfile", help="lineage_notes.txt")
+    paa("--keyfile",help="alias_key.json")
     paa("--random",action="store_true",
         help="randomize input data order")
     paa("--reverse",action="store_true",
         help="reverse input data order")
+    paa("--sortbydate",action="store_true",
+        help="sort input sequences by date")
+    paa("--sortbyisl",action="store_true",
+        help="sort input sequences by ISL number")
     paa("--output","-o",type=Path,
         help="output fasta file")
     args = ap.parse_args()
@@ -304,6 +310,14 @@ def rm_toomanygaps(toomany,seqs):
     if count_removed:
         v.vprint(f'Removed {count_removed} sequences with gap > {toomany}')
 
+def sort_bydate(seqs):
+    '''re-order seqs by date'''
+    seqs = list(seqs).sort(key=covid.get_date)
+    return seqs
+
+    
+
+        
 def filter_all_seqs(args,seqs):
     '''filter all sequences, even the ref sequence'''
     if args.codonalign:
@@ -389,9 +403,7 @@ def main(args):
         first,seqs = covid.get_first_item(seqs,keepfirst=False)
 
     if args.fclades or args.xclades:
-        ln_file = LineageNotes.default_file
-        ln_file = covid.find_seqfile(ln_file)
-        lin_notes = LineageNotes.from_file(ln_file)
+        lin_notes = LineageNotes.from_file(args.notesfile,args.keyfile,fix=True)
         seqs = filterclades(seqs,lin_notes,args.fclades)
         seqs = filterclades(seqs,lin_notes,args.xclades,exclude=True)
 
@@ -411,6 +423,21 @@ def main(args):
         assert args.jobno == 1
         v.vprint("Reversing sequences order ..",end="")
         seqs = reversed(list(seqs))
+        v.vprint("ok")
+
+    if args.sortbydate:
+        assert args.jobno == 1
+        v.vprint("Sorting sequences by date...",end="")
+        seqs = list(seqs)
+        seqs.sort(key=lambda s:
+                  covid.get_date(s,as_string=True,check_date=False))
+        v.vprint("ok")
+
+    if args.sortbyisl:
+        assert args.jobno == 1
+        v.vprint("Sorting sequences by ISL...",end="")
+        seqs = list(seqs)
+        seqs.sort(key = covid.get_isl_number)
         v.vprint("ok")
 
     if args.rmgapcols:

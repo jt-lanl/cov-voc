@@ -34,6 +34,8 @@ def _getargs():
     paa = argparser.add_argument_group("Lineage Sequence Options").add_argument
     paa("--notesfile",
         help="file with lineage_notes")
+    paa("--keyfile",
+        help="json file with alias_key")
     paa("--mutsfile","-M",required=True,
         help="File (typically tsv) with new mutations, by lineage")
     paa("--mincount","-m",type=int,default=0,
@@ -48,8 +50,6 @@ def _getargs():
         help="output DNA sequences")
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
-    if args.notesfile is None:
-        args.notesfile = covid.find_seqfile(LineageNotes.default_file)
 
     return args
 
@@ -157,7 +157,7 @@ def _main(args):
     for child in children:
         v.vvprint_only(5,'Child:',f'child={child} mut={child.mut}, lin={child.lin}')
 
-    lin_notes = LineageNotes.from_file(args.notesfile)
+    lin_notes = LineageNotes.from_file(args.notesfile,args.keyfile,fix=True)
     lineage_set = lin_notes.get_lineage_set(args.clade)
 
     seqs = covid.read_filter_seqfile(args)

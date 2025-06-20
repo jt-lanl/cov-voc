@@ -20,13 +20,10 @@ def _getargs() -> argparse.Namespace:
     paa("--clade", help="include all sublineages of this clade")
     paa("--xclade", help="exclude all sublineages of this clade")
     paa("--notesfile", help="lineage_notes.txt")
+    paa("--keyfile", help="alias_keys.json")
 
     args = argparser.parse_args()
     args = covid.corona_fixargs(args)
-    if not args.notesfile:
-        args.notesfile = covid.find_seqfile(LineageNotes.default_file)
-        v.vprint(f"Using notes file: {args.notesfile}")
-
     return args
 
 
@@ -34,7 +31,7 @@ def _getargs() -> argparse.Namespace:
 def _main(args: argparse.Namespace) -> None:
     """main"""
     v.vprint("args:", args)
-    lin_notes = LineageNotes.from_file(args.notesfile)
+    lin_notes = LineageNotes.from_file(args.notesfile,args.keyfile,fix=True)
     lineage_set = lin_notes.get_lineage_set(args.clade)
     if args.xclade:
         xlineage_set = lin_notes.get_lineage_set(args.xclade)

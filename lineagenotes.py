@@ -4,11 +4,25 @@
 ## https://github.com/cov-lineages/pango-designation/blob/master/lineage_notes.txt
 import re
 from collections.abc import Iterator
+import json
+import warnings
 import verbose as v
 
 RE_INT = re.compile(r"^[0-9]+$")
 
-
+def letters_numbers_split(name: str):
+    """
+    splta name like AB.7.1.5 into AB and 7.1.5
+    assume letters all appear before first "."
+    then all numbers after that
+    """
+    try:
+        letters,numbers = name.split(".",1)
+    except ValueError:
+        letters = name
+        numbers = None
+    return letters,numbers
+    
 def first_last_splits(name: str, reverse: bool = False):
     """
     For dot-delimited name of form A.B.C...D,
@@ -26,7 +40,7 @@ def first_last_splits(name: str, reverse: bool = False):
 
 class LineageNotes:
     """parse the lineage_notes.txt file
-    Usage: ln = LineageNotes.from_file(filename)
+    Usage: ln = LineageNotes.from_file(notesfile,keyfile,fix=True)
     Attributes:
        ln.lineages: list of (short) lineage names
        ln.fullname: dict for translating short names to long/full names
@@ -34,11 +48,16 @@ class LineageNotes:
     """
 
     default_file = "lineage_notes.txt"
+    default_key = "alias_key.json"
 
-    def __init__(self, alias_of: dict[str, str], describe: str = None, fix: bool = False):
+    def __init__(self, alias_of: dict[str, str],
+                 describe: str = None,
+                 fix: bool = False,
+                 alias_key: dict[str,str] = None):
         self.fullname = alias_of
         self.shortname = {val: key for key, val in self.fullname.items()}
         self.describe = describe
+        self.alias_key = alias_key
         if fix:
             self.fix_inconsistencies()
             for bad in self.remove_inconsistencies():
@@ -50,10 +69,32 @@ class LineageNotes:
         return set(self.fullname)
 
     @classmethod
-    def from_file(cls, lineagefile: str, keepwithdrawn: bool = False, fix: bool = False):
+    def from_file(cls, lineagefile: str,
+                  aliaskeyfile: str, # = None,
+                  keepwithdrawn: bool = False,
+                  fix: bool = False):
         """initialize LineageNotes object from file"""
+        if aliaskeyfile:
+            alias_key = cls.read_alias_key_file(aliaskeyfile)
+            v.vprint(f"alias keyfile = {aliaskeyfile}")
+        else:
+            alias_key=None
+            warnings.warn(f"File alias_key.json NOT used")
         alias_of, describe = cls.read_lineage_file(lineagefile, keepwithdrawn=keepwithdrawn)
-        return cls(alias_of, describe=describe, fix=fix)
+        return cls(alias_of, describe=describe, fix=fix, alias_key=alias_key)
+
+    @staticmethod
+    def read_alias_key_file(alias_key_file):
+        """read alias_key.json file to get alias_key dict"""
+        with open(alias_key_file) as fp:
+            alias_key = json.load(fp)
+        ## exclude dict elements where full is empty or short begins with "X..."
+        alias_key = {short:full for short,full in alias_key.items()
+                     if full and not short.startswith("X")}
+        ## two special cases
+        alias_key["A"]="A"
+        alias_key["B"]="B"
+        return alias_key
 
     @staticmethod
     def read_lineage_file(lineagefile: str, keepwithdrawn: bool = False):
@@ -131,6 +172,22 @@ class LineageNotes:
         """return list of lineage names, sorted"""
         return sorted(lineagenames, key=self.sortkey)
 
+    def alias_key_expand(self,alias):
+        if not self.alias_key:
+            return None
+        try:
+            letters,numbers = alias.split(".",1)
+        except ValueError: ### Shouldn't happen if called after split in inconsistencies fcn
+            letters = alias
+            numbers = None
+        if letters in self.alias_key:
+            akfull = self.alias_key[letters]
+            if numbers:
+                akfull = akfull + "." + numbers
+            return akfull
+        return None # no evidence of inconsistency
+        
+
     def inconsistencies(self, remove: bool = True, fix: bool = False) -> list[str]:
         """check consistency of lineage notes file"""
         inconsistent = []
@@ -138,10 +195,21 @@ class LineageNotes:
         bad_aliases = list()
         fixed_aliases = dict()
         for alias, full in self.fullname.items():
-            try:
-                _, numbers = alias.split(".", 1)
-            except ValueError:
-                ## if alias has no numbers (eg, is B or XBB), continue
+
+            ## First check if alias,full are consistent based on alias_key
+            ## if alias_key is not available, then this part assumes consistency
+            akfull = self.alias_key_expand(alias) or full
+            if akfull != full:
+                bad_aliases.append(alias)
+                inconsistent.append(f"Invalid alias: {alias}: {full} -> {akfull}")
+                if fix:
+                    fixed_aliases[alias] = akfull
+                    fixed.append(f"Fix {alias}: {full} -> {akfull}")
+                full = akfull
+
+            ## Second check, if tailing numbers are consistent
+            letters,numbers = letters_numbers_split(alias)
+            if not numbers:
                 continue
             if not full.endswith(numbers):
                 bad_aliases.append(alias)
@@ -228,7 +296,9 @@ if __name__ == "__main__":
     import covid
 
     file = covid.find_seqfile(LineageNotes.default_file)
-    lins = LineageNotes.from_file(file)
+    akfile = covid.find_seqfile(LineageNotes.default_key)
+    v.print("akfile=",akfile)
+    lins = LineageNotes.from_file(file,akfile)
     print("Inconsistencies")
     for inc in lins.inconsistencies(remove=False):
         print(inc)

@@ -17,12 +17,12 @@ def _getargs():
         help="lineage table file")
     paa("--notesfile",
         help="lineage_notes.txt")
+    paa("--keyfile",
+        help="alias_keys.json")    
     paa("--verbose","-v",action="count",default=0,
         help="verbose")
     args = argparser.parse_args()
-    if not args.notesfile:
-        args.notesfile = covid.find_seqfile(LineageNotes.default_file)
-        v.vprint(f'Using notes file: {args.notesfile}')
+    args = covid.corona_fixargs(args)
     return args
 
 def regexp_from_kidlist(kidlist):
@@ -69,7 +69,7 @@ def _main(args):
     '''main'''
     v.vprint(args)
 
-    lin = LineageNotes.from_file(args.notesfile,fix=True)
+    lin = LineageNotes.from_file(args.notesfile,args.keyfile,fix=True)
     v.vprint(lin.report_size())
     for bad in lin.inconsistencies(remove=True):
         v.print(bad)

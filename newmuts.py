@@ -34,6 +34,7 @@ def getargs():
     covid.corona_args(ap)
     paa = ap.add_argument_group("New Mutations Options").add_argument
     paa("--notesfile", help="lineage_notes.txt")
+    paa("--keyfile", help="alias_keys.json")
     paa(
         "--cutoff",
         "-c",
@@ -55,6 +56,9 @@ def getargs():
     args = covid.corona_fixargs(args)
     if args.notesfile is None:
         args.notesfile = covid.find_seqfile(LineageNotes.default_file)
+    if args.keyfile is None:
+        args.keyfile = covid.find_seqfile(LineageNotes.default_key)
+        
     if args.output:
         if not args.mutationsfile:
             args.mutationsfile = covid.filename_prepend("new-", args.output)
@@ -186,10 +190,14 @@ def write_mutations_summary(
 
 
 def get_lineages(
-    notesfile: str, clade: str, xclade: str = None, skiprecomb: bool = False
+        notesfile: str, keyfile: str,
+        clade: str, xclade: str = None,
+        skiprecomb: bool = False
 ) -> tuple[LineageNotes, set]:
     """return set of lineages in the given clade (minus those in xclade)"""
-    lin_notes = LineageNotes.from_file(notesfile)
+    lin_notes = LineageNotes.from_file(notesfile,keyfile,fix=True)
+    for bad in lin_notes.fix_inconsistencies():
+        v.vprint(bad)
     lineage_set = lin_notes.get_lineage_set(clade)
     if xclade:
         xlineage_set = lin_notes.get_lineage_set(xclade)
@@ -213,7 +221,7 @@ def main(args: argparse.Namespace):
     v.vprint(args)
 
     lin_notes, lineage_set = get_lineages(
-        args.notesfile, args.clade, args.xclade, skiprecomb=args.skiprecomb
+        args.notesfile, args.keyfile, args.clade, args.xclade, skiprecomb=args.skiprecomb
     )
 
     seqs = covid.read_filter_seqfile(args)

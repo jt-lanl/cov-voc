@@ -99,13 +99,26 @@ def corona_args(ap):
 def corona_fixargs(args):
     '''after argparser.parse_args() has been called,
     then call this for cleanup'''
-    if args.days and args.dates:
-        raise RuntimeError("Cannot specify both --days and --dates")
-    if args.days and str(args.input) == "-":
-        raise RuntimeError("Cannot read stdin if --days is invoked")
-    if not args.input or str(args.input) == '.':
-        args.fastread = True
-    args.input = find_seqfile(args.input,keepx=args.keepx)
+    try:
+        if args.days and args.dates:
+            raise RuntimeError("Cannot specify both --days and --dates")
+        if args.days and str(args.input) == "-":
+            raise RuntimeError("Cannot read stdin if --days is invoked")
+    except AttributeError:
+        pass
+
+    try:
+        if not args.input or str(args.input) == '.':
+            args.fastread = True
+            args.input = find_seqfile(args.input,keepx=args.keepx)
+    except AttributeError:
+        pass
+
+    if hasattr(args,"notesfile") and args.notesfile is None:
+        args.notesfile = find_seqfile("lineage_notes.txt")
+    if hasattr(args,"keyfile") and args.keyfile is None:
+        args.keyfile = find_seqfile("alias_key.json")
+    
     return args
 
 
@@ -242,6 +255,10 @@ def deprecated(usefcn=None):
         return wrapper
     return decorator
 
+def get_isl_number(seqname):
+    islstring = get_isl(seqname,nomatch="0")
+    islstring = re.sub("EPI_ISL_","",islstring)
+    return int(islstring)
 
 @parse_seqname
 def get_isl(seqname,nomatch="X"):
@@ -416,8 +433,9 @@ def filter_seqs_by_date(seqs,args):
 
     if args.days:
         ## if seqs has been read, then args.days should no longer be set (see read_seqfile)
-        warnings.warn("Is this really happening? "
-                      "args.days should NOT be set at this opint")
+        ## On second thought, this turns out to be useful -- so turning off the warning
+        #warnings.warn("Is this really happening? "
+        #              "args.days should NOT be set at this opint")
         args.dates = date_range_from_args(args,seqs)
 
     if args.dates:
@@ -551,7 +569,7 @@ def read_filter_seqfile(args,firstisref=True,**kwargs):
 
     return seqs
 
-@deprecated()
+#@deprecated() un-deprecated...
 def lastdate_byseqs(seqs):
     """return last date associated with seqs; require seqs to be a list"""
     if seqs is None:
@@ -584,7 +602,8 @@ def lastdate_byfile(file):
 
 ## Filtering seqs, helper function
 ## Parsing args (used for filter-by-date, coming later
-@deprecated()  ## i don't think we should need this anymore (read_seqfile took care of args.days)
+#@deprecated()  ## i don't think we should need this anymore (read_seqfile took care of args.days)
+## i just un-deprecated it!
 def date_range_from_args(args,seqs=None):
     '''return list of two iso-formatted dates (start and stop);
     obtain what /should/ be in args.dates, but if it is not set,
