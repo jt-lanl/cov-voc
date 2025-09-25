@@ -40,6 +40,6 @@ DefaultLineageTable = [
     ( 'ForestGreen',                'XDV', r'((XDV)|(NB)|(P[NQ]))(\..*)?'),
     (   'LawnGreen',           'NB.1.8.1', r'((NB\.1\.8\.1)|(PQ))(\..*)?'),
     (  'DodgerBlue',                'XFG', r'XFG(\..*)?'),
-    (       'Black',                'XFC', r'XFC(\..*)?'),
+    (       'Black',             'PE.1.4', r'PE.1.4(\..*)?'),
 
 ]
