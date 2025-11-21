@@ -39,8 +39,8 @@ DefaultLineageTable = [
     (   'FireBrick',               'LF.7', r'((LF\.7)|(NT)|(P[CLVWYZ])|(Q[ABCDJRV]))(\..*)?'),
     ( 'ForestGreen',                'XDV', r'((XDV)|(NB)|(P[NQ])|(Q[LN]))(\..*)?'),
     (   'LawnGreen',           'NB.1.8.1', r'((NB\.1\.8\.1)|(PQ))(\..*)?'),
-    (  'DodgerBlue',                'XFG', r'((XFG)|(Q[FKQSTWYZ]))(\..*)?'),
-    (       'Black',             'PE.1.4', r'PE\.1\.4(\..*)?'),
+    (      'Orange',                'XFG', r'((XFG)|(Q[FKQSTWYZ]))(\..*)?'),
+    (      'Indigo',             'PE.1.4', r'PE\.1\.4(\..*)?'),
     (      '59a14f',             'BA.3.2', r'BA\.3\.2(\..*)?'),
 
 ]
