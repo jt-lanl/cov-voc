@@ -57,16 +57,23 @@ def corona_args(ap):
     def datestring(yyyymmdd):
         ''' check format of dates; should be yyyy-mm-dd '''
         ## (but '.' is also allowed to indicated a default)
-        if (not re.match(r'\d\d\d\d-\d\d-\d\d',yyyymmdd)
-            and yyyymmdd != '.'):
-            raise ValueError(f'Invalid date {yyyymmdd}; '
-                             f'should be in yyyy-mm-dd format')
+        if yyyymmdd == '.':
+            return yyyymmdd
+        if (not re.match(r'\d\d\d\d-\d\d-\d\d',yyyymmdd)):
+            raise argparse.ArgumentTypeError(
+                f'Invalid date {yyyymmdd}; '
+                f'should be in yyyy-mm-dd format')
+        yyyy,mm,dd = yyyymmdd.split("-")        
+        try:
+            datetime.date(int(yyyy),int(mm),int(dd))
+        except ValueError as e:
+            raise argparse.ArgumentTypeError(
+                f'Invalid date {yyyymmdd!r}: {e}') from e
         return yyyymmdd
 
     class CheckDates(argparse.Action):
-        ''' check that the dates are good and that they are in order '''
+        ''' checks only  whether dates are in order '''
         def __call__(self,parser,namespace,dates,option_string=None):
-            dates = [datestring(date) for date in dates]
             if not any(bool(date == ".") for date in dates):
                 if dates[0] > dates[1]:
                     parser.error(f'Dates out of order: {dates}')
