@@ -1,3 +1,4 @@
+## v50: Updated regular expressions
 ## v49: Add XFG.14.1, XFG.3.3.1, XFG.1.1, XFG.3.4.1; also XFZ;
 ##      Drop XEC and XEC.25 and BA.2.86 and LP.8.1.1
 ##      XFG.3.3.1 -> XFG’s color
